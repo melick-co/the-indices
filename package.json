@@ -1,0 +1,19 @@
+{
+  "name": "the-indices",
+  "version": "0.1.0",
+  "description": "Composite index engine implementing the Composite Index Construction Standard v1.0",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "table": "tsx src/cli.ts table hsi",
+    "detail": "tsx src/cli.ts detail hsi AUS",
+    "sensitivity": "tsx src/cli.ts sensitivity hsi",
+    "publish:index": "tsx src/cli.ts publish hsi",
+    "test": "tsx test/hsi.test.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

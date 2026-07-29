@@ -1,0 +1,137 @@
+{
+  "metric_id": "household_debt_to_income",
+  "definition": "Household gross debt as a percentage of net household disposable income.",
+  "unit": "percent of net disposable income",
+  "basis": "Nominal, national currency ratio; not currency converted",
+  "direction": "higher_is_more_pressure",
+  "source": {
+    "org": "OECD",
+    "dataset": "Household debt (indicator)",
+    "tier": 1,
+    "url": "https://data.oecd.org/hha/household-debt.htm",
+    "published": "2025-06",
+    "period": "2024"
+  },
+  "observations": [
+    {
+      "entity": "AUS",
+      "period": "2024",
+      "value": 223,
+      "status": "published"
+    },
+    {
+      "entity": "BEL",
+      "period": "2024",
+      "value": 106,
+      "status": "published"
+    },
+    {
+      "entity": "CAN",
+      "period": "2024",
+      "value": 175,
+      "status": "published"
+    },
+    {
+      "entity": "CHE",
+      "period": "2024",
+      "value": 224,
+      "status": "published"
+    },
+    {
+      "entity": "DEU",
+      "period": "2024",
+      "value": 86,
+      "status": "published"
+    },
+    {
+      "entity": "DNK",
+      "period": "2024",
+      "value": 203,
+      "status": "published"
+    },
+    {
+      "entity": "ESP",
+      "period": "2024",
+      "value": 77,
+      "status": "published"
+    },
+    {
+      "entity": "FIN",
+      "period": "2024",
+      "value": 143,
+      "status": "published"
+    },
+    {
+      "entity": "FRA",
+      "period": "2024",
+      "value": 115,
+      "status": "published"
+    },
+    {
+      "entity": "GBR",
+      "period": "2024",
+      "value": 131,
+      "status": "published"
+    },
+    {
+      "entity": "IRL",
+      "period": "2024",
+      "value": 100,
+      "status": "published"
+    },
+    {
+      "entity": "JPN",
+      "period": "2024",
+      "value": 127,
+      "status": "published"
+    },
+    {
+      "entity": "KOR",
+      "period": "2024",
+      "value": 180,
+      "status": "published"
+    },
+    {
+      "entity": "LUX",
+      "period": "2024",
+      "value": 184,
+      "status": "published"
+    },
+    {
+      "entity": "NLD",
+      "period": "2024",
+      "value": 213,
+      "status": "published"
+    },
+    {
+      "entity": "NOR",
+      "period": "2024",
+      "value": 236,
+      "status": "published"
+    },
+    {
+      "entity": "PRT",
+      "period": "2024",
+      "value": 103,
+      "status": "published"
+    },
+    {
+      "entity": "SVK",
+      "period": "2024",
+      "value": 79,
+      "status": "published"
+    },
+    {
+      "entity": "SWE",
+      "period": "2024",
+      "value": 180,
+      "status": "published"
+    },
+    {
+      "entity": "USA",
+      "period": "2024",
+      "value": 100,
+      "status": "published"
+    }
+  ]
+}
