@@ -1,0 +1,154 @@
+[
+  {
+    "code": "AUS",
+    "name": "Australia"
+  },
+  {
+    "code": "AUT",
+    "name": "Austria"
+  },
+  {
+    "code": "BEL",
+    "name": "Belgium"
+  },
+  {
+    "code": "CAN",
+    "name": "Canada"
+  },
+  {
+    "code": "CHE",
+    "name": "Switzerland"
+  },
+  {
+    "code": "CHL",
+    "name": "Chile"
+  },
+  {
+    "code": "COL",
+    "name": "Colombia"
+  },
+  {
+    "code": "CRI",
+    "name": "Costa Rica"
+  },
+  {
+    "code": "CZE",
+    "name": "Czechia"
+  },
+  {
+    "code": "DEU",
+    "name": "Germany"
+  },
+  {
+    "code": "DNK",
+    "name": "Denmark"
+  },
+  {
+    "code": "ESP",
+    "name": "Spain"
+  },
+  {
+    "code": "EST",
+    "name": "Estonia"
+  },
+  {
+    "code": "FIN",
+    "name": "Finland"
+  },
+  {
+    "code": "FRA",
+    "name": "France"
+  },
+  {
+    "code": "GBR",
+    "name": "United Kingdom"
+  },
+  {
+    "code": "GRC",
+    "name": "Greece"
+  },
+  {
+    "code": "HUN",
+    "name": "Hungary"
+  },
+  {
+    "code": "IRL",
+    "name": "Ireland"
+  },
+  {
+    "code": "ISL",
+    "name": "Iceland"
+  },
+  {
+    "code": "ISR",
+    "name": "Israel"
+  },
+  {
+    "code": "ITA",
+    "name": "Italy"
+  },
+  {
+    "code": "JPN",
+    "name": "Japan"
+  },
+  {
+    "code": "KOR",
+    "name": "Korea"
+  },
+  {
+    "code": "LTU",
+    "name": "Lithuania"
+  },
+  {
+    "code": "LUX",
+    "name": "Luxembourg"
+  },
+  {
+    "code": "LVA",
+    "name": "Latvia"
+  },
+  {
+    "code": "MEX",
+    "name": "Mexico"
+  },
+  {
+    "code": "NLD",
+    "name": "Netherlands"
+  },
+  {
+    "code": "NOR",
+    "name": "Norway"
+  },
+  {
+    "code": "NZL",
+    "name": "New Zealand"
+  },
+  {
+    "code": "POL",
+    "name": "Poland"
+  },
+  {
+    "code": "PRT",
+    "name": "Portugal"
+  },
+  {
+    "code": "SVK",
+    "name": "Slovak Republic"
+  },
+  {
+    "code": "SVN",
+    "name": "Slovenia"
+  },
+  {
+    "code": "SWE",
+    "name": "Sweden"
+  },
+  {
+    "code": "TUR",
+    "name": "Turkiye"
+  },
+  {
+    "code": "USA",
+    "name": "United States"
+  }
+]

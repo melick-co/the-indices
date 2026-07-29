@@ -1,0 +1,5399 @@
+[
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "CHE",
+    "period": "2024",
+    "value": 102611.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "LUX",
+    "period": "2024",
+    "value": 90384.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "DNK",
+    "period": "2024",
+    "value": 88971.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "DEU",
+    "period": "2024",
+    "value": 88144.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "BEL",
+    "period": "2024",
+    "value": 86545.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "IRL",
+    "period": "2024",
+    "value": 86235.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "NLD",
+    "period": "2024",
+    "value": 85877.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "AUT",
+    "period": "2024",
+    "value": 83716.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "NOR",
+    "period": "2024",
+    "value": 82016.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "ISL",
+    "period": "2024",
+    "value": 78723.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "GBR",
+    "period": "2024",
+    "value": 78216.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "CAN",
+    "period": "2024",
+    "value": 75586.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "AUS",
+    "period": "2024",
+    "value": 72330.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "KOR",
+    "period": "2024",
+    "value": 70766.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "USA",
+    "period": "2024",
+    "value": 70627.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "FIN",
+    "period": "2024",
+    "value": 68073.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "FRA",
+    "period": "2024",
+    "value": 67318.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "SWE",
+    "period": "2024",
+    "value": 63934.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "ITA",
+    "period": "2024",
+    "value": 58772.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "JPN",
+    "period": "2024",
+    "value": 58439.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "NZL",
+    "period": "2024",
+    "value": 54733.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "ISR",
+    "period": "2024",
+    "value": 54308.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "ESP",
+    "period": "2024",
+    "value": 53185.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "LTU",
+    "period": "2024",
+    "value": 52459.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "POL",
+    "period": "2024",
+    "value": 50089.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "SVN",
+    "period": "2024",
+    "value": 48780.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "GRC",
+    "period": "2024",
+    "value": 47454.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "HUN",
+    "period": "2024",
+    "value": 46169.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "TUR",
+    "period": "2024",
+    "value": 44881.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "CZE",
+    "period": "2024",
+    "value": 43114.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "PRT",
+    "period": "2024",
+    "value": 41294.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "EST",
+    "period": "2024",
+    "value": 39686.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "LVA",
+    "period": "2024",
+    "value": 39483.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "SVK",
+    "period": "2024",
+    "value": 35026.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "CHL",
+    "period": "2024",
+    "value": 31076.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "CRI",
+    "period": "2024",
+    "value": 29386.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "COL",
+    "period": "2024",
+    "value": 20293.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "avg_wage_ppp",
+    "entity": "MEX",
+    "period": "2024",
+    "value": 19311.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "AUS",
+    "period": "2023",
+    "value": 24.92,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "AUT",
+    "period": "2023",
+    "value": 32.95,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "BEL",
+    "period": "2023",
+    "value": 39.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "CAN",
+    "period": "2023",
+    "value": 25.55,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "CHL",
+    "period": "2023",
+    "value": 7.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "COL",
+    "period": "2023",
+    "value": 0.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "CRI",
+    "period": "2023",
+    "value": 10.64,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "CZE",
+    "period": "2023",
+    "value": 19.95,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "DNK",
+    "period": "2023",
+    "value": 36.02,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "EST",
+    "period": "2023",
+    "value": 18.88,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "FIN",
+    "period": "2023",
+    "value": 31.64,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "FRA",
+    "period": "2023",
+    "value": 27.52,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "DEU",
+    "period": "2023",
+    "value": 37.45,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "GRC",
+    "period": "2023",
+    "value": 24.69,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "HUN",
+    "period": "2023",
+    "value": 33.56,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "ISL",
+    "period": "2023",
+    "value": 27.34,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "IRL",
+    "period": "2023",
+    "value": 28.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "ISR",
+    "period": "2023",
+    "value": 18.82,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "ITA",
+    "period": "2023",
+    "value": 27.76,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "JPN",
+    "period": "2023",
+    "value": 22.54,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "KOR",
+    "period": "2023",
+    "value": 16.33,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "LVA",
+    "period": "2023",
+    "value": 27.19,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "LTU",
+    "period": "2023",
+    "value": 37.88,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "LUX",
+    "period": "2023",
+    "value": 33.26,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "MEX",
+    "period": "2023",
+    "value": 10.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "NLD",
+    "period": "2023",
+    "value": 27.32,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "NZL",
+    "period": "2023",
+    "value": 21.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "NOR",
+    "period": "2023",
+    "value": 28.14,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "POL",
+    "period": "2023",
+    "value": 23.52,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "PRT",
+    "period": "2023",
+    "value": 28.59,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "SVK",
+    "period": "2023",
+    "value": 24.25,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "SVN",
+    "period": "2023",
+    "value": 34.15,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "ESP",
+    "period": "2023",
+    "value": 22.03,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "SWE",
+    "period": "2023",
+    "value": 23.92,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "CHE",
+    "period": "2023",
+    "value": 18.51,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "TUR",
+    "period": "2023",
+    "value": 27.61,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "GBR",
+    "period": "2023",
+    "value": 23.69,
+    "status": "published"
+  },
+  {
+    "metric_id": "effective_tax_rate",
+    "entity": "USA",
+    "period": "2023",
+    "value": 24.22,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "AUS",
+    "period": "2023",
+    "value": 70.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "AUT",
+    "period": "2023",
+    "value": 52.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "BEL",
+    "period": "2023",
+    "value": 47.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "CAN",
+    "period": "2023",
+    "value": 68.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "CHL",
+    "period": "2023",
+    "value": 92.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "COL",
+    "period": "2023",
+    "value": 100.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "CRI",
+    "period": "2023",
+    "value": 71.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "CZE",
+    "period": "2023",
+    "value": 59.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "DNK",
+    "period": "2023",
+    "value": 63.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "EST",
+    "period": "2023",
+    "value": 60.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "FIN",
+    "period": "2023",
+    "value": 56.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "FRA",
+    "period": "2023",
+    "value": 53.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "DEU",
+    "period": "2023",
+    "value": 52.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "GRC",
+    "period": "2023",
+    "value": 61.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "HUN",
+    "period": "2023",
+    "value": 58.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "ISL",
+    "period": "2023",
+    "value": 68.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "IRL",
+    "period": "2023",
+    "value": 64.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "ISR",
+    "period": "2023",
+    "value": 76.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "ITA",
+    "period": "2023",
+    "value": 54.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "JPN",
+    "period": "2023",
+    "value": 67.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "KOR",
+    "period": "2023",
+    "value": 75.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "LVA",
+    "period": "2023",
+    "value": 58.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "LTU",
+    "period": "2023",
+    "value": 61.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "LUX",
+    "period": "2023",
+    "value": 58.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "MEX",
+    "period": "2023",
+    "value": 80.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "NLD",
+    "period": "2023",
+    "value": 64.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "NZL",
+    "period": "2023",
+    "value": 78.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "NOR",
+    "period": "2023",
+    "value": 63.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "POL",
+    "period": "2023",
+    "value": 65.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "PRT",
+    "period": "2023",
+    "value": 57.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "SVK",
+    "period": "2023",
+    "value": 58.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "SVN",
+    "period": "2023",
+    "value": 56.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "ESP",
+    "period": "2023",
+    "value": 59.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "SWE",
+    "period": "2023",
+    "value": 57.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "CHE",
+    "period": "2023",
+    "value": 76.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "TUR",
+    "period": "2023",
+    "value": 61.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "GBR",
+    "period": "2023",
+    "value": 68.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "net_kept_pct",
+    "entity": "USA",
+    "period": "2023",
+    "value": 70.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "CHE",
+    "period": "2026",
+    "value": 21.43,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "KOR",
+    "period": "2026",
+    "value": 20.6,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "LUX",
+    "period": "2026",
+    "value": 17.17,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "ISR",
+    "period": "2026",
+    "value": 22.27,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "AUS",
+    "period": "2026",
+    "value": 12.38,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "AUT",
+    "period": "2026",
+    "value": 11.71,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "NLD",
+    "period": "2026",
+    "value": 9.84,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "NOR",
+    "period": "2026",
+    "value": 10.36,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "DEU",
+    "period": "2026",
+    "value": 10.21,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "DNK",
+    "period": "2026",
+    "value": 9.84,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "NZL",
+    "period": "2026",
+    "value": 11.84,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "GBR",
+    "period": "2026",
+    "value": 8.53,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "FRA",
+    "period": "2026",
+    "value": 10.41,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "CZE",
+    "period": "2026",
+    "value": 14.62,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "JPN",
+    "period": "2026",
+    "value": 11.06,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "SWE",
+    "period": "2026",
+    "value": 10.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "FIN",
+    "period": "2026",
+    "value": 9.87,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "IRL",
+    "period": "2026",
+    "value": 7.33,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "CAN",
+    "period": "2026",
+    "value": 7.52,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "SVN",
+    "period": "2026",
+    "value": 12.76,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "BEL",
+    "period": "2026",
+    "value": 7.68,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "ESP",
+    "period": "2026",
+    "value": 9.44,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "EST",
+    "period": "2026",
+    "value": 11.58,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "PRT",
+    "period": "2026",
+    "value": 12.36,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "HUN",
+    "period": "2026",
+    "value": 11.45,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "POL",
+    "period": "2026",
+    "value": 9.06,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "ITA",
+    "period": "2026",
+    "value": 8.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "LTU",
+    "period": "2026",
+    "value": 10.32,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "SVK",
+    "period": "2026",
+    "value": 12.04,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "USA",
+    "period": "2026",
+    "value": 5.58,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "GRC",
+    "period": "2026",
+    "value": 8.02,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "MEX",
+    "period": "2026",
+    "value": 14.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "LVA",
+    "period": "2026",
+    "value": 8.33,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "CHL",
+    "period": "2026",
+    "value": 7.76,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "CRI",
+    "period": "2026",
+    "value": 8.31,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "COL",
+    "period": "2026",
+    "value": 8.46,
+    "status": "derived"
+  },
+  {
+    "metric_id": "years_to_buy_home",
+    "entity": "TUR",
+    "period": "2026",
+    "value": 4.81,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "CHE",
+    "period": "2026",
+    "value": 1789380.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "KOR",
+    "period": "2026",
+    "value": 1221210.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "LUX",
+    "period": "2026",
+    "value": 1037250.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "ISR",
+    "period": "2026",
+    "value": 982080.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "AUS",
+    "period": "2026",
+    "value": 672030.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "AUT",
+    "period": "2026",
+    "value": 661230.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "NLD",
+    "period": "2026",
+    "value": 614250.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "NOR",
+    "period": "2026",
+    "value": 610560.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "DEU",
+    "period": "2026",
+    "value": 562950.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "DNK",
+    "period": "2026",
+    "value": 560160.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "NZL",
+    "period": "2026",
+    "value": 511470.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "GBR",
+    "period": "2026",
+    "value": 509670.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "FRA",
+    "period": "2026",
+    "value": 507780.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "CZE",
+    "period": "2026",
+    "value": 504630.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "JPN",
+    "period": "2026",
+    "value": 500760.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "SWE",
+    "period": "2026",
+    "value": 486360.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "FIN",
+    "period": "2026",
+    "value": 460350.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "IRL",
+    "period": "2026",
+    "value": 456030.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "CAN",
+    "period": "2026",
+    "value": 422370.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "SVN",
+    "period": "2026",
+    "value": 409860.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "BEL",
+    "period": "2026",
+    "value": 399600.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "ESP",
+    "period": "2026",
+    "value": 391410.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "EST",
+    "period": "2026",
+    "value": 372960.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "PRT",
+    "period": "2026",
+    "value": 364590.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "HUN",
+    "period": "2026",
+    "value": 351090.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "POL",
+    "period": "2026",
+    "value": 346950.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "ITA",
+    "period": "2026",
+    "value": 339750.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "LTU",
+    "period": "2026",
+    "value": 336960.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "SVK",
+    "period": "2026",
+    "value": 319410.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "USA",
+    "period": "2026",
+    "value": 298890.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "GRC",
+    "period": "2026",
+    "value": 286020.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "MEX",
+    "period": "2026",
+    "value": 240660.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "LVA",
+    "period": "2026",
+    "value": 239400.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "CHL",
+    "period": "2026",
+    "value": 224100.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "CRI",
+    "period": "2026",
+    "value": 218160.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "COL",
+    "period": "2026",
+    "value": 171630.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "home_price_90m2",
+    "entity": "TUR",
+    "period": "2026",
+    "value": 156330.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "NOR",
+    "period": "2024",
+    "value": 236.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "CHE",
+    "period": "2024",
+    "value": 224.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "AUS",
+    "period": "2024",
+    "value": 223.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "NLD",
+    "period": "2024",
+    "value": 213.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "DNK",
+    "period": "2024",
+    "value": 203.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "LUX",
+    "period": "2024",
+    "value": 184.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "KOR",
+    "period": "2024",
+    "value": 180.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "SWE",
+    "period": "2024",
+    "value": 180.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "CAN",
+    "period": "2024",
+    "value": 175.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "FIN",
+    "period": "2024",
+    "value": 143.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "GBR",
+    "period": "2024",
+    "value": 131.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "JPN",
+    "period": "2024",
+    "value": 127.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "FRA",
+    "period": "2024",
+    "value": 115.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "BEL",
+    "period": "2024",
+    "value": 106.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "PRT",
+    "period": "2024",
+    "value": 103.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "IRL",
+    "period": "2024",
+    "value": 100.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "USA",
+    "period": "2024",
+    "value": 100.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "DEU",
+    "period": "2024",
+    "value": 86.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "SVK",
+    "period": "2024",
+    "value": 79.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_debt_to_income",
+    "entity": "ESP",
+    "period": "2024",
+    "value": 77.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "LVA",
+    "period": "2024",
+    "value": 76.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "LTU",
+    "period": "2024",
+    "value": 66.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "ISL",
+    "period": "2024",
+    "value": 40.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "EST",
+    "period": "2024",
+    "value": 40.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "POL",
+    "period": "2024",
+    "value": 37.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "HUN",
+    "period": "2024",
+    "value": 30.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "SVN",
+    "period": "2024",
+    "value": 25.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "CZE",
+    "period": "2024",
+    "value": 21.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "NZL",
+    "period": "2024",
+    "value": 20.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "SVK",
+    "period": "2024",
+    "value": 20.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "ISR",
+    "period": "2024",
+    "value": 18.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "KOR",
+    "period": "2024",
+    "value": 18.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "USA",
+    "period": "2024",
+    "value": 16.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "LUX",
+    "period": "2024",
+    "value": 15.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "DEU",
+    "period": "2024",
+    "value": 13.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "SWE",
+    "period": "2024",
+    "value": 12.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "CAN",
+    "period": "2024",
+    "value": 11.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "NOR",
+    "period": "2024",
+    "value": 11.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "DNK",
+    "period": "2024",
+    "value": 9.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "CHE",
+    "period": "2024",
+    "value": 8.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "AUS",
+    "period": "2024",
+    "value": 6.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "PRT",
+    "period": "2024",
+    "value": 5.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "MEX",
+    "period": "2024",
+    "value": 5.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "BEL",
+    "period": "2024",
+    "value": 5.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "AUT",
+    "period": "2024",
+    "value": 5.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "FRA",
+    "period": "2024",
+    "value": 4.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "GBR",
+    "period": "2024",
+    "value": 4.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "FIN",
+    "period": "2024",
+    "value": 2.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "JPN",
+    "period": "2024",
+    "value": 0.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "ESP",
+    "period": "2024",
+    "value": -2.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "NLD",
+    "period": "2024",
+    "value": -5.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "IRL",
+    "period": "2024",
+    "value": -6.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "ITA",
+    "period": "2024",
+    "value": -7.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "real_wage_growth",
+    "entity": "GRC",
+    "period": "2024",
+    "value": -21.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "SWE",
+    "period": "2024",
+    "value": 16.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "HUN",
+    "period": "2024",
+    "value": 14.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "CZE",
+    "period": "2024",
+    "value": 13.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "FRA",
+    "period": "2024",
+    "value": 12.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "AUT",
+    "period": "2024",
+    "value": 11.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "DEU",
+    "period": "2024",
+    "value": 11.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "NLD",
+    "period": "2024",
+    "value": 9.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "ESP",
+    "period": "2024",
+    "value": 9.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "IRL",
+    "period": "2024",
+    "value": 9.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "DNK",
+    "period": "2024",
+    "value": 8.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "MEX",
+    "period": "2024",
+    "value": 8.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "BEL",
+    "period": "2024",
+    "value": 6.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "POL",
+    "period": "2024",
+    "value": 6.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "AUS",
+    "period": "2024",
+    "value": 6.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "LUX",
+    "period": "2024",
+    "value": 5.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "CAN",
+    "period": "2024",
+    "value": 5.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "USA",
+    "period": "2024",
+    "value": 4.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "KOR",
+    "period": "2024",
+    "value": 4.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "GBR",
+    "period": "2024",
+    "value": 4.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "PRT",
+    "period": "2024",
+    "value": 4.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "FIN",
+    "period": "2024",
+    "value": 4.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "NOR",
+    "period": "2024",
+    "value": 4.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "ITA",
+    "period": "2024",
+    "value": 4.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "LTU",
+    "period": "2024",
+    "value": 3.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "EST",
+    "period": "2024",
+    "value": 3.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "JPN",
+    "period": "2024",
+    "value": 0.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "LVA",
+    "period": "2024",
+    "value": 0.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "household_savings_rate",
+    "entity": "NZL",
+    "period": "2024",
+    "value": -1.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "AUS",
+    "period": "2025-09",
+    "value": 4.24,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "AUT",
+    "period": "2025-09",
+    "value": 2.87,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "BEL",
+    "period": "2025-09",
+    "value": 2.95,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "CAN",
+    "period": "2025-09",
+    "value": 3.21,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "CHL",
+    "period": "2025-09",
+    "value": 5.71,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "COL",
+    "period": "2025-09",
+    "value": 10.91,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "CZE",
+    "period": "2025-09",
+    "value": 4.25,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "DNK",
+    "period": "2025-09",
+    "value": 2.58,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "EST",
+    "period": "2025-09",
+    "value": 3.51,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "FIN",
+    "period": "2025-09",
+    "value": 2.72,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "FRA",
+    "period": "2025-09",
+    "value": 2.91,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "DEU",
+    "period": "2025-09",
+    "value": 2.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "GRC",
+    "period": "2025-09",
+    "value": 3.42,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "HUN",
+    "period": "2025-09",
+    "value": 6.62,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "ISR",
+    "period": "2025-09",
+    "value": 4.35,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "ITA",
+    "period": "2025-09",
+    "value": 3.46,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "JPN",
+    "period": "2025-09",
+    "value": 1.44,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "KOR",
+    "period": "2025-09",
+    "value": 2.81,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "LVA",
+    "period": "2025-09",
+    "value": 3.45,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "LTU",
+    "period": "2025-09",
+    "value": 3.55,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "LUX",
+    "period": "2025-09",
+    "value": 2.89,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "MEX",
+    "period": "2025-09",
+    "value": 9.03,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "NLD",
+    "period": "2025-09",
+    "value": 2.62,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "NZL",
+    "period": "2025-09",
+    "value": 4.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "NOR",
+    "period": "2025-09",
+    "value": 3.62,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "POL",
+    "period": "2025-09",
+    "value": 5.59,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "PRT",
+    "period": "2025-09",
+    "value": 3.25,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "SVK",
+    "period": "2025-09",
+    "value": 3.06,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "SVN",
+    "period": "2025-09",
+    "value": 3.01,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "ESP",
+    "period": "2025-09",
+    "value": 3.11,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "SWE",
+    "period": "2025-09",
+    "value": 2.41,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "CHE",
+    "period": "2025-09",
+    "value": 0.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "GBR",
+    "period": "2025-09",
+    "value": 4.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "bond_yield_10y",
+    "entity": "USA",
+    "period": "2025-09",
+    "value": 4.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "AUS",
+    "period": "2025",
+    "value": 3.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "AUT",
+    "period": "2025",
+    "value": 2.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "BEL",
+    "period": "2025",
+    "value": 2.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "CAN",
+    "period": "2025",
+    "value": 2.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "CHL",
+    "period": "2025",
+    "value": 4.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "COL",
+    "period": "2025",
+    "value": 5.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "CRI",
+    "period": "2025",
+    "value": 1.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "CZE",
+    "period": "2025",
+    "value": 2.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "DNK",
+    "period": "2025",
+    "value": 1.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "EST",
+    "period": "2025",
+    "value": 4.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "FIN",
+    "period": "2025",
+    "value": 1.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "FRA",
+    "period": "2025",
+    "value": 1.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "DEU",
+    "period": "2025",
+    "value": 2.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "GRC",
+    "period": "2025",
+    "value": 2.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "HUN",
+    "period": "2025",
+    "value": 4.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "ISL",
+    "period": "2025",
+    "value": 4.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "IRL",
+    "period": "2025",
+    "value": 2.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "ISR",
+    "period": "2025",
+    "value": 2.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "ITA",
+    "period": "2025",
+    "value": 1.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "JPN",
+    "period": "2025",
+    "value": 2.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "KOR",
+    "period": "2025",
+    "value": 2.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "LVA",
+    "period": "2025",
+    "value": 3.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "LTU",
+    "period": "2025",
+    "value": 3.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "LUX",
+    "period": "2025",
+    "value": 2.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "MEX",
+    "period": "2025",
+    "value": 3.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "NLD",
+    "period": "2025",
+    "value": 2.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "NZL",
+    "period": "2025",
+    "value": 2.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "NOR",
+    "period": "2025",
+    "value": 3.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "POL",
+    "period": "2025",
+    "value": 3.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "PRT",
+    "period": "2025",
+    "value": 2.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "SVK",
+    "period": "2025",
+    "value": 4.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "SVN",
+    "period": "2025",
+    "value": 2.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "ESP",
+    "period": "2025",
+    "value": 2.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "SWE",
+    "period": "2025",
+    "value": 1.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "CHE",
+    "period": "2025",
+    "value": 0.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "TUR",
+    "period": "2025",
+    "value": 32.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "GBR",
+    "period": "2025",
+    "value": 3.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "inflation_rate",
+    "entity": "USA",
+    "period": "2025",
+    "value": 2.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "IRL",
+    "period": "2023",
+    "value": 149.31,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "NOR",
+    "period": "2023",
+    "value": 132.28,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "LUX",
+    "period": "2023",
+    "value": 126.45,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "CHE",
+    "period": "2023",
+    "value": 100.63,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "BEL",
+    "period": "2023",
+    "value": 100.33,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "DNK",
+    "period": "2023",
+    "value": 99.23,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "USA",
+    "period": "2023",
+    "value": 97.05,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "AUT",
+    "period": "2023",
+    "value": 94.96,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "NLD",
+    "period": "2023",
+    "value": 94.38,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "DEU",
+    "period": "2023",
+    "value": 93.81,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "SWE",
+    "period": "2023",
+    "value": 89.22,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "FRA",
+    "period": "2023",
+    "value": 88.15,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "AUS",
+    "period": "2023",
+    "value": 83.66,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "FIN",
+    "period": "2023",
+    "value": 82.96,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "GBR",
+    "period": "2023",
+    "value": 78.05,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "ITA",
+    "period": "2023",
+    "value": 77.09,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "CAN",
+    "period": "2023",
+    "value": 73.44,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "ESP",
+    "period": "2023",
+    "value": 73.42,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "SVN",
+    "period": "2023",
+    "value": 65.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "ISR",
+    "period": "2023",
+    "value": 60.51,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "CZE",
+    "period": "2023",
+    "value": 60.48,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "LTU",
+    "period": "2023",
+    "value": 60.37,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "SVK",
+    "period": "2023",
+    "value": 60.13,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "PRT",
+    "period": "2023",
+    "value": 59.25,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "JPN",
+    "period": "2023",
+    "value": 56.26,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "LVA",
+    "period": "2023",
+    "value": 55.88,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "NZL",
+    "period": "2023",
+    "value": 55.42,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "HUN",
+    "period": "2023",
+    "value": 54.74,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "KOR",
+    "period": "2023",
+    "value": 54.64,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "POL",
+    "period": "2023",
+    "value": 54.28,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "EST",
+    "period": "2023",
+    "value": 53.38,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "GRC",
+    "period": "2023",
+    "value": 44.78,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "CHL",
+    "period": "2023",
+    "value": 36.51,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "CRI",
+    "period": "2023",
+    "value": 31.84,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "MEX",
+    "period": "2023",
+    "value": 24.97,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_level",
+    "entity": "COL",
+    "period": "2023",
+    "value": 21.35,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "AUS",
+    "period": "2020",
+    "value": 1.12,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "AUT",
+    "period": "2020",
+    "value": 0.82,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "BEL",
+    "period": "2020",
+    "value": 0.76,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "CAN",
+    "period": "2020",
+    "value": 1.64,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "CHL",
+    "period": "2020",
+    "value": 2.91,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "COL",
+    "period": "2020",
+    "value": 4.19,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "CRI",
+    "period": "2020",
+    "value": 3.96,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "CZE",
+    "period": "2020",
+    "value": 1.63,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "DNK",
+    "period": "2020",
+    "value": 1.35,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "EST",
+    "period": "2020",
+    "value": 2.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "FIN",
+    "period": "2020",
+    "value": 0.44,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "FRA",
+    "period": "2020",
+    "value": 0.79,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "DEU",
+    "period": "2020",
+    "value": 0.92,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "GRC",
+    "period": "2020",
+    "value": -1.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "HUN",
+    "period": "2020",
+    "value": 1.41,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "ISL",
+    "period": "2020",
+    "value": 1.25,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "IRL",
+    "period": "2020",
+    "value": 4.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "ISR",
+    "period": "2020",
+    "value": 2.21,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "ITA",
+    "period": "2020",
+    "value": 0.41,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "JPN",
+    "period": "2020",
+    "value": 1.05,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "KOR",
+    "period": "2020",
+    "value": 2.67,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "LVA",
+    "period": "2020",
+    "value": 2.88,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "LTU",
+    "period": "2020",
+    "value": 3.11,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "LUX",
+    "period": "2020",
+    "value": -0.03,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "MEX",
+    "period": "2020",
+    "value": 0.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "NLD",
+    "period": "2020",
+    "value": 0.17,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "NZL",
+    "period": "2020",
+    "value": 0.72,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "NOR",
+    "period": "2020",
+    "value": 0.55,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "POL",
+    "period": "2020",
+    "value": 2.74,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "PRT",
+    "period": "2020",
+    "value": 0.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "SVK",
+    "period": "2020",
+    "value": 2.31,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "SVN",
+    "period": "2020",
+    "value": 1.47,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "ESP",
+    "period": "2020",
+    "value": 0.69,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "SWE",
+    "period": "2020",
+    "value": 0.84,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "CHE",
+    "period": "2020",
+    "value": 0.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "TUR",
+    "period": "2020",
+    "value": 3.85,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "GBR",
+    "period": "2020",
+    "value": 0.68,
+    "status": "published"
+  },
+  {
+    "metric_id": "productivity_growth_10y",
+    "entity": "USA",
+    "period": "2020",
+    "value": 0.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "ISR",
+    "period": "2026",
+    "value": 2.855,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "DNK",
+    "period": "2026",
+    "value": 2.758,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "NLD",
+    "period": "2026",
+    "value": 2.748,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "FIN",
+    "period": "2026",
+    "value": 2.462,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "GRC",
+    "period": "2026",
+    "value": 2.455,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "CHE",
+    "period": "2026",
+    "value": 2.438,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "FRA",
+    "period": "2026",
+    "value": 2.382,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "NOR",
+    "period": "2026",
+    "value": 2.35,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "PRT",
+    "period": "2026",
+    "value": 2.323,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "DEU",
+    "period": "2026",
+    "value": 2.297,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "ITA",
+    "period": "2026",
+    "value": 2.269,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "BEL",
+    "period": "2026",
+    "value": 2.239,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "LVA",
+    "period": "2026",
+    "value": 2.151,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "GBR",
+    "period": "2026",
+    "value": 2.123,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "EST",
+    "period": "2026",
+    "value": 2.119,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "IRL",
+    "period": "2026",
+    "value": 2.119,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "AUT",
+    "period": "2026",
+    "value": 2.108,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "LUX",
+    "period": "2026",
+    "value": 2.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "LTU",
+    "period": "2026",
+    "value": 2.092,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "SVK",
+    "period": "2026",
+    "value": 2.086,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "CZE",
+    "period": "2026",
+    "value": 2.04,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "NZL",
+    "period": "2026",
+    "value": 2.017,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "SWE",
+    "period": "2026",
+    "value": 2.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "SVN",
+    "period": "2026",
+    "value": 1.976,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "HUN",
+    "period": "2026",
+    "value": 1.952,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "ISL",
+    "period": "2026",
+    "value": 1.806,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "ESP",
+    "period": "2026",
+    "value": 1.812,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "POL",
+    "period": "2026",
+    "value": 1.769,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "CHL",
+    "period": "2026",
+    "value": 1.742,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "MEX",
+    "period": "2026",
+    "value": 1.637,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "CRI",
+    "period": "2026",
+    "value": 1.607,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "CAN",
+    "period": "2026",
+    "value": 1.555,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "KOR",
+    "period": "2026",
+    "value": 1.529,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "TUR",
+    "period": "2026",
+    "value": 1.407,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "AUS",
+    "period": "2026",
+    "value": 1.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "JPN",
+    "period": "2026",
+    "value": 1.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "COL",
+    "period": "2026",
+    "value": 1.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "petrol_price",
+    "entity": "USA",
+    "period": "2026",
+    "value": 0.95,
+    "status": "published"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "CHE",
+    "period": "2026",
+    "value": 110.7,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "ISL",
+    "period": "2026",
+    "value": 97.2,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "NOR",
+    "period": "2026",
+    "value": 83.7,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "ISR",
+    "period": "2026",
+    "value": 79.7,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "DNK",
+    "period": "2026",
+    "value": 78.9,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "LUX",
+    "period": "2026",
+    "value": 78.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "NLD",
+    "period": "2026",
+    "value": 73.4,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "AUT",
+    "period": "2026",
+    "value": 71.3,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "IRL",
+    "period": "2026",
+    "value": 70.6,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "FIN",
+    "period": "2026",
+    "value": 69.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "USA",
+    "period": "2026",
+    "value": 68.8,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "DEU",
+    "period": "2026",
+    "value": 68.7,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "BEL",
+    "period": "2026",
+    "value": 68.6,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "SWE",
+    "period": "2026",
+    "value": 68.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "AUS",
+    "period": "2026",
+    "value": 67.9,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "GBR",
+    "period": "2026",
+    "value": 67.8,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "FRA",
+    "period": "2026",
+    "value": 67.7,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "CAN",
+    "period": "2026",
+    "value": 63.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "KOR",
+    "period": "2026",
+    "value": 61.6,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "ITA",
+    "period": "2026",
+    "value": 61.4,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "NZL",
+    "period": "2026",
+    "value": 60.3,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "EST",
+    "period": "2026",
+    "value": 59.7,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "SVN",
+    "period": "2026",
+    "value": 54.1,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "GRC",
+    "period": "2026",
+    "value": 54.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "CZE",
+    "period": "2026",
+    "value": 53.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "CRI",
+    "period": "2026",
+    "value": 52.9,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "LVA",
+    "period": "2026",
+    "value": 52.3,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "ESP",
+    "period": "2026",
+    "value": 51.6,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "LTU",
+    "period": "2026",
+    "value": 51.2,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "SVK",
+    "period": "2026",
+    "value": 49.6,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "PRT",
+    "period": "2026",
+    "value": 48.8,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "JPN",
+    "period": "2026",
+    "value": 47.5,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "POL",
+    "period": "2026",
+    "value": 47.3,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "HUN",
+    "period": "2026",
+    "value": 46.9,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "MEX",
+    "period": "2026",
+    "value": 42.6,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "TUR",
+    "period": "2026",
+    "value": 39.2,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "CHL",
+    "period": "2026",
+    "value": 39.0,
+    "status": "derived"
+  },
+  {
+    "metric_id": "cost_of_living_index",
+    "entity": "COL",
+    "period": "2026",
+    "value": 31.7,
+    "status": "derived"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "USA",
+    "period": "2024",
+    "value": 216.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "CHE",
+    "period": "2024",
+    "value": 210.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "JPN",
+    "period": "2024",
+    "value": 156.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "CAN",
+    "period": "2024",
+    "value": 150.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "AUS",
+    "period": "2024",
+    "value": 98.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "KOR",
+    "period": "2024",
+    "value": 83.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "CHL",
+    "period": "2024",
+    "value": 79.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "ISR",
+    "period": "2024",
+    "value": 61.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "LUX",
+    "period": "2024",
+    "value": 44.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "ESP",
+    "period": "2024",
+    "value": 43.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "DEU",
+    "period": "2024",
+    "value": 43.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "NZL",
+    "period": "2024",
+    "value": 35.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "GRC",
+    "period": "2024",
+    "value": 32.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "TUR",
+    "period": "2024",
+    "value": 27.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "AUT",
+    "period": "2024",
+    "value": 22.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "POL",
+    "period": "2024",
+    "value": 21.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "HUN",
+    "period": "2024",
+    "value": 18.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "COL",
+    "period": "2024",
+    "value": 17.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "SVN",
+    "period": "2024",
+    "value": 15.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "market_cap_gdp",
+    "entity": "CZE",
+    "period": "2024",
+    "value": 10.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "LUX",
+    "period": "2025",
+    "value": 135000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "IRL",
+    "period": "2025",
+    "value": 107000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "CHE",
+    "period": "2025",
+    "value": 105000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "NOR",
+    "period": "2025",
+    "value": 92000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "USA",
+    "period": "2025",
+    "value": 86600.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "ISL",
+    "period": "2025",
+    "value": 85000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "DNK",
+    "period": "2025",
+    "value": 73000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "NLD",
+    "period": "2025",
+    "value": 72000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "AUS",
+    "period": "2025",
+    "value": 66000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "AUT",
+    "period": "2025",
+    "value": 59000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "SWE",
+    "period": "2025",
+    "value": 59000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "DEU",
+    "period": "2025",
+    "value": 55500.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "BEL",
+    "period": "2025",
+    "value": 57000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "FIN",
+    "period": "2025",
+    "value": 56000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "CAN",
+    "period": "2025",
+    "value": 54000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "ISR",
+    "period": "2025",
+    "value": 56000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "GBR",
+    "period": "2025",
+    "value": 52000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "NZL",
+    "period": "2025",
+    "value": 50000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "FRA",
+    "period": "2025",
+    "value": 47000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "ITA",
+    "period": "2025",
+    "value": 41000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "KOR",
+    "period": "2025",
+    "value": 37000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "JPN",
+    "period": "2025",
+    "value": 33900.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "ESP",
+    "period": "2025",
+    "value": 36000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "SVN",
+    "period": "2025",
+    "value": 35000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "CZE",
+    "period": "2025",
+    "value": 32000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "EST",
+    "period": "2025",
+    "value": 31500.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "PRT",
+    "period": "2025",
+    "value": 30000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "LTU",
+    "period": "2025",
+    "value": 30000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "LVA",
+    "period": "2025",
+    "value": 25000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "GRC",
+    "period": "2025",
+    "value": 24500.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "SVK",
+    "period": "2025",
+    "value": 26000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "HUN",
+    "period": "2025",
+    "value": 24000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "POL",
+    "period": "2025",
+    "value": 25500.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "CHL",
+    "period": "2025",
+    "value": 17500.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "CRI",
+    "period": "2025",
+    "value": 18000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "TUR",
+    "period": "2025",
+    "value": 16500.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "MEX",
+    "period": "2025",
+    "value": 14000.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "gdp_per_capita",
+    "entity": "COL",
+    "period": "2025",
+    "value": 8200.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "USA",
+    "period": "2019",
+    "value": 1031.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "USA",
+    "period": "2020",
+    "value": 581.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "USA",
+    "period": "2021",
+    "value": 835.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "USA",
+    "period": "2022",
+    "value": 1048.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "USA",
+    "period": "2023",
+    "value": 1190.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "USA",
+    "period": "2024",
+    "value": 1425.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "DEU",
+    "period": "2019",
+    "value": 643.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "DEU",
+    "period": "2020",
+    "value": 521.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "DEU",
+    "period": "2021",
+    "value": 533.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "DEU",
+    "period": "2022",
+    "value": 669.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "DEU",
+    "period": "2023",
+    "value": 664.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "DEU",
+    "period": "2024",
+    "value": 586.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CAN",
+    "period": "2019",
+    "value": 341.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CAN",
+    "period": "2020",
+    "value": 184.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CAN",
+    "period": "2021",
+    "value": 406.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CAN",
+    "period": "2022",
+    "value": 437.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CAN",
+    "period": "2023",
+    "value": 471.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CAN",
+    "period": "2024",
+    "value": 483.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "GBR",
+    "period": "2019",
+    "value": 356.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "GBR",
+    "period": "2020",
+    "value": 199.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "GBR",
+    "period": "2021",
+    "value": 369.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "GBR",
+    "period": "2022",
+    "value": 488.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "GBR",
+    "period": "2023",
+    "value": 743.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "GBR",
+    "period": "2024",
+    "value": 435.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ESP",
+    "period": "2019",
+    "value": 244.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ESP",
+    "period": "2020",
+    "value": 178.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ESP",
+    "period": "2021",
+    "value": 261.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ESP",
+    "period": "2022",
+    "value": 323.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ESP",
+    "period": "2023",
+    "value": 374.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ESP",
+    "period": "2024",
+    "value": 368.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "FRA",
+    "period": "2019",
+    "value": 284.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "FRA",
+    "period": "2020",
+    "value": 228.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "FRA",
+    "period": "2021",
+    "value": 276.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "FRA",
+    "period": "2022",
+    "value": 305.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "FRA",
+    "period": "2023",
+    "value": 306.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "FRA",
+    "period": "2024",
+    "value": 298.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "AUS",
+    "period": "2019",
+    "value": 195.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "AUS",
+    "period": "2020",
+    "value": 158.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "AUS",
+    "period": "2021",
+    "value": 170.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "AUS",
+    "period": "2022",
+    "value": 170.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "AUS",
+    "period": "2023",
+    "value": 238.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "AUS",
+    "period": "2024",
+    "value": 239.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NLD",
+    "period": "2019",
+    "value": 165.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NLD",
+    "period": "2020",
+    "value": 134.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NLD",
+    "period": "2021",
+    "value": 172.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NLD",
+    "period": "2022",
+    "value": 205.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NLD",
+    "period": "2023",
+    "value": 195.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NLD",
+    "period": "2024",
+    "value": 183.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "JPN",
+    "period": "2019",
+    "value": 137.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "JPN",
+    "period": "2020",
+    "value": 83.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "JPN",
+    "period": "2021",
+    "value": 56.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "JPN",
+    "period": "2022",
+    "value": 144.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "JPN",
+    "period": "2023",
+    "value": 163.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "JPN",
+    "period": "2024",
+    "value": 177.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ITA",
+    "period": "2019",
+    "value": 167.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ITA",
+    "period": "2020",
+    "value": 112.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ITA",
+    "period": "2021",
+    "value": 204.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ITA",
+    "period": "2022",
+    "value": 235.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ITA",
+    "period": "2023",
+    "value": 201.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ITA",
+    "period": "2024",
+    "value": 168.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "PRT",
+    "period": "2019",
+    "value": 106.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "PRT",
+    "period": "2020",
+    "value": 84.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "PRT",
+    "period": "2021",
+    "value": 93.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "PRT",
+    "period": "2022",
+    "value": 121.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "PRT",
+    "period": "2023",
+    "value": 140.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "PRT",
+    "period": "2024",
+    "value": 137.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CHE",
+    "period": "2019",
+    "value": 106.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CHE",
+    "period": "2020",
+    "value": 102.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CHE",
+    "period": "2021",
+    "value": 109.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CHE",
+    "period": "2022",
+    "value": 130.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CHE",
+    "period": "2023",
+    "value": 144.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CHE",
+    "period": "2024",
+    "value": 135.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "BEL",
+    "period": "2019",
+    "value": 95.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "BEL",
+    "period": "2020",
+    "value": 78.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "BEL",
+    "period": "2021",
+    "value": 95.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "BEL",
+    "period": "2022",
+    "value": 102.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "BEL",
+    "period": "2023",
+    "value": 106.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "BEL",
+    "period": "2024",
+    "value": 106.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "AUT",
+    "period": "2019",
+    "value": 84.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "AUT",
+    "period": "2020",
+    "value": 65.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "AUT",
+    "period": "2021",
+    "value": 76.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "AUT",
+    "period": "2022",
+    "value": 93.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "AUT",
+    "period": "2023",
+    "value": 105.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "AUT",
+    "period": "2024",
+    "value": 102.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "KOR",
+    "period": "2019",
+    "value": 72.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "KOR",
+    "period": "2020",
+    "value": 53.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "KOR",
+    "period": "2021",
+    "value": 48.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "KOR",
+    "period": "2022",
+    "value": 57.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "KOR",
+    "period": "2023",
+    "value": 87.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "KOR",
+    "period": "2024",
+    "value": 75.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SWE",
+    "period": "2019",
+    "value": 99.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SWE",
+    "period": "2020",
+    "value": 80.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SWE",
+    "period": "2021",
+    "value": 75.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SWE",
+    "period": "2022",
+    "value": 89.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SWE",
+    "period": "2023",
+    "value": 87.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SWE",
+    "period": "2024",
+    "value": 75.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "MEX",
+    "period": "2019",
+    "value": 40.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "MEX",
+    "period": "2020",
+    "value": 58.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "MEX",
+    "period": "2021",
+    "value": 67.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "MEX",
+    "period": "2022",
+    "value": 75.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "MEX",
+    "period": "2023",
+    "value": 69.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "MEX",
+    "period": "2024",
+    "value": 72.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "IRL",
+    "period": "2019",
+    "value": 48.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "IRL",
+    "period": "2020",
+    "value": 42.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "IRL",
+    "period": "2021",
+    "value": 38.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "IRL",
+    "period": "2022",
+    "value": 66.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "IRL",
+    "period": "2023",
+    "value": 65.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "IRL",
+    "period": "2024",
+    "value": 71.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "DNK",
+    "period": "2019",
+    "value": 45.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "DNK",
+    "period": "2020",
+    "value": 37.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "DNK",
+    "period": "2021",
+    "value": 48.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "DNK",
+    "period": "2022",
+    "value": 62.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "DNK",
+    "period": "2023",
+    "value": 57.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "DNK",
+    "period": "2024",
+    "value": 54.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NZL",
+    "period": "2019",
+    "value": 38.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NZL",
+    "period": "2020",
+    "value": 35.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NZL",
+    "period": "2021",
+    "value": 35.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NZL",
+    "period": "2022",
+    "value": 154.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NZL",
+    "period": "2023",
+    "value": 119.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NZL",
+    "period": "2024",
+    "value": 53.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CZE",
+    "period": "2019",
+    "value": 62.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CZE",
+    "period": "2020",
+    "value": 55.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CZE",
+    "period": "2021",
+    "value": 63.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CZE",
+    "period": "2022",
+    "value": 45.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CZE",
+    "period": "2023",
+    "value": 37.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CZE",
+    "period": "2024",
+    "value": 40.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ISR",
+    "period": "2019",
+    "value": 33.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ISR",
+    "period": "2020",
+    "value": 19.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ISR",
+    "period": "2021",
+    "value": 25.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ISR",
+    "period": "2022",
+    "value": 74.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ISR",
+    "period": "2023",
+    "value": 46.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ISR",
+    "period": "2024",
+    "value": 39.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NOR",
+    "period": "2019",
+    "value": 46.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NOR",
+    "period": "2020",
+    "value": 32.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NOR",
+    "period": "2021",
+    "value": 38.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NOR",
+    "period": "2022",
+    "value": 42.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NOR",
+    "period": "2023",
+    "value": 41.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "NOR",
+    "period": "2024",
+    "value": 35.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "FIN",
+    "period": "2019",
+    "value": 28.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "FIN",
+    "period": "2020",
+    "value": 24.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "FIN",
+    "period": "2021",
+    "value": 30.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "FIN",
+    "period": "2022",
+    "value": 40.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "FIN",
+    "period": "2023",
+    "value": 42.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "FIN",
+    "period": "2024",
+    "value": 34.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LUX",
+    "period": "2019",
+    "value": 24.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LUX",
+    "period": "2020",
+    "value": 20.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LUX",
+    "period": "2021",
+    "value": 24.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LUX",
+    "period": "2022",
+    "value": 27.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LUX",
+    "period": "2023",
+    "value": 27.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LUX",
+    "period": "2024",
+    "value": 26.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SVN",
+    "period": "2019",
+    "value": 35.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SVN",
+    "period": "2020",
+    "value": 22.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SVN",
+    "period": "2021",
+    "value": 30.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SVN",
+    "period": "2022",
+    "value": 33.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SVN",
+    "period": "2023",
+    "value": 31.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SVN",
+    "period": "2024",
+    "value": 26.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SVK",
+    "period": "2019",
+    "value": 26.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SVK",
+    "period": "2020",
+    "value": 17.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SVK",
+    "period": "2021",
+    "value": 26.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SVK",
+    "period": "2022",
+    "value": 24.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SVK",
+    "period": "2023",
+    "value": 24.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "SVK",
+    "period": "2024",
+    "value": 20.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "EST",
+    "period": "2019",
+    "value": 10.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "EST",
+    "period": "2020",
+    "value": 9.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "EST",
+    "period": "2021",
+    "value": 11.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "EST",
+    "period": "2022",
+    "value": 14.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "EST",
+    "period": "2023",
+    "value": 12.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "EST",
+    "period": "2024",
+    "value": 8.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LTU",
+    "period": "2019",
+    "value": 2.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LTU",
+    "period": "2020",
+    "value": 2.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LTU",
+    "period": "2021",
+    "value": 5.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LTU",
+    "period": "2022",
+    "value": 10.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LTU",
+    "period": "2023",
+    "value": 7.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LTU",
+    "period": "2024",
+    "value": 5.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "POL",
+    "period": "2019",
+    "value": 163.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "POL",
+    "period": "2020",
+    "value": 163.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "POL",
+    "period": "2021",
+    "value": 224.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "POL",
+    "period": "2022",
+    "value": 335.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "POL",
+    "period": "2023",
+    "value": 374.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "POL",
+    "period": "2024",
+    "value": 373.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CHL",
+    "period": "2019",
+    "value": 254.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CHL",
+    "period": "2020",
+    "value": 154.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CHL",
+    "period": "2021",
+    "value": 76.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CHL",
+    "period": "2022",
+    "value": 198.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CHL",
+    "period": "2023",
+    "value": 70.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CHL",
+    "period": "2024",
+    "value": 112.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "GRC",
+    "period": "2019",
+    "value": 95.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "GRC",
+    "period": "2020",
+    "value": 63.4,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "GRC",
+    "period": "2021",
+    "value": 28.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "GRC",
+    "period": "2022",
+    "value": 64.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "GRC",
+    "period": "2023",
+    "value": 71.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "GRC",
+    "period": "2024",
+    "value": 64.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "COL",
+    "period": "2019",
+    "value": 225.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "COL",
+    "period": "2020",
+    "value": 74.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "COL",
+    "period": "2021",
+    "value": 40.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "COL",
+    "period": "2022",
+    "value": 108.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "COL",
+    "period": "2023",
+    "value": 49.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "COL",
+    "period": "2024",
+    "value": 61.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "HUN",
+    "period": "2019",
+    "value": 55.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "HUN",
+    "period": "2020",
+    "value": 43.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "HUN",
+    "period": "2021",
+    "value": 49.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "HUN",
+    "period": "2022",
+    "value": 55.5,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "HUN",
+    "period": "2023",
+    "value": 61.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "HUN",
+    "period": "2024",
+    "value": 49.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ISL",
+    "period": "2019",
+    "value": 10.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ISL",
+    "period": "2020",
+    "value": 8.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ISL",
+    "period": "2021",
+    "value": 10.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ISL",
+    "period": "2022",
+    "value": 17.0,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ISL",
+    "period": "2023",
+    "value": 16.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "ISL",
+    "period": "2024",
+    "value": 14.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CRI",
+    "period": "2019",
+    "value": 7.8,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CRI",
+    "period": "2021",
+    "value": 9.1,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CRI",
+    "period": "2022",
+    "value": 11.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CRI",
+    "period": "2023",
+    "value": 10.2,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "CRI",
+    "period": "2024",
+    "value": 11.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LVA",
+    "period": "2019",
+    "value": 6.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LVA",
+    "period": "2020",
+    "value": 4.6,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LVA",
+    "period": "2021",
+    "value": 5.9,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LVA",
+    "period": "2022",
+    "value": 7.3,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LVA",
+    "period": "2023",
+    "value": 2.7,
+    "status": "published"
+  },
+  {
+    "metric_id": "permanent_migration_inflow",
+    "entity": "LVA",
+    "period": "2024",
+    "value": 2.7,
+    "status": "published"
+  }
+]
