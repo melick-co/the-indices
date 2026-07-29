@@ -1,0 +1,239 @@
+{
+  "metric_id": "years_to_buy_home",
+  "definition": "Price of a standardised 90 square metre city-centre apartment divided by the annual net income kept by an average single worker.",
+  "unit": "years",
+  "basis": "Home price market USD (Numbeo); net income PPP USD (OECD). MIXED BASIS - see caveat.",
+  "direction": "higher_is_more_pressure",
+  "source": {
+    "org": "Derived (Numbeo property prices; OECD Taxing Wages)",
+    "dataset": "Composite",
+    "tier": 3,
+    "url": "https://www.numbeo.com/cost-of-living/rankings_by_country.jsp",
+    "published": "2026-01",
+    "period": "2026"
+  },
+  "observations": [
+    {
+      "entity": "AUS",
+      "period": "2026",
+      "value": 12.38,
+      "status": "derived"
+    },
+    {
+      "entity": "AUT",
+      "period": "2026",
+      "value": 11.71,
+      "status": "derived"
+    },
+    {
+      "entity": "BEL",
+      "period": "2026",
+      "value": 7.68,
+      "status": "derived"
+    },
+    {
+      "entity": "CAN",
+      "period": "2026",
+      "value": 7.52,
+      "status": "derived"
+    },
+    {
+      "entity": "CHE",
+      "period": "2026",
+      "value": 21.43,
+      "status": "derived"
+    },
+    {
+      "entity": "CHL",
+      "period": "2026",
+      "value": 7.76,
+      "status": "derived"
+    },
+    {
+      "entity": "COL",
+      "period": "2026",
+      "value": 8.46,
+      "status": "derived"
+    },
+    {
+      "entity": "CRI",
+      "period": "2026",
+      "value": 8.31,
+      "status": "derived"
+    },
+    {
+      "entity": "CZE",
+      "period": "2026",
+      "value": 14.62,
+      "status": "derived"
+    },
+    {
+      "entity": "DEU",
+      "period": "2026",
+      "value": 10.21,
+      "status": "derived"
+    },
+    {
+      "entity": "DNK",
+      "period": "2026",
+      "value": 9.84,
+      "status": "derived"
+    },
+    {
+      "entity": "ESP",
+      "period": "2026",
+      "value": 9.44,
+      "status": "derived"
+    },
+    {
+      "entity": "EST",
+      "period": "2026",
+      "value": 11.58,
+      "status": "derived"
+    },
+    {
+      "entity": "FIN",
+      "period": "2026",
+      "value": 9.87,
+      "status": "derived"
+    },
+    {
+      "entity": "FRA",
+      "period": "2026",
+      "value": 10.41,
+      "status": "derived"
+    },
+    {
+      "entity": "GBR",
+      "period": "2026",
+      "value": 8.53,
+      "status": "derived"
+    },
+    {
+      "entity": "GRC",
+      "period": "2026",
+      "value": 8.02,
+      "status": "derived"
+    },
+    {
+      "entity": "HUN",
+      "period": "2026",
+      "value": 11.45,
+      "status": "derived"
+    },
+    {
+      "entity": "IRL",
+      "period": "2026",
+      "value": 7.33,
+      "status": "derived"
+    },
+    {
+      "entity": "ISR",
+      "period": "2026",
+      "value": 22.27,
+      "status": "derived"
+    },
+    {
+      "entity": "ITA",
+      "period": "2026",
+      "value": 8.0,
+      "status": "derived"
+    },
+    {
+      "entity": "JPN",
+      "period": "2026",
+      "value": 11.06,
+      "status": "derived"
+    },
+    {
+      "entity": "KOR",
+      "period": "2026",
+      "value": 20.6,
+      "status": "derived"
+    },
+    {
+      "entity": "LTU",
+      "period": "2026",
+      "value": 10.32,
+      "status": "derived"
+    },
+    {
+      "entity": "LUX",
+      "period": "2026",
+      "value": 17.17,
+      "status": "derived"
+    },
+    {
+      "entity": "LVA",
+      "period": "2026",
+      "value": 8.33,
+      "status": "derived"
+    },
+    {
+      "entity": "MEX",
+      "period": "2026",
+      "value": 14.0,
+      "status": "derived"
+    },
+    {
+      "entity": "NLD",
+      "period": "2026",
+      "value": 9.84,
+      "status": "derived"
+    },
+    {
+      "entity": "NOR",
+      "period": "2026",
+      "value": 10.36,
+      "status": "derived"
+    },
+    {
+      "entity": "NZL",
+      "period": "2026",
+      "value": 11.84,
+      "status": "derived"
+    },
+    {
+      "entity": "POL",
+      "period": "2026",
+      "value": 9.06,
+      "status": "derived"
+    },
+    {
+      "entity": "PRT",
+      "period": "2026",
+      "value": 12.36,
+      "status": "derived"
+    },
+    {
+      "entity": "SVK",
+      "period": "2026",
+      "value": 12.04,
+      "status": "derived"
+    },
+    {
+      "entity": "SVN",
+      "period": "2026",
+      "value": 12.76,
+      "status": "derived"
+    },
+    {
+      "entity": "SWE",
+      "period": "2026",
+      "value": 10.0,
+      "status": "derived"
+    },
+    {
+      "entity": "TUR",
+      "period": "2026",
+      "value": 4.81,
+      "status": "derived"
+    },
+    {
+      "entity": "USA",
+      "period": "2026",
+      "value": 5.58,
+      "status": "derived"
+    }
+  ]
+}
