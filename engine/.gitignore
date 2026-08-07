@@ -4,8 +4,3 @@ dist/
 *.log
 .env
 .env.local
-
-.env
-.env.local
-node_modules/
-.next/

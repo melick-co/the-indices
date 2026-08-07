@@ -1,0 +1,221 @@
+{
+  "metric_id": "real_wage_growth_2010_2024",
+  "definition": "Cumulative change in real average annual wages between 2010 and 2024.",
+  "unit": "percent",
+  "basis": "Real, constant prices, national currency",
+  "direction": "higher_is_less_pressure",
+  "source": {
+    "org": "OECD",
+    "dataset": "Average annual wages",
+    "tier": 1,
+    "url": "https://data-explorer.oecd.org/",
+    "published": "2025",
+    "period": "2010-2024"
+  },
+  "observations": [
+    {
+      "entity": "AUS",
+      "period": "2010-2024",
+      "value": 6.0,
+      "status": "published"
+    },
+    {
+      "entity": "AUT",
+      "period": "2010-2024",
+      "value": 5.1,
+      "status": "published"
+    },
+    {
+      "entity": "BEL",
+      "period": "2010-2024",
+      "value": 5.3,
+      "status": "published"
+    },
+    {
+      "entity": "CAN",
+      "period": "2010-2024",
+      "value": 11.2,
+      "status": "published"
+    },
+    {
+      "entity": "CHE",
+      "period": "2010-2024",
+      "value": 8.2,
+      "status": "published"
+    },
+    {
+      "entity": "CZE",
+      "period": "2010-2024",
+      "value": 21.4,
+      "status": "published"
+    },
+    {
+      "entity": "DEU",
+      "period": "2010-2024",
+      "value": 13.5,
+      "status": "published"
+    },
+    {
+      "entity": "DNK",
+      "period": "2010-2024",
+      "value": 9.7,
+      "status": "published"
+    },
+    {
+      "entity": "ESP",
+      "period": "2010-2024",
+      "value": -2.8,
+      "status": "published"
+    },
+    {
+      "entity": "EST",
+      "period": "2010-2024",
+      "value": 40.1,
+      "status": "published"
+    },
+    {
+      "entity": "FIN",
+      "period": "2010-2024",
+      "value": 2.1,
+      "status": "published"
+    },
+    {
+      "entity": "FRA",
+      "period": "2010-2024",
+      "value": 4.7,
+      "status": "published"
+    },
+    {
+      "entity": "GBR",
+      "period": "2010-2024",
+      "value": 4.0,
+      "status": "published"
+    },
+    {
+      "entity": "GRC",
+      "period": "2010-2024",
+      "value": -21.2,
+      "status": "published"
+    },
+    {
+      "entity": "HUN",
+      "period": "2010-2024",
+      "value": 30.6,
+      "status": "published"
+    },
+    {
+      "entity": "IRL",
+      "period": "2010-2024",
+      "value": -6.1,
+      "status": "published"
+    },
+    {
+      "entity": "ISL",
+      "period": "2010-2024",
+      "value": 40.4,
+      "status": "published"
+    },
+    {
+      "entity": "ISR",
+      "period": "2010-2024",
+      "value": 18.9,
+      "status": "published"
+    },
+    {
+      "entity": "ITA",
+      "period": "2010-2024",
+      "value": -7.1,
+      "status": "published"
+    },
+    {
+      "entity": "JPN",
+      "period": "2010-2024",
+      "value": 0.1,
+      "status": "published"
+    },
+    {
+      "entity": "KOR",
+      "period": "2010-2024",
+      "value": 18.4,
+      "status": "published"
+    },
+    {
+      "entity": "LTU",
+      "period": "2010-2024",
+      "value": 66.6,
+      "status": "published"
+    },
+    {
+      "entity": "LUX",
+      "period": "2010-2024",
+      "value": 15.5,
+      "status": "published"
+    },
+    {
+      "entity": "LVA",
+      "period": "2010-2024",
+      "value": 76.8,
+      "status": "published"
+    },
+    {
+      "entity": "MEX",
+      "period": "2010-2024",
+      "value": 5.7,
+      "status": "published"
+    },
+    {
+      "entity": "NLD",
+      "period": "2010-2024",
+      "value": -5.1,
+      "status": "published"
+    },
+    {
+      "entity": "NOR",
+      "period": "2010-2024",
+      "value": 11.0,
+      "status": "published"
+    },
+    {
+      "entity": "NZL",
+      "period": "2010-2024",
+      "value": 20.7,
+      "status": "published"
+    },
+    {
+      "entity": "POL",
+      "period": "2010-2024",
+      "value": 37.9,
+      "status": "published"
+    },
+    {
+      "entity": "PRT",
+      "period": "2010-2024",
+      "value": 5.9,
+      "status": "published"
+    },
+    {
+      "entity": "SVK",
+      "period": "2010-2024",
+      "value": 20.7,
+      "status": "published"
+    },
+    {
+      "entity": "SVN",
+      "period": "2010-2024",
+      "value": 25.4,
+      "status": "published"
+    },
+    {
+      "entity": "SWE",
+      "period": "2010-2024",
+      "value": 12.3,
+      "status": "published"
+    },
+    {
+      "entity": "USA",
+      "period": "2010-2024",
+      "value": 16.1,
+      "status": "published"
+    }
+  ]
+}

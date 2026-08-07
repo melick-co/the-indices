@@ -1,0 +1,185 @@
+{
+  "metric_id": "household_savings_rate",
+  "definition": "Household net saving as a percentage of household disposable income.",
+  "unit": "percent of disposable income",
+  "basis": "Net saving, national accounts basis",
+  "direction": "higher_is_less_pressure",
+  "source": {
+    "org": "OECD",
+    "dataset": "Household savings (indicator)",
+    "tier": 1,
+    "url": "https://data.oecd.org/hha/household-savings.htm",
+    "published": "2025",
+    "period": "2024"
+  },
+  "observations": [
+    {
+      "entity": "AUS",
+      "period": "2024",
+      "value": 6.1,
+      "status": "published"
+    },
+    {
+      "entity": "AUT",
+      "period": "2024",
+      "value": 11.7,
+      "status": "published"
+    },
+    {
+      "entity": "BEL",
+      "period": "2024",
+      "value": 6.6,
+      "status": "published"
+    },
+    {
+      "entity": "CAN",
+      "period": "2024",
+      "value": 5.0,
+      "status": "published"
+    },
+    {
+      "entity": "CZE",
+      "period": "2024",
+      "value": 13.7,
+      "status": "published"
+    },
+    {
+      "entity": "DEU",
+      "period": "2024",
+      "value": 11.2,
+      "status": "published"
+    },
+    {
+      "entity": "DNK",
+      "period": "2024",
+      "value": 8.5,
+      "status": "published"
+    },
+    {
+      "entity": "ESP",
+      "period": "2024",
+      "value": 9.2,
+      "status": "published"
+    },
+    {
+      "entity": "EST",
+      "period": "2024",
+      "value": 3.0,
+      "status": "published"
+    },
+    {
+      "entity": "FIN",
+      "period": "2024",
+      "value": 4.3,
+      "status": "published"
+    },
+    {
+      "entity": "FRA",
+      "period": "2024",
+      "value": 12.8,
+      "status": "published"
+    },
+    {
+      "entity": "GBR",
+      "period": "2024",
+      "value": 4.7,
+      "status": "published"
+    },
+    {
+      "entity": "HUN",
+      "period": "2024",
+      "value": 14.3,
+      "status": "published"
+    },
+    {
+      "entity": "IRL",
+      "period": "2024",
+      "value": 9.0,
+      "status": "published"
+    },
+    {
+      "entity": "ITA",
+      "period": "2024",
+      "value": 4.2,
+      "status": "published"
+    },
+    {
+      "entity": "JPN",
+      "period": "2024",
+      "value": 0.9,
+      "status": "published"
+    },
+    {
+      "entity": "KOR",
+      "period": "2024",
+      "value": 4.8,
+      "status": "published"
+    },
+    {
+      "entity": "LTU",
+      "period": "2024",
+      "value": 3.8,
+      "status": "published"
+    },
+    {
+      "entity": "LUX",
+      "period": "2024",
+      "value": 5.0,
+      "status": "published"
+    },
+    {
+      "entity": "LVA",
+      "period": "2024",
+      "value": 0.0,
+      "status": "published"
+    },
+    {
+      "entity": "MEX",
+      "period": "2024",
+      "value": 8.1,
+      "status": "published"
+    },
+    {
+      "entity": "NLD",
+      "period": "2024",
+      "value": 9.5,
+      "status": "published"
+    },
+    {
+      "entity": "NOR",
+      "period": "2024",
+      "value": 4.2,
+      "status": "published"
+    },
+    {
+      "entity": "NZL",
+      "period": "2024",
+      "value": -1.3,
+      "status": "published"
+    },
+    {
+      "entity": "POL",
+      "period": "2024",
+      "value": 6.1,
+      "status": "published"
+    },
+    {
+      "entity": "PRT",
+      "period": "2024",
+      "value": 4.5,
+      "status": "published"
+    },
+    {
+      "entity": "SWE",
+      "period": "2024",
+      "value": 16.0,
+      "status": "published"
+    },
+    {
+      "entity": "USA",
+      "period": "2024",
+      "value": 4.9,
+      "status": "published"
+    }
+  ]
+}
