@@ -37,8 +37,8 @@ jobs:
     defaults:
       run: { working-directory: agent }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: 22 }
       - run: npm install @supabase/supabase-js --no-save --silent
       - name: RSS sweep
@@ -59,8 +59,8 @@ jobs:
     defaults:
       run: { working-directory: agent }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: 22 }
       - run: npm install @supabase/supabase-js --no-save --silent
       - name: Daily pitch run
