@@ -66,9 +66,27 @@ Two options:
 2. Add a body component in `app/stories/[slug]/bodies/`.
 3. Wire it in the `page.tsx` switch. The evidence page generates itself.
 
+## The studio (`/studio`)
+
+Private editorial workbench, gated by magic-link auth. Closes the agent loop: the
+agent pitches, you judge, and your judgement feeds the next ranking.
+
+- Tabs by pitch state: pitched, candidate, approved, watchlist, dormant, rejected, published
+- Per pitch: approve, watchlist, reject, rank up/down, and a free-text note that
+  travels into the next run's prompt as editorial direction
+- Detail view shows mechanism, caveat, chart hint, resurface condition and the raw
+  trigger rows (the exact observations that fired the detector)
+- **Rejecting never deletes.** If a pitch has no resurface condition, rejecting sets
+  an automatic 90-day re-look, so a weak-today idea comes back when data has moved
+- Inbox form: add ideas, links, articles or datasets. Paste an RSS URL and the
+  watcher auto-registers it on the next run
+- Panels for recent agent runs and your last decisions
+
+Every action writes to `pitch_feedback`, which the daily runner reads back into the
+taste-layer prompt. That is the mechanism by which the ranking converges on you.
+
 ## Not yet built
 
-- `/studio`: pitch review UI wired to `pitch_feedback` (closes the agent loop)
 - Index pages (HSI scores, components, sensitivity, CSV/JSON downloads)
 - Remotion render pipeline for MP4 story videos
 - OG image generation per story
