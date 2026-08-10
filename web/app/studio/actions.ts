@@ -14,6 +14,9 @@ export async function act(pitchId: string, action: Action, comment?: string) {
   const supabase = createClient();
   const now = new Date().toISOString();
 
+  // Attribute the audit event to the editor rather than the agent.
+  await supabase.rpc('set_actor', { who: 'editor' }).then(() => {}, () => {});
+
   await supabase.from('pitch_feedback').insert({
     pitch_id: pitchId, action, comment: comment || null,
   });

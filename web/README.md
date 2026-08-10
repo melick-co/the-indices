@@ -85,8 +85,33 @@ agent pitches, you judge, and your judgement feeds the next ranking.
 Every action writes to `pitch_feedback`, which the daily runner reads back into the
 taste-layer prompt. That is the mechanism by which the ranking converges on you.
 
-## Not yet built
+## Index pages (`/indices`)
 
-- Index pages (HSI scores, components, sensitivity, CSV/JSON downloads)
+`/indices/hsi` is the first published Caveat index and the site's citable artefact.
+It implements section 11 of the Composite Index Construction Standard in full:
+
+- Ranked scores for all 30 scored countries, with coverage against each
+- The 8 countries reported as **insufficient coverage** — the no-imputation rule
+  made visible rather than hidden by quietly dropping them
+- Components with their fixed bounds and weights, plus a worked example for Australia
+  (raw → normalised → weighted → score)
+- The sensitivity battery, published including the fact that **this vintage does not
+  fully pass it**: rank correlation 0.987 is strong, max score change 3.17 is marginal
+  against our own 3.00 threshold. Flagged, not quietly loosened
+- Source table with tier badges and links
+- JSON and CSV downloads, and a formatted citation string
+- Vintage and revision policy
+
+### Regenerating a vintage
+
+```bash
+cd ../engine && npm run publish:index
+cp dist/published/hsi-*.json ../web/content/indices/
+cp dist/published/hsi-*.{json,csv} ../web/public/data/
+```
+
+Published vintages are immutable: add a new one, never edit one in place.
+
+## Not yet built
 - Remotion render pipeline for MP4 story videos
 - OG image generation per story

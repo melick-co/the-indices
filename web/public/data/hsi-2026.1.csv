@@ -1,0 +1,39 @@
+entity,name,score,coverage,scored
+CHE,"Switzerland",81.2,75.0,true
+KOR,"Korea",68.5,100.0,true
+AUS,"Australia",66.2,100.0,true
+NOR,"Norway",66.2,100.0,true
+LUX,"Luxembourg",65.9,100.0,true
+NZL,"New Zealand",63.0,75.0,true
+NLD,"Netherlands",61.9,100.0,true
+JPN,"Japan",61.9,100.0,true
+ITA,"Italy",59.4,75.0,true
+FIN,"Finland",58.4,100.0,true
+DNK,"Denmark",58.4,100.0,true
+MEX,"Mexico",58.1,75.0,true
+CAN,"Canada",56.4,100.0,true
+PRT,"Portugal",55.8,100.0,true
+GBR,"United Kingdom",55.0,100.0,true
+EST,"Estonia",50.8,75.0,true
+AUT,"Austria",50.5,75.0,true
+BEL,"Belgium",49.5,100.0,true
+IRL,"Ireland",48.8,100.0,true
+SWE,"Sweden",48.1,100.0,true
+ESP,"Spain",47.7,100.0,true
+FRA,"France",47.0,100.0,true
+CZE,"Czechia",46.5,75.0,true
+USA,"United States",45.9,100.0,true
+SVK,"Slovak Republic",45.4,75.0,true
+POL,"Poland",44.0,75.0,true
+DEU,"Germany",43.4,100.0,true
+LTU,"Lithuania",39.6,75.0,true
+LVA,"Latvia",38.8,75.0,true
+HUN,"Hungary",38.5,75.0,true
+CHL,"Chile",,25.0,false
+COL,"Colombia",,25.0,false
+CRI,"Costa Rica",,25.0,false
+GRC,"Greece",,50.0,false
+ISL,"Iceland",,25.0,false
+ISR,"Israel",,50.0,false
+SVN,"Slovenia",,50.0,false
+TUR,"Turkiye",,25.0,false

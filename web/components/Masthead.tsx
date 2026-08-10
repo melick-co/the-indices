@@ -10,6 +10,7 @@ export default function Masthead() {
         </div>
         <nav className="nav">
           <Link href="/">Stories</Link>
+          <Link href="/indices">Indices</Link>
           <Link href="/methodology">Method</Link>
         </nav>
       </div>

@@ -2,6 +2,7 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { act, addToInbox } from './actions';
+import { describeDerivation } from './derivation';
 import { createClient } from '@/lib/supabase-browser';
 
 interface Pitch {
@@ -10,6 +11,16 @@ interface Pitch {
   trigger_rows: any; metric_ids: string[] | null; score: any; rank_value: number | null;
   state: string; resurface_on: string | null; resurface_after: string | null;
   resurface_metrics: string[] | null; times_pitched: number; first_seen: string;
+  last_evaluated: string | null; state_changed: string | null; updated_at?: string | null;
+}
+interface PitchEvent {
+  event_id: string; pitch_id: string; at: string; actor: string; event: string;
+  from_state: string | null; to_state: string | null; changes: any; note: string | null;
+}
+interface Metric {
+  metric_id: string; name: string; unit: string; basis: string;
+  source_org: string; source_tier: number; source_url: string | null;
+  source_published: string | null; period: string | null;
 }
 
 const ORDER = ['pitched', 'candidate', 'approved', 'watchlist', 'dormant', 'rejected', 'published'];
@@ -18,8 +29,11 @@ const LABEL: Record<string, string> = {
   watchlist: 'Watchlist', dormant: 'Dormant', rejected: 'Rejected', published: 'Published',
 };
 
-export default function StudioBoard({ pitches, runs, inbox, feedback }:
-  { pitches: Pitch[]; runs: any[]; inbox: any[]; feedback: any[] }) {
+export default function StudioBoard({ pitches, runs, inbox, feedback, events, metrics }:
+  { pitches: Pitch[]; runs: any[]; inbox: any[]; feedback: any[];
+    events: PitchEvent[]; metrics: Metric[] }) {
+  const metricById = new Map(metrics.map((m) => [m.metric_id, m]));
+  const eventsFor = (id: string) => events.filter((e) => e.pitch_id === id);
   const [tab, setTab] = useState('pitched');
   const [open, setOpen] = useState<string | null>(null);
   const [note, setNote] = useState<Record<string, string>>({});
@@ -76,13 +90,20 @@ export default function StudioBoard({ pitches, runs, inbox, feedback }:
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: '18rem' }}>
                   <div style={meta}>
-                    {p.detector}
+                    {fmtDate(p.first_seen)}
+                    {p.updated_at && p.updated_at !== p.first_seen &&
+                      ` · updated ${fmtDate(p.updated_at)}`}
                     {p.times_pitched > 1 && ` · pitched ${p.times_pitched}\u00d7`}
                     {p.rank_value != null && ` · rank ${p.rank_value}`}
                   </div>
                   <h2 style={{ fontFamily: 'Fraunces, Georgia, serif', fontSize: '1.25rem',
                     lineHeight: 1.25, marginBottom: '.5rem' }}>{p.headline}</h2>
                   {p.hook && <p style={{ color: 'var(--ink-soft)', fontSize: '.92rem' }}>{p.hook}</p>}
+                  <p style={{ ...meta, textTransform: 'none', letterSpacing: 0,
+                    fontSize: '.74rem', marginTop: '.55rem', paddingLeft: '.6rem',
+                    borderLeft: '2px solid var(--rule)', color: 'var(--ink-soft)' }}>
+                    {describeDerivation(p.detector, p.trigger_rows)}
+                  </p>
                 </div>
                 {p.score && (
                   <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.68rem',
@@ -102,6 +123,64 @@ export default function StudioBoard({ pitches, runs, inbox, feedback }:
                   {p.resurface_on && <Field label="Resurfaces" value={
                     `${p.resurface_on}${p.resurface_after ? ` (after ${p.resurface_after})` : ''}`} />}
                   {p.metric_ids?.length ? <Field label="Metrics" value={p.metric_ids.join(', ')} /> : null}
+                  {p.metric_ids?.length ? (
+                    <div style={{ marginTop: '1rem' }}>
+                      <div style={meta}>Sources — investigate the pitch</div>
+                      <table className="data" style={{ marginTop: '.4rem' }}>
+                        <thead>
+                          <tr><th>Series</th><th>Publisher</th><th>Tier</th><th>Period</th></tr>
+                        </thead>
+                        <tbody>
+                          {p.metric_ids.map((id) => {
+                            const m = metricById.get(id);
+                            return (
+                              <tr key={id}>
+                                <td>
+                                  {m?.source_url ? (
+                                    <a href={m.source_url} target="_blank" rel="noreferrer"
+                                      style={{ borderBottom: '1px solid var(--pen)' }}>
+                                      {m?.name ?? id} ↗
+                                    </a>
+                                  ) : (m?.name ?? id)}
+                                  {m?.basis && <div style={{ opacity: .65, fontSize: '.68rem' }}>{m.basis}</div>}
+                                </td>
+                                <td>{m?.source_org ?? '—'}</td>
+                                <td>{m ? <span className={`tier t${m.source_tier}`}>Tier {m.source_tier}</span> : '—'}</td>
+                                <td>{m?.period ?? '—'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : null}
+
+                  <div style={{ marginTop: '1rem' }}>
+                    <div style={meta}>Audit trail</div>
+                    <ul style={{ listStyle: 'none', marginTop: '.4rem' }}>
+                      {eventsFor(p.id).map((e) => (
+                        <li key={e.event_id} style={{ ...meta, textTransform: 'none',
+                          letterSpacing: 0, marginBottom: '.3rem', display: 'flex', gap: '.6rem' }}>
+                          <span style={{ minWidth: '9.5rem', color: 'var(--ink-faint)' }}>
+                            {fmtDateTime(e.at)}
+                          </span>
+                          <span style={{ minWidth: '3.4rem',
+                            color: e.actor === 'editor' ? 'var(--pen)' : 'var(--ink-faint)' }}>
+                            {e.actor}
+                          </span>
+                          <span style={{ color: 'var(--ink-soft)' }}>
+                            {describeEvent(e)}
+                          </span>
+                        </li>
+                      ))}
+                      {!eventsFor(p.id).length && (
+                        <li style={{ ...meta, textTransform: 'none' }}>
+                          No events recorded. Run 07_audit.sql to enable the trail.
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+
                   <details style={{ marginTop: '.7rem' }}>
                     <summary style={{ ...meta, cursor: 'pointer' }}>Trigger rows</summary>
                     <pre style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.7rem',
@@ -180,6 +259,24 @@ export default function StudioBoard({ pitches, runs, inbox, feedback }:
     </>
   );
 }
+
+function describeEvent(e: PitchEvent): string {
+  if (e.event === 'created') return `created as ${e.to_state}`;
+  if (e.event === 'resurfaced')
+    return `resurfaced to ${e.to_state}${e.note ? ` — ${e.note}` : ''}`;
+  if (e.event === 'state_change') return `${e.from_state} → ${e.to_state}`;
+  if (e.event === 'edited') {
+    const keys = Object.keys(e.changes ?? {});
+    return `edited: ${keys.join(', ')}`;
+  }
+  return e.event;
+}
+const fmtDate = (s?: string | null) => s
+  ? new Date(s).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' })
+  : '';
+const fmtDateTime = (s?: string | null) => s
+  ? new Date(s).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  : '';
 
 function Field({ label, value, pen }: { label: string; value: string; pen?: boolean }) {
   return (
