@@ -34,8 +34,9 @@ async function absFetch(path, accept = 'application/vnd.sdmx.data+json') {
 
 /** SDMX-JSON -> [{ period, value }]. Handles the series form (time at observation). */
 function parseSdmxJson(json) {
-  const ds = json?.dataSets?.[0];
-  const struct = json?.structure ?? json?.data?.structures?.[0];
+  const root = json?.data ?? json;
+  const ds = root?.dataSets?.[0];
+  const struct = root?.structures?.[0] ?? json?.structure;
   if (!ds || !struct) return [];
   const timeValues = (struct.dimensions?.observation ?? [])
     .find((d) => d.id === 'TIME_PERIOD' || d.role === 'time')?.values ?? [];
@@ -63,8 +64,9 @@ function parseSdmxJson(json) {
 
 /** Series keys available in a response, so you can see what a broad query returned. */
 function seriesKeys(json) {
-  const ds = json?.dataSets?.[0];
-  const struct = json?.structure ?? json?.data?.structures?.[0];
+  const root = json?.data ?? json;
+  const ds = root?.dataSets?.[0];
+  const struct = root?.structures?.[0] ?? json?.structure;
   if (!ds?.series || !struct) return [];
   const dims = struct.dimensions?.series ?? [];
   return Object.keys(ds.series).slice(0, 25).map((k) => {
@@ -101,6 +103,27 @@ async function structure(id) {
   });
   console.log('\nBuild a dataKey by joining codes with dots, in the order above.');
   console.log('Leave a position empty to wildcard it, e.g. 3..10.50.Q');
+}
+
+/** List actual dataKeys whose dimension labels contain all given terms. */
+async function keys(id, ...terms) {
+  const json = await absFetch(`/data/ABS,${id}/all?lastNObservations=1&format=jsondata`);
+  const root = json?.data ?? json;
+  const st = root?.structures?.[0]?.dimensions?.series ?? [];
+  const series = root?.dataSets?.[0]?.series ?? {};
+  const want = terms.map((t) => t.toLowerCase());
+  let n = 0;
+  for (const k of Object.keys(series)) {
+    const p = k.split(':').map(Number);
+    const labels = p.map((v, i) => st[i]?.values?.[v]?.name ?? '?');
+    const hay = labels.join(' | ').toLowerCase();
+    if (want.every((w) => hay.includes(w))) {
+      const codes = p.map((v, i) => st[i]?.values?.[v]?.id ?? '?');
+      console.log(`${codes.join('.').padEnd(26)} ${labels.join(' | ')}`);
+      if (++n >= 30) break;
+    }
+  }
+  if (!n) console.log('No series matched those terms. Try fewer or different words.');
 }
 
 async function peek(id, key = 'all', lastN = 8) {
@@ -152,6 +175,33 @@ async function load() {
         .upsert(rows, { onConflict: 'metric_id,entity,period' });
       if (error) throw error;
 
+      // derived series (e.g. annual change computed from an index)
+      if (s.derive && obs.length > s.derive.lag) {
+        const d = s.derive;
+        await db.from('metrics').upsert({
+          metric_id: d.metric_id, name: d.name, unit: d.unit, basis: d.basis,
+          direction: d.direction, category: d.category, source_tier: 1,
+          source_org: 'ABS', source_dataset: `${s.dataflow} (derived)`,
+          source_url: `https://data.api.abs.gov.au/rest/data/ABS,${s.dataflow}/${s.dataKey}`,
+          source_published: new Date().toISOString().slice(0, 10),
+          period: `${obs[d.lag].period}\u2013${obs[obs.length - 1].period}`,
+        });
+        const derived = [];
+        for (let i = d.lag; i < obs.length; i++) {
+          const prior = obs[i - d.lag].value;
+          if (!prior) continue;
+          derived.push({ metric_id: d.metric_id, entity: 'AUS', period: obs[i].period,
+            value: Number(((obs[i].value / prior - 1) * 100).toFixed(2)), status: 'derived' });
+        }
+        if (derived.length) {
+          const { error: de } = await db.from('observations')
+            .upsert(derived, { onConflict: 'metric_id,entity,period' });
+          if (de) throw de;
+          console.log(`${d.metric_id}: ${derived.length} derived from ${s.metric_id}` +
+            ` (latest ${derived[derived.length - 1].period} = ${derived[derived.length - 1].value}%)`);
+        }
+      }
+
       totalNew += fresh.length;
       if (fresh.length) changed.push(`${s.metric_id}+${fresh.length}`);
       console.log(`${s.metric_id}: ${rows.length} obs (${fresh.length} new), ` +
@@ -176,6 +226,7 @@ const run = {
   discover: () => discover(a),
   structure: () => structure(a),
   peek: () => peek(a, b),
+  keys: () => keys(a, ...process.argv.slice(4)),
   load,
 }[cmd];
 
@@ -183,6 +234,7 @@ if (!run) {
   console.log(`Usage:
   node scripts/watch-abs.mjs discover <term>         find dataflow ids
   node scripts/watch-abs.mjs structure <dataflowId>  list dimensions + codes
+  node scripts/watch-abs.mjs keys <dataflowId> <term...>  list real dataKeys matching labels
   node scripts/watch-abs.mjs peek <dataflowId> <key> preview, no writes
   node scripts/watch-abs.mjs load                    fetch all configured series`);
   process.exit(0);

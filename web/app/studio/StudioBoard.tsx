@@ -271,12 +271,20 @@ function describeEvent(e: PitchEvent): string {
   }
   return e.event;
 }
-const fmtDate = (s?: string | null) => s
-  ? new Date(s).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' })
-  : '';
-const fmtDateTime = (s?: string | null) => s
-  ? new Date(s).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-  : '';
+
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmtDate = (s?: string | null) => {
+  if (!s) return '';
+  const d = new Date(s);
+  return `${d.getDate()} ${MON[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`;
+};
+const fmtDateTime = (s?: string | null) => {
+  if (!s) return '';
+  const d = new Date(s);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${d.getDate()} ${MON[d.getMonth()]} ${hh}:${mm}`;
+};
 
 function Field({ label, value, pen }: { label: string; value: string; pen?: boolean }) {
   return (
