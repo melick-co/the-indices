@@ -17,7 +17,7 @@
  *  - A User-Agent header is REQUIRED or the API returns 403
  *  - Omit the version from the dataflow id to always get the latest
  */
-import { ABS_SERIES, RPPI_CITIES } from './abs-config.mjs';
+import { ABS_SERIES } from './abs-config.mjs';
 
 const BASE = 'https://data.api.abs.gov.au/rest';
 const UA = 'caveat-indices/0.1 (+https://caveat.news)';
@@ -221,39 +221,6 @@ async function load() {
   console.log(totalNew ? 'New periods will wake resurfacing pitches on the next daily run.' : '');
 }
 
-/** Load capital-city property price indices as separate entities (city codes). */
-async function cities() {
-  const { createClient } = await import('@supabase/supabase-js');
-  const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { persistSession: false } });
-
-  await db.from('metrics').upsert({
-    metric_id: 'house_price_index_city', name: 'Residential property price index, capital cities',
-    unit: 'index', basis: 'ABS Residential Property Price Index by greater capital city',
-    direction: 'higher_is_more_pressure', category: 'housing', source_tier: 1,
-    source_org: 'ABS', source_dataset: 'RPPI (by city)',
-    source_url: 'https://data.api.abs.gov.au/rest/data/ABS,RPPI/1.3.100.Q',
-    source_published: new Date().toISOString().slice(0, 10), period: 'quarterly',
-  });
-
-  for (const { code, city } of RPPI_CITIES) {
-    try {
-      const json = await absFetch(`/data/ABS,RPPI/1.3.${code}.Q?lastNObservations=40&format=jsondata`);
-      const obs = parseSdmxJson(json);
-      if (!obs.length) { console.log(`${city}: nothing parsed`); continue; }
-      // Cities are stored under their own entity codes, e.g. AUS-SYD
-      const entity = `AU_${city.slice(0, 3).toUpperCase()}`;
-      await db.from('entities').upsert({ code: entity, name: city, region: 'Australia' });
-      const rows = obs.map((o) => ({ metric_id: 'house_price_index_city', entity,
-        period: o.period, value: o.value, status: 'published' }));
-      const { error } = await db.from('observations')
-        .upsert(rows, { onConflict: 'metric_id,entity,period' });
-      if (error) throw error;
-      console.log(`${city.padEnd(10)} ${rows.length} obs, latest ${obs[obs.length-1].period} = ${obs[obs.length-1].value}`);
-    } catch (e) { console.error(`${city}: ${e.message}`); }
-  }
-}
-
 const [, , cmd, a, b] = process.argv;
 const run = {
   discover: () => discover(a),
@@ -261,7 +228,6 @@ const run = {
   peek: () => peek(a, b),
   keys: () => keys(a, ...process.argv.slice(4)),
   load,
-  cities,
 }[cmd];
 
 if (!run) {
@@ -270,8 +236,7 @@ if (!run) {
   node scripts/watch-abs.mjs structure <dataflowId>  list dimensions + codes
   node scripts/watch-abs.mjs keys <dataflowId> <term...>  list real dataKeys matching labels
   node scripts/watch-abs.mjs peek <dataflowId> <key> preview, no writes
-  node scripts/watch-abs.mjs load                    fetch all configured series
-  node scripts/watch-abs.mjs cities                  load capital-city property indices`);
+  node scripts/watch-abs.mjs load                    fetch all configured series`);
   process.exit(0);
 }
 run().catch((e) => { console.error(e.message); process.exit(1); });

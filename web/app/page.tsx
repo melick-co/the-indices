@@ -3,13 +3,18 @@ import Masthead from '@/components/Masthead';
 import HeroFlip from '@/components/HeroFlip';
 import Capture from '@/components/Capture';
 import SiteFooter from '@/components/SiteFooter';
+import Ticker from '@/components/Ticker';
+import IndexDash from '@/components/IndexDash';
 import { STORIES } from '@/content/stories';
 
-export default function Home() {
+export const revalidate = 900;   // ticker refreshes every 15 minutes
+
+export default async function Home() {
   return (
     <>
       <Masthead />
       <main>
+        <Ticker />
         <HeroFlip />
         <div className="wrap">
           <h2 className="section-head">Stories</h2>
@@ -27,6 +32,7 @@ export default function Home() {
             ))}
           </div>
         </div>
+        <div className="wrap"><IndexDash /></div>
         <Capture />
       </main>
       <SiteFooter />

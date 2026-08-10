@@ -112,6 +112,44 @@ cp dist/published/hsi-*.{json,csv} ../web/public/data/
 
 Published vintages are immutable: add a new one, never edit one in place.
 
+## Access model (IAM)
+
+Three roles, enforced by Supabase RLS via an `is_admin()` helper:
+
+| Role | Sees |
+|---|---|
+| public (anon) | Stories, evidence pages, indices, methodology, and the curated news ticker |
+| subscriber | The above, plus `/account`: alert preferences and followed topics |
+| admin | Everything, plus `/studio` and `/studio/ask` |
+
+Registration is the same magic link as sign-in: a first-time address creates an
+`auth.users` row, a trigger creates a `profiles` row with role `subscriber`, and
+they land on `/account`.
+
+**Bootstrap yourself as admin after running `09_iam.sql`:**
+```sql
+update profiles set role = 'admin' where email = 'you@example.com';
+```
+Until you do, nobody can reach the studio — including you.
+
+The masthead is role-aware: signed out shows *Sign in*, subscribers see *Account*,
+admins see *Studio* in editor's red.
+
+## The ticker
+
+Curated headlines scroll under the masthead on the home page. Only rows with
+`curated = true` are exposed publicly (the sole public policy on `rss_items`),
+so nothing reaches the ticker without you ticking it in the studio's News panel.
+The home page revalidates every 15 minutes; the ticker pauses on hover and
+disables its animation under `prefers-reduced-motion`.
+
+## Index dashboard
+
+A compact panel on the home page showing each published index, Australia's score
+and rank, and the current vintage. It reads the published JSON in
+`content/indices/`, so it needs no database and new indices appear automatically
+once their vintage is committed.
+
 ## Not yet built
 - Remotion render pipeline for MP4 story videos
 - OG image generation per story

@@ -55,3 +55,15 @@ export async function addToInbox(kind: string, title: string, body: string, url:
   });
   revalidatePath('/studio');
 }
+
+/** Mark a news item for the public ticker, with an optional label. */
+export async function curate(itemId: string, curated: boolean, note?: string) {
+  const supabase = createClient();
+  await supabase.from('rss_items').update({
+    curated,
+    curated_note: curated ? (note || null) : null,
+    curated_at: curated ? new Date().toISOString() : null,
+  }).eq('item_id', itemId);
+  revalidatePath('/studio');
+  revalidatePath('/');
+}

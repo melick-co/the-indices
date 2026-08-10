@@ -18,7 +18,11 @@ export default function Login() {
   return (
     <main className="wrap" style={{ maxWidth: '26rem', paddingTop: '5rem' }}>
       <div className="wordmark" style={{ fontSize: '2rem' }}>Caveat</div>
-      <div className="lector" style={{ marginBottom: '2rem' }}>Studio · sign in</div>
+      <div className="lector" style={{ marginBottom: '1.2rem' }}>Sign in or register</div>
+      <p className="note" style={{ marginBottom: '1.5rem' }}>
+        One link, no password. New here? The same link registers you and sets up alerts.
+        Stories, indices and sources stay public either way.
+      </p>
       {sent ? (
         <p>Check your email for a sign-in link.</p>
       ) : (

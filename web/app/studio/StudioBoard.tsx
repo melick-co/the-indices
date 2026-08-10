@@ -1,7 +1,7 @@
 'use client';
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { act, addToInbox } from './actions';
+import { act, addToInbox, curate } from './actions';
 import { describeDerivation } from './derivation';
 import { createClient } from '@/lib/supabase-browser';
 
@@ -29,9 +29,9 @@ const LABEL: Record<string, string> = {
   watchlist: 'Watchlist', dormant: 'Dormant', rejected: 'Rejected', published: 'Published',
 };
 
-export default function StudioBoard({ pitches, runs, inbox, feedback, events, metrics }:
+export default function StudioBoard({ pitches, runs, inbox, feedback, events, metrics, news }:
   { pitches: Pitch[]; runs: any[]; inbox: any[]; feedback: any[];
-    events: PitchEvent[]; metrics: Metric[] }) {
+    events: PitchEvent[]; metrics: Metric[]; news: any[] }) {
   const metricById = new Map(metrics.map((m) => [m.metric_id, m]));
   const eventsFor = (id: string) => events.filter((e) => e.pitch_id === id);
   const [tab, setTab] = useState('pitched');
@@ -55,6 +55,7 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
             <div className="lector">Studio · editorial workbench</div>
           </div>
           <nav className="nav">
+            <Link href="/studio/ask">Ask</Link>
             <button onClick={() => setShowInbox((v) => !v)} style={linkBtn}>+ Inbox</button>
             <Link href="/">Public site</Link>
             <button style={linkBtn}
@@ -221,6 +222,29 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
           );
         })}
 
+        <section style={{ marginTop: '3rem' }}>
+          <h3 className="section-head">
+            News · tick to feature on the public ticker ({news.filter((n) => n.curated).length} live)
+          </h3>
+          {news.map((n) => (
+            <div key={n.item_id} style={{ display: 'flex', gap: '.7rem', alignItems: 'flex-start',
+              padding: '.5rem 0', borderBottom: '1px solid var(--rule)' }}>
+              <input type="checkbox" defaultChecked={n.curated} style={{ marginTop: '.3rem' }}
+                onChange={(e) => start(() => { curate(n.item_id, e.target.checked); })} />
+              <div style={{ flex: 1 }}>
+                <a href={n.link ?? '#'} target="_blank" rel="noreferrer"
+                  style={{ fontSize: '.88rem' }}>{n.title}</a>
+                <div style={meta}>
+                  {n.published_at ? fmtDate(n.published_at) : ''}
+                  {n.matched_keywords?.length ? ` · ${n.matched_keywords.slice(0, 4).join(', ')}` : ''}
+                  {n.curated && n.curated_note ? ` · "${n.curated_note}"` : ''}
+                </div>
+              </div>
+            </div>
+          ))}
+          {!news.length && <p style={meta}>No news items yet. Run the RSS sweep.</p>}
+        </section>
+
         <section style={{ marginTop: '3rem', display: 'grid', gap: '2rem',
           gridTemplateColumns: 'repeat(auto-fit,minmax(17rem,1fr))' }}>
           <div>
@@ -271,20 +295,12 @@ function describeEvent(e: PitchEvent): string {
   }
   return e.event;
 }
-
-const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const fmtDate = (s?: string | null) => {
-  if (!s) return '';
-  const d = new Date(s);
-  return `${d.getDate()} ${MON[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`;
-};
-const fmtDateTime = (s?: string | null) => {
-  if (!s) return '';
-  const d = new Date(s);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${d.getDate()} ${MON[d.getMonth()]} ${hh}:${mm}`;
-};
+const fmtDate = (s?: string | null) => s
+  ? new Date(s).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' })
+  : '';
+const fmtDateTime = (s?: string | null) => s
+  ? new Date(s).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  : '';
 
 function Field({ label, value, pen }: { label: string; value: string; pen?: boolean }) {
   return (

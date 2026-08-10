@@ -8,7 +8,7 @@ export default async function Studio() {
   const supabase = createClient();
 
   const [{ data: pitches }, { data: runs }, { data: inbox }, { data: feedback },
-    { data: events }, { data: metrics }] =
+    { data: events }, { data: metrics }, { data: news }] =
     await Promise.all([
       supabase.from('pitches').select('*')
         .order('state').order('rank_value', { ascending: false, nullsFirst: false })
@@ -18,13 +18,17 @@ export default async function Studio() {
       supabase.from('pitch_feedback').select('*').order('created_at', { ascending: false }).limit(10),
       supabase.from('pitch_events').select('*').order('at', { ascending: false }).limit(400),
       supabase.from('metrics').select('metric_id, name, unit, basis, source_org, source_tier, source_url, source_published, period'),
+      supabase.from('rss_items')
+        .select('item_id, title, link, summary, published_at, status, curated, curated_note, matched_keywords')
+        .in('status', ['prefiltered', 'evaluated', 'linked_to_pitch', 'converted_to_idea'])
+        .order('published_at', { ascending: false }).limit(40),
     ]);
 
   return (
     <StudioBoard
       pitches={pitches ?? []} runs={runs ?? []}
       inbox={inbox ?? []} feedback={feedback ?? []}
-      events={events ?? []} metrics={metrics ?? []}
+      events={events ?? []} metrics={metrics ?? []} news={news ?? []}
     />
   );
 }

@@ -80,13 +80,20 @@ async function fetchFeeds() {
 }
 
 async function prefilter() {
+  // Tracked topics from the studio extend the global watchlist, so adding a
+  // topic there immediately changes what the news watcher notices.
+  const { data: topics } = await db.from('tracked_topics')
+    .select('keywords').eq('active', true);
+  const topicWords = (topics ?? []).flatMap((t) => t.keywords ?? []);
+  const GLOBAL = [...new Set([...GLOBAL_KEYWORDS, ...topicWords])];
+
   const { data: feeds } = await db.from('rss_feeds').select('feed_id, watch_keywords');
-  const kwFor = new Map((feeds ?? []).map((f) => [f.feed_id, f.watch_keywords?.length ? f.watch_keywords : GLOBAL_KEYWORDS]));
+  const kwFor = new Map((feeds ?? []).map((f) => [f.feed_id, f.watch_keywords?.length ? f.watch_keywords : GLOBAL]));
   const { data: items } = await db.from('rss_items').select('*').eq('status', 'fetched').limit(500);
   let hits = 0;
   for (const it of items ?? []) {
     const hay = `${it.title} ${it.summary}`.toLowerCase();
-    const matched = (kwFor.get(it.feed_id) ?? GLOBAL_KEYWORDS).filter((k) => hay.includes(k.toLowerCase()));
+    const matched = (kwFor.get(it.feed_id) ?? GLOBAL).filter((k) => hay.includes(k.toLowerCase()));
     await db.from('rss_items').update(
       matched.length ? { status: 'prefiltered', matched_keywords: matched } : { status: 'discarded', eval_notes: 'no keyword match' }
     ).eq('item_id', it.item_id);

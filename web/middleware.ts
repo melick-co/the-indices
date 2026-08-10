@@ -6,7 +6,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  * Public routes never touch Supabase, so the database stays private behind RLS
  * and public pages stay fast.
  */
-const GATED = ['/studio'];
+const GATED = ['/studio', '/account'];
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -33,7 +33,19 @@ export async function middleware(request: NextRequest) {
   if (!user) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
+    url.searchParams.set('next', path);
     return NextResponse.redirect(url);
+  }
+
+  // The studio is admin only. Subscribers land on their account instead.
+  if (path.startsWith('/studio')) {
+    const { data: profile } = await supabase.from('profiles')
+      .select('role').eq('id', user.id).single();
+    if (profile?.role !== 'admin') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/account';
+      return NextResponse.redirect(url);
+    }
   }
   return response;
 }
