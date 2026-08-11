@@ -1,17 +1,19 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase-browser';
-import type { EmailOtpType } from '@supabase/supabase-js';
+import type { EmailOtpType, Session } from '@supabase/supabase-js';
 
 /**
- * Client-side callback so the PKCE code verifier (stored in browser cookies
- * when the magic link was requested) is available for the exchange.
- * A Route Handler often failed here and bounced users back to /login.
+ * Magic-link landing page.
+ *
+ * This project’s Supabase verify step redirects with tokens in the URL hash
+ * (`#access_token=…&refresh_token=…`), not a PKCE `?code=`. We must call
+ * setSession from that hash. Soft client navigations can race the cookie write,
+ * so success uses a full-page redirect.
  */
 function CallbackInner() {
-  const router = useRouter();
   const search = useSearchParams();
   const [message, setMessage] = useState('Signing you in…');
 
@@ -20,64 +22,69 @@ function CallbackInner() {
 
     async function finish() {
       const supabase = createClient();
+      const authError = search.get('error_description') || search.get('error');
+      if (authError) {
+        fail(authError);
+        return;
+      }
+
+      let session: Session | null = null;
+      let error: string | null = null;
+
       const code = search.get('code');
       const tokenHash = search.get('token_hash');
       const type = search.get('type') as EmailOtpType | null;
-      const next = safeNext(search.get('next'));
-      const authError = search.get('error_description') || search.get('error');
-
-      if (authError) {
-        if (!cancelled) setMessage(authError);
-        router.replace(`/login?error=${encodeURIComponent(authError)}`);
-        return;
-      }
-
-      let error: { message: string } | null = null;
 
       if (code) {
-        ({ error } = await supabase.auth.exchangeCodeForSession(code));
+        const res = await supabase.auth.exchangeCodeForSession(code);
+        error = res.error?.message ?? null;
+        session = res.data.session;
       } else if (tokenHash && type) {
-        ({ error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash }));
-      } else if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
-        // Implicit/hash fallback — createBrowserClient has detectSessionInUrl.
-        await new Promise((r) => setTimeout(r, 50));
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) error = { message: 'Could not read session from URL.' };
+        const res = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
+        error = res.error?.message ?? null;
+        session = res.data.session;
       } else {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          error = { message: 'Missing auth code. Try requesting a new link.' };
+        // Implicit flow: tokens arrive in the hash fragment.
+        const fromHash = sessionFromHash();
+        if (fromHash) {
+          const res = await supabase.auth.setSession(fromHash);
+          error = res.error?.message ?? null;
+          session = res.data.session;
+          // Strip tokens from the address bar.
+          window.history.replaceState({}, '', window.location.pathname + window.location.search);
+        } else {
+          const res = await supabase.auth.getSession();
+          session = res.data.session;
+          if (!session) error = 'Missing auth tokens. Try requesting a new link.';
         }
       }
 
-      if (error) {
-        if (!cancelled) setMessage(error.message);
-        router.replace(`/login?error=${encodeURIComponent(error.message)}`);
+      if (cancelled) return;
+      if (error || !session) {
+        fail(error || 'Sign-in failed. Try a new link.');
         return;
       }
 
-      let dest = next;
+      let dest = safeNext(search.get('next'));
       if (!search.get('next')) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile } = await supabase.from('profiles')
-            .select('role').eq('id', user.id).single();
-          dest = profile?.role === 'admin' ? '/studio' : '/account';
-        }
+        const { data: profile } = await supabase.from('profiles')
+          .select('role').eq('id', session.user.id).single();
+        dest = profile?.role === 'admin' ? '/studio' : '/account';
       }
 
-      if (!cancelled) router.replace(dest);
+      // Full reload so middleware sees the new auth cookies.
+      window.location.replace(dest);
     }
 
-    finish().catch((e: Error) => {
-      if (!cancelled) {
-        setMessage(e.message);
-        router.replace(`/login?error=${encodeURIComponent(e.message)}`);
-      }
-    });
+    function fail(msg: string) {
+      if (cancelled) return;
+      setMessage(msg);
+      window.location.replace(`/login?error=${encodeURIComponent(msg)}`);
+    }
 
+    finish().catch((e: Error) => fail(e.message));
     return () => { cancelled = true; };
-  }, [router, search]);
+  }, [search]);
 
   return (
     <main className="wrap" style={{ maxWidth: '26rem', paddingTop: '5rem' }}>
@@ -85,6 +92,17 @@ function CallbackInner() {
       <p className="note" style={{ marginTop: '1.2rem' }}>{message}</p>
     </main>
   );
+}
+
+function sessionFromHash(): { access_token: string; refresh_token: string } | null {
+  if (typeof window === 'undefined') return null;
+  const raw = window.location.hash.replace(/^#/, '');
+  if (!raw) return null;
+  const params = new URLSearchParams(raw);
+  const access_token = params.get('access_token');
+  const refresh_token = params.get('refresh_token');
+  if (!access_token || !refresh_token) return null;
+  return { access_token, refresh_token };
 }
 
 function safeNext(raw: string | null): string {

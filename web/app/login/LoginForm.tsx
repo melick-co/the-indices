@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase-browser';
 
@@ -9,6 +9,32 @@ export default function LoginForm() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState<string | null>(search.get('error'));
+
+  // If Supabase Site URL points here, tokens may arrive in the hash instead
+  // of /auth/callback — finish sign-in rather than showing the form again.
+  useEffect(() => {
+    const raw = window.location.hash.replace(/^#/, '');
+    if (!raw.includes('access_token')) return;
+    const params = new URLSearchParams(raw);
+    const access_token = params.get('access_token');
+    const refresh_token = params.get('refresh_token');
+    if (!access_token || !refresh_token) return;
+
+    const supabase = createClient();
+    supabase.auth.setSession({ access_token, refresh_token }).then(async ({ data, error }) => {
+      if (error || !data.session) {
+        setErr(error?.message || 'Could not complete sign-in from email link.');
+        return;
+      }
+      window.history.replaceState({}, '', window.location.pathname + window.location.search);
+      const { data: profile } = await supabase.from('profiles')
+        .select('role').eq('id', data.session.user.id).single();
+      const dest = (next && next.startsWith('/') && !next.startsWith('//'))
+        ? next
+        : profile?.role === 'admin' ? '/studio' : '/account';
+      window.location.replace(dest);
+    });
+  }, [next]);
 
   async function send() {
     setErr(null);
