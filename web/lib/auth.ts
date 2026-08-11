@@ -12,7 +12,13 @@ export async function getProfile(): Promise<Profile | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-  return (data as Profile) ?? null;
+  if (data) return data as Profile;
+
+  // Trigger should have created the row; heal if it was missed.
+  const { data: created } = await supabase.from('profiles')
+    .upsert({ id: user.id, email: user.email ?? null }, { onConflict: 'id' })
+    .select('*').single();
+  return (created as Profile) ?? null;
 }
 
 export async function isAdmin(): Promise<boolean> {

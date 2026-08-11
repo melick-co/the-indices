@@ -47,6 +47,8 @@ drop policy if exists "read own profile" on profiles;
 drop policy if exists "update own profile" on profiles;
 drop policy if exists "admin reads all profiles" on profiles;
 create policy "read own profile"   on profiles for select to authenticated using (id = auth.uid());
+create policy "insert own profile" on profiles for insert to authenticated
+  with check (id = auth.uid());
 create policy "update own profile" on profiles for update to authenticated
   using (id = auth.uid())
   with check (id = auth.uid() and role = (select role from profiles where id = auth.uid()));

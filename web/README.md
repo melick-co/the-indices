@@ -132,6 +132,14 @@ update profiles set role = 'admin' where email = 'you@example.com';
 ```
 Until you do, nobody can reach the studio — including you.
 
+**Supabase Auth URL config** (Authentication → URL configuration):
+- Site URL: `https://the-indices.vercel.app`
+- Redirect URLs must include `https://the-indices.vercel.app/auth/callback`
+  (and `http://localhost:3000/auth/callback` for local).
+
+Magic links complete on `/auth/callback` in the browser (PKCE). Open the email
+link in the same browser you used to request it.
+
 The masthead is role-aware: signed out shows *Sign in*, subscribers see *Account*,
 admins see *Studio* in editor's red.
 

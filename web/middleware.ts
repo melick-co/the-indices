@@ -10,7 +10,11 @@ const GATED = ['/studio', '/account'];
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  if (!GATED.some((p) => path.startsWith(p))) return NextResponse.next();
+  const gated = GATED.some((p) => path.startsWith(p));
+
+  // Always refresh the session when hitting gated routes so cookies stay valid
+  // after the client-side magic-link exchange.
+  if (!gated) return NextResponse.next();
 
   let response = NextResponse.next({ request });
   const supabase = createServerClient(
