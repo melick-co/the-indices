@@ -3,8 +3,6 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { act, addToInbox, curate } from './actions';
 import { describeDerivation } from './derivation';
-import { createClient } from '@/lib/supabase-browser';
-
 interface Pitch {
   id: string; headline: string; hook: string | null; mechanism: string | null;
   caveat: string | null; chart_hint: string | null; detector: string;
@@ -56,12 +54,10 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
           </div>
           <nav className="nav">
             <Link href="/studio/ask">Ask</Link>
+            <Link href="/indices">Indices</Link>
+            <Link href="/methodology">Method</Link>
             <button onClick={() => setShowInbox((v) => !v)} style={linkBtn}>+ Inbox</button>
             <Link href="/">Public site</Link>
-            <button style={linkBtn}
-              onClick={async () => { await createClient().auth.signOut(); location.href = '/login'; }}>
-              Sign out
-            </button>
           </nav>
         </div>
       </header>

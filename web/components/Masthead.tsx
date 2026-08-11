@@ -1,9 +1,15 @@
 import Link from 'next/link';
-import { getProfile } from '@/lib/auth';
 
-export default async function Masthead() {
-  let profile = null;
-  try { profile = await getProfile(); } catch { /* public pages render signed out */ }
+const LINKS = [
+  { href: '/', label: 'Stories' },
+  { href: '/indices', label: 'Indices' },
+  { href: '/methodology', label: 'Method' },
+  { href: '/studio', label: 'Studio' },
+  { href: '/studio/ask', label: 'Ask' },
+  { href: '/account', label: 'Account' },
+] as const;
+
+export default function Masthead() {
   return (
     <header className="masthead">
       <div className="wrap masthead-inner">
@@ -12,12 +18,9 @@ export default async function Masthead() {
           <div className="lector">Caveat lector · let the reader beware</div>
         </div>
         <nav className="nav">
-          <Link href="/">Stories</Link>
-          <Link href="/indices">Indices</Link>
-          <Link href="/methodology">Method</Link>
-          {profile?.role === 'admin' && <Link href="/studio" style={{ color: 'var(--pen)' }}>Studio</Link>}
-          {profile && profile.role !== 'admin' && <Link href="/account">Account</Link>}
-          {!profile && <Link href="/login">Sign in</Link>}
+          {LINKS.map((l) => (
+            <Link key={l.href} href={l.href}>{l.label}</Link>
+          ))}
         </nav>
       </div>
     </header>

@@ -34,6 +34,7 @@ export default function AskPanel({ topics, sessions }: { topics: any[]; sessions
           </div>
           <nav className="nav">
             <Link href="/studio">Pitches</Link>
+            <Link href="/indices">Indices</Link>
             <Link href="/">Public site</Link>
           </nav>
         </div>
