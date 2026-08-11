@@ -6,12 +6,8 @@ import { createClient } from '@/lib/supabase-browser';
 import type { EmailOtpType, Session } from '@supabase/supabase-js';
 
 /**
- * Magic-link landing page.
- *
- * This project’s Supabase verify step redirects with tokens in the URL hash
- * (`#access_token=…&refresh_token=…`), not a PKCE `?code=`. We must call
- * setSession from that hash. Soft client navigations can race the cookie write,
- * so success uses a full-page redirect.
+ * Fallback landing for Supabase ConfirmationURL redirects.
+ * Prefer /auth/confirm?token_hash=… (no PKCE) or the 6-digit code on /login.
  */
 function CallbackInner() {
   const search = useSearchParams();
@@ -23,10 +19,7 @@ function CallbackInner() {
     async function finish() {
       const supabase = createClient();
       const authError = search.get('error_description') || search.get('error');
-      if (authError) {
-        fail(authError);
-        return;
-      }
+      if (authError) return fail(authError);
 
       let session: Session | null = null;
       let error: string | null = null;
@@ -34,36 +27,29 @@ function CallbackInner() {
       const code = search.get('code');
       const tokenHash = search.get('token_hash');
       const type = search.get('type') as EmailOtpType | null;
+      const fromHash = sessionFromHash();
 
-      if (code) {
-        const res = await supabase.auth.exchangeCodeForSession(code);
+      if (fromHash) {
+        const res = await supabase.auth.setSession(fromHash);
         error = res.error?.message ?? null;
         session = res.data.session;
+        window.history.replaceState({}, '', window.location.pathname + window.location.search);
       } else if (tokenHash && type) {
         const res = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
         error = res.error?.message ?? null;
         session = res.data.session;
+      } else if (code) {
+        const res = await supabase.auth.exchangeCodeForSession(code);
+        error = res.error?.message ?? null;
+        session = res.data.session;
       } else {
-        // Implicit flow: tokens arrive in the hash fragment.
-        const fromHash = sessionFromHash();
-        if (fromHash) {
-          const res = await supabase.auth.setSession(fromHash);
-          error = res.error?.message ?? null;
-          session = res.data.session;
-          // Strip tokens from the address bar.
-          window.history.replaceState({}, '', window.location.pathname + window.location.search);
-        } else {
-          const res = await supabase.auth.getSession();
-          session = res.data.session;
-          if (!session) error = 'Missing auth tokens. Try requesting a new link.';
-        }
+        const res = await supabase.auth.getSession();
+        session = res.data.session;
+        if (!session) error = 'Missing auth tokens. Try the 6-digit code from your email.';
       }
 
       if (cancelled) return;
-      if (error || !session) {
-        fail(error || 'Sign-in failed. Try a new link.');
-        return;
-      }
+      if (error || !session) return fail(error || 'Sign-in failed. Try a new link.');
 
       let dest = safeNext(search.get('next'));
       if (!search.get('next')) {
@@ -71,8 +57,6 @@ function CallbackInner() {
           .select('role').eq('id', session.user.id).single();
         dest = profile?.role === 'admin' ? '/studio' : '/account';
       }
-
-      // Full reload so middleware sees the new auth cookies.
       window.location.replace(dest);
     }
 

@@ -134,11 +134,23 @@ Until you do, nobody can reach the studio — including you.
 
 **Supabase Auth URL config** (Authentication → URL configuration):
 - Site URL: `https://the-indices.vercel.app`
-- Redirect URLs must include `https://the-indices.vercel.app/auth/callback`
-  (and `http://localhost:3000/auth/callback` for local).
+- Redirect URLs must include:
+  - `https://the-indices.vercel.app/auth/callback`
+  - `https://the-indices.vercel.app/auth/confirm`
+  - `http://localhost:3000/auth/callback` and `/auth/confirm` for local
 
-Magic links complete on `/auth/callback` in the browser (PKCE). Open the email
-link in the same browser you used to request it.
+**Magic Link email template** (Authentication → Email Templates → Magic Link).
+Replace the body with this so sign-in works across browsers (no PKCE cookie):
+
+```html
+<h2>Sign in to Caveat</h2>
+<p>Your one-time code:</p>
+<p style="font-size:1.4rem;letter-spacing:.2em"><strong>{{ .Token }}</strong></p>
+<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=magiclink">Sign in with this link</a></p>
+<p>The code and link expire shortly. If you did not request this, ignore the email.</p>
+```
+
+`/login` accepts the 6-digit code; `/auth/confirm` completes the token-hash link.
 
 The masthead is role-aware: signed out shows *Sign in*, subscribers see *Account*,
 admins see *Studio* in editor's red.
