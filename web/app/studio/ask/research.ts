@@ -70,6 +70,13 @@ these are hypotheses to test.
 `;
 
 async function callClaude(system: string, question: string, metricList: string) {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error(
+      'ANTHROPIC_API_KEY is not set on this deployment. Add it in Vercel → Settings → Environment Variables (Production), then redeploy.'
+    );
+  }
+
   const supabase = createClient();
   const messages: any[] = [{ role: 'user', content: question }];
   const toolsUsed: string[] = [];
@@ -98,12 +105,20 @@ async function callClaude(system: string, question: string, metricList: string) 
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({ model: MODEL, max_tokens: 4000, system, tools, messages }),
     });
-    if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    if (!res.ok) {
+      const detail = (await res.text()).slice(0, 300);
+      if (res.status === 401) {
+        throw new Error(
+          'Anthropic rejected the API key (401). Check ANTHROPIC_API_KEY in Vercel Production and redeploy.'
+        );
+      }
+      throw new Error(`Anthropic ${res.status}: ${detail}`);
+    }
     const body = await res.json();
 
     for (const b of body.content ?? [])
