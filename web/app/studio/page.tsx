@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
 import StudioBoard from './StudioBoard';
+import type { TopicSuggestion } from './SuggestionPanel';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Studio — Caveat' };
@@ -8,7 +9,8 @@ export default async function Studio() {
   const supabase = createClient();
 
   const [{ data: pitches }, { data: runs }, { data: inbox }, { data: feedback },
-    { data: events }, { data: metrics }, { data: news }, { data: trends }] =
+    { data: events }, { data: metrics }, { data: news }, { data: trends },
+    { data: suggestions }] =
     await Promise.all([
       supabase.from('pitches').select('*')
         .order('state').order('rank_value', { ascending: false, nullsFirst: false })
@@ -27,14 +29,44 @@ export default async function Studio() {
         .in('status', ['open', 'hypothesized'])
         .order('spike_score', { ascending: false })
         .limit(12),
+      supabase.from('topic_suggestions')
+        .select('suggestion_id, source_kind, source_id, action, status, summary, payload, created_at')
+        .order('created_at', { ascending: false })
+        .limit(30),
     ]);
+
+  const emailFrom = new Map(
+    (inbox ?? []).filter((i: { kind: string }) => i.kind === 'email')
+      .map((i: { id: string; from_address?: string | null }) => [i.id, i.from_address ?? null]),
+  );
+
+  const suggestionRows: TopicSuggestion[] = (suggestions ?? []).map((s: {
+    suggestion_id: string;
+    source_kind: string;
+    source_id: string | null;
+    action: TopicSuggestion['action'];
+    status: string;
+    summary: string;
+    payload: Record<string, unknown>;
+    created_at: string;
+  }) => ({
+    suggestion_id: s.suggestion_id,
+    source_kind: s.source_kind,
+    source_id: s.source_id,
+    action: s.action,
+    status: s.status,
+    summary: s.summary,
+    payload: s.payload ?? {},
+    created_at: s.created_at,
+    from_address: s.source_id ? emailFrom.get(s.source_id) ?? null : null,
+  }));
 
   return (
     <StudioBoard
       pitches={pitches ?? []} runs={runs ?? []}
       inbox={inbox ?? []} feedback={feedback ?? []}
       events={events ?? []} metrics={metrics ?? []} news={news ?? []}
-      trends={trends ?? []}
+      trends={trends ?? []} suggestions={suggestionRows}
     />
   );
 }

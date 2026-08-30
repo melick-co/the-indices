@@ -67,3 +67,74 @@ export async function curate(itemId: string, curated: boolean, note?: string) {
   revalidatePath('/studio');
   revalidatePath('/');
 }
+
+/** Apply an approved topic/story suggestion from the email review queue. */
+export async function approveSuggestion(suggestionId: string, note?: string) {
+  const supabase = createClient();
+  const { data: s } = await supabase.from('topic_suggestions')
+    .select('*').eq('suggestion_id', suggestionId).maybeSingle();
+  if (!s?.suggestion_id || s.status !== 'pending') return { ok: false as const };
+
+  const p = (s.payload ?? {}) as Record<string, unknown>;
+  let linkedPitch: string | null = null;
+
+  if (s.action === 'update_topic' && p.topic_id) {
+    const { data: topic } = await supabase.from('tracked_topics')
+      .select('keywords, why').eq('topic_id', String(p.topic_id)).maybeSingle();
+    if (topic) {
+      const add = Array.isArray(p.add_keywords) ? p.add_keywords.map(String) : [];
+      const keywords = [...new Set([...(topic.keywords ?? []), ...add])];
+      const noteLine = p.note ? String(p.note).trim() : '';
+      const why = noteLine ? [topic.why, noteLine].filter(Boolean).join('\n') : topic.why;
+      await supabase.from('tracked_topics').update({ keywords, why }).eq('topic_id', String(p.topic_id));
+    }
+  } else if (s.action === 'new_topic') {
+    const label = String(p.label ?? s.summary).trim();
+    const keywords = Array.isArray(p.keywords) ? p.keywords.map(String) : [];
+    if (label && keywords.length) {
+      await supabase.from('tracked_topics').insert({
+        label,
+        keywords,
+        why: p.why ? String(p.why) : null,
+        active: true,
+      });
+    }
+  } else if (s.action === 'story_idea') {
+    const { data: pitch } = await supabase.from('pitches').insert({
+      headline: String(p.headline_draft ?? s.summary).slice(0, 240),
+      hook: p.hook ? String(p.hook) : null,
+      caveat: p.kill_condition ? String(p.kill_condition) : null,
+      detector: 'email_lead',
+      trigger_rows: {
+        suggestion_id: suggestionId,
+        inbox_id: s.source_id,
+        data_needed: p.data_needed ?? null,
+      },
+      metric_ids: Array.isArray(p.metric_ids) ? p.metric_ids.map(String) : [],
+      state: 'candidate',
+    }).select('id').single();
+    linkedPitch = pitch?.id ?? null;
+  }
+
+  await supabase.from('topic_suggestions').update({
+    status: 'approved',
+    reviewed_at: new Date().toISOString(),
+    review_note: note?.trim() || null,
+    linked_pitch: linkedPitch,
+  }).eq('suggestion_id', suggestionId);
+
+  revalidatePath('/studio');
+  revalidatePath('/studio/ask');
+  return { ok: true as const };
+}
+
+export async function rejectSuggestion(suggestionId: string, note?: string) {
+  const supabase = createClient();
+  await supabase.from('topic_suggestions').update({
+    status: 'rejected',
+    reviewed_at: new Date().toISOString(),
+    review_note: note?.trim() || null,
+  }).eq('suggestion_id', suggestionId).eq('status', 'pending');
+  revalidatePath('/studio');
+  return { ok: true as const };
+}

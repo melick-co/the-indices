@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { act, addToInbox, curate } from './actions';
 import { describeDerivation } from './derivation';
 import { trendInvestigateUrls } from '@/lib/trend-prompts';
+import SuggestionPanel, { type TopicSuggestion } from './SuggestionPanel';
 interface Pitch {
   id: string; headline: string; hook: string | null; mechanism: string | null;
   caveat: string | null; chart_hint: string | null; detector: string;
@@ -28,9 +29,10 @@ const LABEL: Record<string, string> = {
   watchlist: 'Watchlist', dormant: 'Dormant', rejected: 'Rejected', published: 'Published',
 };
 
-export default function StudioBoard({ pitches, runs, inbox, feedback, events, metrics, news, trends }:
+export default function StudioBoard({ pitches, runs, inbox, feedback, events, metrics, news, trends, suggestions }:
   { pitches: Pitch[]; runs: any[]; inbox: any[]; feedback: any[];
-    events: PitchEvent[]; metrics: Metric[]; news: any[]; trends: any[] }) {
+    events: PitchEvent[]; metrics: Metric[]; news: any[]; trends: any[];
+    suggestions: TopicSuggestion[] }) {
   const metricById = new Map(metrics.map((m) => [m.metric_id, m]));
   const eventsFor = (id: string) => events.filter((e) => e.pitch_id === id);
   const [tab, setTab] = useState('pitched');
@@ -218,6 +220,8 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
             </article>
           );
         })}
+
+        <SuggestionPanel suggestions={suggestions} />
 
         <section style={{ marginTop: '3rem' }}>
           <h3 className="section-head">

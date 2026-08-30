@@ -6,6 +6,8 @@ on:
     - cron: '0 9 * * *'
     - cron: '15 21 * * *'
     - cron: '15 9 * * *'
+    - cron: '30 21 * * *'
+    - cron: '30 9 * * *'
     - cron: '30 20 * * *'
     - cron: '0 2 * * *'
   workflow_dispatch:
@@ -13,7 +15,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, daily, sources, both]
+        options: [rss, trends, email, daily, sources, both]
         default: both
 
 permissions:
@@ -64,6 +66,28 @@ jobs:
       - run: npm install @supabase/supabase-js --no-save --silent
       - name: Feed trend hypotheses
         run: node scripts/run-trends.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  email:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.task == 'email' || inputs.task == 'both') ||
+      github.event_name == 'schedule' &&
+      (github.event.schedule == '30 21 * * *' || github.event.schedule == '30 9 * * *')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run: { working-directory: agent }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm install @supabase/supabase-js --no-save --silent
+      - name: Editorial email review
+        run: node scripts/run-email-review.mjs
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

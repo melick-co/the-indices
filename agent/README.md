@@ -72,6 +72,36 @@ After each RSS sweep, `run-trends.mjs` looks for patterns in the last 72 hours:
 Clusters are stored in `trend_clusters` (migration `12_trend_clusters.sql`).
 Hypotheses feed the same daily taste pipeline as detector and RSS candidates.
 
+## Editorial email (suggest-and-approve)
+
+A newsroom mailbox receives forwarded newsletters, Google Alerts, and tips.
+Nothing changes the watcher until you approve in Studio.
+
+1. **Inbound** — Resend Inbound (or any POST) → `POST /api/inbox/email` on the web app.
+   Stores `inbox` row (`kind: email`, `status: new`). Set `INBOUND_EMAIL_SECRET` on
+   Vercel and send `Authorization: Bearer <secret>`.
+2. **Review** — `run-email-review.mjs` (30 min after RSS/trends) reads new emails,
+   compares against `tracked_topics` and the pitch bank, writes `topic_suggestions`
+   (`status: pending`).
+3. **Approve** — Studio → **Email suggestions**. Approve to merge keywords into a
+   topic, create a new topic, or bank a story idea as `candidate` pitch
+   (`detector: email_lead`). Reject discards the suggestion.
+
+Migration: `13_email_suggestions.sql`. Schedule: `:30` after RSS/trends in
+`.github/workflows/agent.yml`.
+
+**Resend setup:** add domain → enable Inbound → route to
+`https://the-indices.vercel.app/api/inbox/email` with bearer auth.
+
+**Test without email:**
+```bash
+curl -X POST https://the-indices.vercel.app/api/inbox/email \
+  -H "Authorization: Bearer $INBOUND_EMAIL_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"from":"you@example.com","subject":"Stamp duty story","text":"NSW budget pressure from falling stamp duty receipts..."}'
+cd agent && node scripts/run-email-review.mjs
+```
+
 ## Status: working agent
 
 Working end to end: schema, JS detectors (`scripts/detectors.mjs`, verified to
