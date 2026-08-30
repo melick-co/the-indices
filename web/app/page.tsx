@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Masthead from '@/components/Masthead';
 import HeroFlip from '@/components/HeroFlip';
 import Capture from '@/components/Capture';
 import SiteFooter from '@/components/SiteFooter';
@@ -12,13 +11,11 @@ export const revalidate = 900;   // ticker refreshes every 15 minutes
 export default async function Home() {
   return (
     <>
-      <Masthead />
       <main>
         <Ticker />
         <HeroFlip />
-        <div className="wrap">
-          <h2 className="section-head">Stories</h2>
-          <div className="cards">
+        <h2 className="section-head">Stories</h2>
+        <div className="cards">
             {STORIES.map((s) => (
               <Link key={s.slug} href={`/stories/${s.slug}`} className="card">
                 <div className="card-kicker">{s.kicker}</div>
@@ -30,9 +27,8 @@ export default async function Home() {
                 </div>
               </Link>
             ))}
-          </div>
         </div>
-        <div className="wrap"><IndexDash /></div>
+        <IndexDash />
         <Capture />
       </main>
       <SiteFooter />

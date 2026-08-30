@@ -1,12 +1,12 @@
 'use client';
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { research, bankResearch, addTopic, toggleTopic } from './research';
+import { research, bankResearch, addTopic, toggleTopic } from '../brainstorm/actions';
 
-type Mode = 'ask' | 'brainstorm';
+type Mode = 'ask';
 
 export default function AskPanel({ topics, sessions }: { topics: any[]; sessions: any[] }) {
-  const [mode, setMode] = useState<Mode>('ask');
+  const mode: Mode = 'ask';
   const [q, setQ] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -26,44 +26,27 @@ export default function AskPanel({ topics, sessions }: { topics: any[]; sessions
 
   return (
     <>
-      <header className="masthead">
-        <div className="wrap masthead-inner">
-          <div>
-            <Link href="/" className="wordmark">Caveat</Link>
-            <div className="lector">Studio · ask</div>
-          </div>
-          <nav className="nav">
-            <Link href="/studio">Pitches</Link>
-            <Link href="/indices">Indices</Link>
-            <Link href="/">Public site</Link>
-          </nav>
-        </div>
-      </header>
-
-      <main className="wrap" style={{ paddingBottom: '4rem' }}>
-        <div style={{ display: 'flex', gap: '.4rem', marginBottom: '1rem' }}>
-          <button style={tab(mode === 'ask')} onClick={() => setMode('ask')}>Ask</button>
-          <button style={tab(mode === 'brainstorm')} onClick={() => setMode('brainstorm')}>Brainstorm</button>
+      <main style={{ paddingBottom: 'var(--spacing-84)' }}>
+        <h1 className="section-head" style={{ borderBottom: 'none', marginBottom: 'var(--spacing-21)' }}>Ask</h1>
+        <div style={{ display: 'flex', gap: 'var(--spacing-10)', marginBottom: 'var(--spacing-21)', alignItems: 'center' }}>
+          <span className="studio-tab is-active">Ask</span>
+          <Link href="/studio/brainstorm" className="studio-tab">Brainstorm</Link>
         </div>
 
         <p style={{ ...meta, textTransform: 'none', letterSpacing: 0, marginBottom: '.7rem' }}>
-          {mode === 'ask'
-            ? 'Researches your store and the web, then judges the finding against the charter. Returns a verdict, not just an answer.'
-            : 'Generates candidate angles on a topic, ranked by how checkable they are. Hypotheses to test, not findings.'}
+          Researches your store and the web, then judges the finding against the charter. Returns a verdict, not just an answer.
         </p>
 
         <textarea
           value={q} onChange={(e) => setQ(e.target.value)} rows={3}
-          placeholder={mode === 'ask'
-            ? 'e.g. Has Australian real wage growth actually turned positive, or is that a base effect?'
-            : 'e.g. Angles on the gap between capital city house prices'}
+          placeholder="e.g. Has Australian real wage growth actually turned positive, or is that a base effect?"
           style={{ width: '100%', padding: '.7rem', border: '1px solid var(--ink)',
             background: 'var(--paper)', fontFamily: 'IBM Plex Mono, monospace',
             fontSize: '.85rem', resize: 'vertical', marginBottom: '.6rem' }} />
 
         <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <button style={primary} onClick={run} disabled={pending || !q.trim()}>
-            {pending ? 'Researching…' : mode === 'ask' ? 'Research' : 'Brainstorm'}
+            {pending ? 'Researching…' : 'Research'}
           </button>
           {pending && <span style={meta}>Reading the store and searching. This takes 20 to 60 seconds.</span>}
         </div>
@@ -85,7 +68,8 @@ export default function AskPanel({ topics, sessions }: { topics: any[]; sessions
                 ) : (
                   <button style={action('var(--verify)')} disabled={pending}
                     onClick={() => start(async () => {
-                      await bankResearch(sessionId, q.slice(0, 120)); setBanked(true);
+                      const r = await bankResearch(sessionId, q.slice(0, 120));
+                      if (r.ok) setBanked(true);
                     })}>
                     Bank as pitch
                   </button>

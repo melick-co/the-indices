@@ -11,7 +11,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, daily, abs, both]
+        options: [rss, daily, sources, both]
         default: both
 
 permissions:
@@ -67,13 +67,13 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
 
-  abs:
+  sources:
     if: >-
       github.event_name == 'workflow_dispatch' &&
-      (inputs.task == 'abs' || inputs.task == 'both') ||
+      (inputs.task == 'sources' || inputs.task == 'both') ||
       github.event_name == 'schedule' && github.event.schedule == '0 2 * * *'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     defaults:
       run: { working-directory: agent }
     steps:
@@ -81,8 +81,8 @@ jobs:
       - uses: actions/setup-node@v5
         with: { node-version: 22 }
       - run: npm install @supabase/supabase-js --no-save --silent
-      - name: ABS SDMX sweep
-        run: node scripts/watch-abs.mjs load
+      - name: Source connectors (ABS + World Bank + RBA)
+        run: node scripts/load-sources.mjs
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

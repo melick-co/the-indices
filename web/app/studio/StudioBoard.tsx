@@ -46,26 +46,14 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
 
   return (
     <>
-      <header className="masthead">
-        <div className="wrap masthead-inner">
-          <div>
-            <Link href="/" className="wordmark">Caveat</Link>
-            <div className="lector">Studio · editorial workbench</div>
-          </div>
-          <nav className="nav">
-            <Link href="/studio/ask">Ask</Link>
-            <Link href="/indices">Indices</Link>
-            <Link href="/methodology">Method</Link>
-            <button onClick={() => setShowInbox((v) => !v)} style={linkBtn}>+ Inbox</button>
-            <Link href="/">Public site</Link>
-          </nav>
-        </div>
-      </header>
-
-      <main className="wrap" style={{ paddingBottom: '4rem' }}>
+      <main style={{ paddingBottom: 'var(--spacing-84)' }}>
+        <h1 className="section-head" style={{ borderBottom: 'none', marginBottom: 'var(--spacing-21)' }}>Studio</h1>
         {showInbox && <InboxForm onDone={() => setShowInbox(false)} />}
+        <p style={{ marginBottom: 'var(--spacing-21)' }}>
+          <button type="button" className="studio-link" onClick={() => setShowInbox((v) => !v)}>+ Inbox</button>
+        </p>
 
-        <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', marginBottom: '1.75rem' }}>
+        <div style={{ display: 'flex', gap: 'var(--spacing-10)', flexWrap: 'wrap', marginBottom: 'var(--spacing-42)' }}>
           {ORDER.map((s) => (
             <button key={s} onClick={() => setTab(s)} style={tabBtn(s === tab)}>
               {LABEL[s]} <span style={{ opacity: .6 }}>{byState(s).length}</span>
@@ -93,8 +81,7 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
                     {p.times_pitched > 1 && ` · pitched ${p.times_pitched}\u00d7`}
                     {p.rank_value != null && ` · rank ${p.rank_value}`}
                   </div>
-                  <h2 style={{ fontFamily: 'Fraunces, Georgia, serif', fontSize: '1.25rem',
-                    lineHeight: 1.25, marginBottom: '.5rem' }}>{p.headline}</h2>
+                  <h2 style={{ fontSize: 'var(--text-subheading)', lineHeight: 'var(--leading-subheading)', marginBottom: 'var(--spacing-10)' }}>{p.headline}</h2>
                   {p.hook && <p style={{ color: 'var(--ink-soft)', fontSize: '.92rem' }}>{p.hook}</p>}
                   <p style={{ ...meta, textTransform: 'none', letterSpacing: 0,
                     fontSize: '.74rem', marginTop: '.55rem', paddingLeft: '.6rem',

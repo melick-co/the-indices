@@ -99,5 +99,33 @@ Scheduled at midday Sydney (ABS releases at 11:30am Canberra), so a release land
 the store before the next morning's pitch run. New periods trigger the resurface
 sweep, so a fresh CPI print can wake a parked pitch by itself.
 
-Still unbuilt: OECD SDMX back-series pull (same pattern, different base URL), RBA
-tables, World Bank WDI.
+## Source orchestrator
+
+`scripts/load-sources.mjs` runs every configured connector in sequence (ABS SDMX,
+World Bank WDI, RBA CSV). GitHub Actions calls this on the 02:00 UTC schedule.
+
+```bash
+node scripts/load-sources.mjs          # all connectors
+node scripts/load-sources.mjs wb       # World Bank only
+node scripts/load-sources.mjs rba      # RBA only
+```
+
+Scripts auto-load `agent/.env` when present (copy from `.env.example`).
+
+### World Bank WDI
+
+`scripts/watch-wb.mjs` pulls annual history for population, GDP, market cap,
+inflation, and unemployment across all entities in the store (2000–present).
+
+### RBA CSV
+
+`scripts/watch-rba.mjs` pulls cash rate, housing credit growth, household
+debt-to-income, and 10-year zero-coupon yields from RBA CSV exports. Edit
+`rba-config.mjs` to add series; column titles must match the CSV Title row exactly.
+
+### OECD SDMX (discovery only)
+
+`scripts/watch-oecd.mjs discover <term>` lists OECD dataflows. Full back-series
+load is not wired yet — dimension keys still need verification.
+
+Still unbuilt: OECD SDMX automated load, OECD House Price Index.

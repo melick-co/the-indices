@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import Masthead from '@/components/Masthead';
 import SiteFooter from '@/components/SiteFooter';
 import { ALL_INDICES, indexById } from '@/content/indices/registry';
 
@@ -29,8 +28,7 @@ export default function IndexPage({ params }: { params: { id: string } }) {
 
   return (
     <>
-      <Masthead />
-      <main className="wrap article">
+      <main className="article">
         <div className="card-kicker">Index · vintage {p.index.vintage}</div>
         <h1>{p.index.name}</h1>
         <p className="measure">{p.index.concept}. Scale {p.index.scale}; a higher score
@@ -42,7 +40,7 @@ export default function IndexPage({ params }: { params: { id: string } }) {
 
         {aus?.score != null && (
           <div className="pull" style={{ display: 'flex', alignItems: 'baseline', gap: '1rem' }}>
-            <span style={{ fontSize: '3rem', fontFamily: 'Fraunces, Georgia, serif' }}>
+            <span className="dash-score">
               <span className="mark on">{aus.score}</span>
             </span>
             <span>Australia, on 100 % coverage. Rank {scored.findIndex((r) => r.entity === 'AUS') + 1} of {scored.length}.</span>

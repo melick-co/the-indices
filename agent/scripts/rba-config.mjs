@@ -1,0 +1,58 @@
+/**
+ * RBA statistical-table CSV series. Files at /statistics/tables/csv/*.csv
+ * Verified Aug 2026 against live exports.
+ */
+export const RBA_SERIES = [
+  {
+    metric_id: 'cash_rate_au',
+    file: 'a2-data.csv',
+    column: 'New Cash Rate Target',
+    name: 'RBA cash rate target',
+    unit: 'percent',
+    basis: 'Target cash rate as announced',
+    direction: 'higher_is_more_pressure',
+    category: 'monetary',
+    cadence: 'event',
+    source_id: 'rba_stats',
+    source_dataset: 'A2 cash rate target',
+  },
+  {
+    metric_id: 'credit_housing_12m_au',
+    file: 'd1-data.csv',
+    column: 'Credit; Housing; 12-month ended growth',
+    name: 'Housing credit growth (12m)',
+    unit: 'percent',
+    basis: 'Total housing credit, seasonally adjusted, 12-month change',
+    direction: 'higher_is_less_pressure',
+    category: 'credit',
+    cadence: 'monthly',
+    source_id: 'rba_stats',
+    source_dataset: 'D1 housing credit 12m',
+  },
+  {
+    metric_id: 'household_debt_income_au',
+    file: 'e2-data.csv',
+    column: 'Household debt to income',
+    name: 'Household debt to income',
+    unit: 'percent',
+    basis: 'Household debt / annualised disposable income',
+    direction: 'higher_is_more_pressure',
+    category: 'households',
+    cadence: 'quarterly',
+    source_id: 'rba_stats',
+    source_dataset: 'E2 debt to income',
+  },
+  {
+    metric_id: 'bond_yield_10y_au',
+    file: 'f17-yields.csv',
+    column: 'Zero-coupon yield – 10 yrs',
+    name: '10-year zero-coupon yield',
+    unit: 'percent per annum',
+    basis: 'RBA F17 analytical zero-coupon curve, month-end',
+    direction: 'higher_is_more_pressure',
+    category: 'markets',
+    cadence: 'monthly',
+    source_id: 'rba_stats',
+    source_dataset: 'F17 10y zero-coupon',
+  },
+];

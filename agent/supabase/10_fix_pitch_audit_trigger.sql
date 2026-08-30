@@ -1,26 +1,7 @@
--- ============================================================
--- Pitch audit trail.
--- A database trigger, not application code, so EVERY change is captured:
--- agent writes, studio clicks, and hand-run SQL alike.
--- ============================================================
+-- Fix banking pitches from Studio Ask.
+-- BEFORE INSERT trigger tried to log pitch_events while the pitch row
+-- did not exist yet, violating pitch_events_pitch_id_fkey.
 
-alter table pitches add column if not exists updated_at timestamptz not null default now();
-
-create table if not exists pitch_events (
-  event_id    uuid primary key default uuid_generate_v4(),
-  pitch_id    uuid not null references pitches(id) on delete cascade,
-  at          timestamptz not null default now(),
-  actor       text not null default 'agent',   -- agent | editor | system
-  event       text not null,                   -- created | state_change | edited | resurfaced
-  from_state  text,
-  to_state    text,
-  changes     jsonb,
-  note        text
-);
-create index if not exists pitch_events_pitch_idx on pitch_events(pitch_id, at desc);
-
--- Set `select set_config('app.actor','editor',true);` in a transaction to attribute
--- a change to the editor. Defaults to 'agent' when unset.
 create or replace function log_pitch_event_before() returns trigger
 language plpgsql as $$
 begin
@@ -75,24 +56,3 @@ create trigger trg_pitch_audit_before
 create trigger trg_pitch_audit_after
   after insert or update on pitches
   for each row execute function log_pitch_event_after();
-
--- Backfill a 'created' event for pitches that predate this trigger
-insert into pitch_events (pitch_id, at, actor, event, to_state, changes, note)
-select p.id, p.first_seen, 'agent', 'created', p.state,
-       jsonb_build_object('detector', p.detector, 'headline', p.headline),
-       'backfilled when the audit trail was added'
-from pitches p
-where not exists (select 1 from pitch_events e where e.pitch_id = p.id);
-
-alter table pitch_events enable row level security;
-drop policy if exists "auth read pitch_events" on pitch_events;
-create policy "auth read pitch_events" on pitch_events for select to authenticated using (true);
-
--- Lets the studio attribute a change to the editor:
---   await supabase.rpc('set_actor', { who: 'editor' })
-create or replace function set_actor(who text) returns void
-language plpgsql security definer as $$
-begin
-  perform set_config('app.actor', who, true);
-end $$;
-grant execute on function set_actor(text) to authenticated;
