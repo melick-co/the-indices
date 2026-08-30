@@ -15,12 +15,12 @@ export async function generateMetadata({ params }: Props) {
     const { data } = await supabase.from('rss_items')
       .select('title, summary')
       .eq('item_id', params.item_id)
-      .eq('curated', true)
+      .neq('status', 'discarded')
       .maybeSingle();
     if (!data) return { title: 'Feed item — Caveat' };
     return {
       title: `${data.title} — Caveat`,
-      description: data.summary?.slice(0, 160) ?? 'Curated headline from the news wire.',
+      description: data.summary?.slice(0, 160) ?? 'Headline from the news wire.',
     };
   } catch {
     return { title: 'Feed item — Caveat' };
@@ -30,9 +30,9 @@ export async function generateMetadata({ params }: Props) {
 export default async function FeedItemPage({ params }: Props) {
   const supabase = createClient();
   const { data: item } = await supabase.from('rss_items')
-    .select('item_id, title, link, summary, published_at, curated_note, matched_keywords')
+    .select('item_id, title, link, summary, published_at, curated, curated_note, matched_keywords, status')
     .eq('item_id', params.item_id)
-    .eq('curated', true)
+    .neq('status', 'discarded')
     .maybeSingle();
 
   if (!item) notFound();
@@ -52,7 +52,9 @@ export default async function FeedItemPage({ params }: Props) {
   return (
     <>
       <main className="article">
-        <div className="card-kicker">{item.curated_note?.trim() || 'On the wire'}</div>
+        <div className="card-kicker">
+          {item.curated_note?.trim() || (item.curated ? 'On the wire' : 'News watch')}
+        </div>
         <h1>{item.title}</h1>
         <div className="byline">
           {published && <span>{published}</span>}
@@ -89,8 +91,9 @@ export default async function FeedItemPage({ params }: Props) {
         <div className="caveat-box">
           <h3>Caveat</h3>
           <p style={{ marginBottom: 0, fontSize: '.95rem' }}>
-            This is a curated headline from an external source — a lead, not evidence.
-            Ask or brainstorm to test the claim against our data before treating it as a story.
+            {item.curated
+              ? 'This is a curated headline from an external source — a lead, not evidence. Ask or brainstorm to test the claim against our data before treating it as a story.'
+              : 'This is an internal news lead from the watcher — not on the public ticker yet. Ask or brainstorm to test the claim against our data before treating it as a story.'}
           </p>
         </div>
 
