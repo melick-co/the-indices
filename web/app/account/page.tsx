@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Masthead from '@/components/Masthead';
 import SiteFooter from '@/components/SiteFooter';
 import { AUTH_ENABLED } from '@/lib/auth-flags';
 import { getProfile } from '@/lib/auth';
@@ -14,17 +13,14 @@ export default async function Account() {
   if (!AUTH_ENABLED) {
     return (
       <>
-        <Masthead />
-        <main className="wrap article">
-          <h1 style={{ fontSize: '2rem' }}>Account</h1>
-          <p className="note" style={{ marginTop: '1rem' }}>
+        <main className="article acct">
+          <h1>Account</h1>
+          <p className="measure" style={{ marginTop: 'var(--spacing-21)' }}>
             Sign-in is paused while we rebuild IAM. The rest of the site —
             stories, indices, methodology and studio — is open in the meantime.
           </p>
-          <p style={{ marginTop: '1.5rem', fontFamily: 'IBM Plex Mono, monospace', fontSize: '.8rem' }}>
-            <Link href="/studio" style={{ borderBottom: '1px solid var(--pen)' }}>
-              Open the studio →
-            </Link>
+          <p style={{ marginTop: 'var(--spacing-21)' }}>
+            <Link href="/studio">Open the studio →</Link>
           </p>
         </main>
         <SiteFooter />
@@ -41,9 +37,8 @@ export default async function Account() {
 
   return (
     <>
-      <Masthead />
-      <main className="wrap article">
-        <h1 style={{ fontSize: '2rem' }}>Your account</h1>
+      <main className="article acct">
+        <h1>Your account</h1>
         <div className="byline">
           {profile.email}
           {' · '}
@@ -51,10 +46,8 @@ export default async function Account() {
         </div>
         <AccountPanel profile={profile} topics={(topics ?? []).map((t) => t.label)} />
         {profile.role === 'admin' && (
-          <p style={{ marginTop: '2rem', fontFamily: 'IBM Plex Mono, monospace', fontSize: '.8rem' }}>
-            <Link href="/studio" style={{ borderBottom: '1px solid var(--pen)' }}>
-              Open the studio →
-            </Link>
+          <p style={{ marginTop: 'var(--spacing-42)' }}>
+            <Link href="/studio">Open the studio →</Link>
           </p>
         )}
       </main>

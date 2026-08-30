@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import Masthead from '@/components/Masthead';
 import Capture from '@/components/Capture';
 import SiteFooter from '@/components/SiteFooter';
 import RankSwap from '@/components/RankSwap';
@@ -24,8 +23,7 @@ export default function StoryPage({ params }: { params: { slug: string } }) {
 
   return (
     <>
-      <Masthead />
-      <main className="wrap article">
+      <main className="article">
         <div className="card-kicker">{story.kicker}</div>
         <h1>{story.title}</h1>
         <div className="byline">

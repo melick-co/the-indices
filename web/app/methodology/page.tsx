@@ -1,4 +1,3 @@
-import Masthead from '@/components/Masthead';
 import SiteFooter from '@/components/SiteFooter';
 
 export const metadata = { title: 'Method — Caveat' };
@@ -6,8 +5,7 @@ export const metadata = { title: 'Method — Caveat' };
 export default function Methodology() {
   return (
     <>
-      <Masthead />
-      <main className="wrap article">
+      <main className="article">
         <h1>How Caveat works</h1>
         <div className="byline">Published in full · Version 1.0</div>
 

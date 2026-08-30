@@ -1,13 +1,17 @@
-'use server';
 import { createClient } from '@/lib/supabase-server';
-import { revalidatePath } from 'next/cache';
+import {
+  buildInputPrompt,
+  extractAngleText,
+  parseMonitoring,
+  parseVerdict,
+  SessionInput,
+  SessionMessage,
+} from '@/lib/research-shared';
 
-const MODEL = 'claude-sonnet-4-6';
-const MAX_TURNS = 8;
+export const MODEL = 'claude-sonnet-4-6';
+export const MAX_TURNS = 8;
 
-/** The charter, inlined. Kept here so the research agent applies the same
- *  editorial standard as the daily pitch run. */
-const CHARTER = `
+export const CHARTER = `
 You are the research agent for Caveat, a data journalism publication.
 Caveat's method: read the same data as everyone else, find the detail that changes
 the story, and print the caveat rather than burying it.
@@ -39,7 +43,7 @@ external sources. Prefer Caveat's own data where it covers the question, and use
 the web to check currency, find newer vintages, or source what we lack.
 `;
 
-const ASK_INSTRUCTIONS = `
+export const ASK_INSTRUCTIONS = `
 Research the question. Then answer in this shape:
 
 **Short answer** — two sentences, no hedging.
@@ -58,22 +62,43 @@ thin, or missing a tier 1 source), or KILLED (premise fails, or unfixable basis
 problem). One line of why.
 `;
 
-const BRAINSTORM_INSTRUCTIONS = `
+export const BRAINSTORM_INSTRUCTIONS = `
 This is a brainstorm, not a verdict. Generate 5 to 8 candidate angles on the
-topic. For each: a one-line finding-shaped headline (not a topic), the archetype
-it fits, the specific data that would confirm or kill it, and whether Caveat's
-store already holds that data or it would need sourcing.
+topic. For each angle use this exact block shape:
 
-Rank them by how checkable they are, not how exciting. End with the single one
-you would chase first and why. Do not assert findings you have not checked —
-these are hypotheses to test.
+### Angle N: [headline-shaped finding, not a topic label]
+- **Archetype:** ...
+- **Data to check:** ...
+- **In our store:** yes/no and which metric_ids if yes
+- **Kill condition:** what would make this a non-story
+
+Rank angles by how checkable they are, not how exciting. End with:
+
+**Chase first:** one paragraph on the single angle you would pursue and why.
+Do not assert findings you have not checked — these are hypotheses to test.
+
+Then include monitoring suggestions:
+
+**Monitor**
+- **Topics:** keyword phrases for news watching (comma-separated)
+- **Feeds:** RSS or Atom URLs worth adding, if any
+- **Data releases:** official statistical releases to watch (name the agency and series)
 `;
 
-async function callClaude(system: string, question: string, metricList: string) {
+export async function loadMetricList() {
+  const supabase = createClient();
+  const { data: metrics } = await supabase.from('metrics')
+    .select('metric_id, name, unit, source_org, source_tier, period');
+  return (metrics ?? [])
+    .map((m) => `- ${m.metric_id}: ${m.name} (${m.unit}, ${m.source_org} tier ${m.source_tier}, ${m.period})`)
+    .join('\n');
+}
+
+export async function callClaude(system: string, question: string, metricList: string) {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) {
     throw new Error(
-      'ANTHROPIC_API_KEY is not set on this deployment. Add it in Vercel → Settings → Environment Variables (Production), then redeploy.'
+      'ANTHROPIC_API_KEY is not set on this deployment. Add it in Vercel → Settings → Environment Variables (Production), then redeploy.',
     );
   }
 
@@ -114,15 +139,16 @@ async function callClaude(system: string, question: string, metricList: string) 
       const detail = (await res.text()).slice(0, 300);
       if (res.status === 401) {
         throw new Error(
-          'Anthropic rejected the API key (401). Check ANTHROPIC_API_KEY in Vercel Production and redeploy.'
+          'Anthropic rejected the API key (401). Check ANTHROPIC_API_KEY in Vercel Production and redeploy.',
         );
       }
       throw new Error(`Anthropic ${res.status}: ${detail}`);
     }
     const body = await res.json();
 
-    for (const b of body.content ?? [])
+    for (const b of body.content ?? []) {
       if (b.type === 'tool_use' || b.type === 'server_tool_use') toolsUsed.push(b.name);
+    }
 
     if (body.stop_reason !== 'tool_use') {
       const text = (body.content ?? [])
@@ -154,79 +180,5 @@ async function callClaude(system: string, question: string, metricList: string) 
   return { text: 'Research ran out of turns without concluding.', toolsUsed };
 }
 
-export async function research(mode: 'ask' | 'brainstorm', question: string) {
-  const started = Date.now();
-  const supabase = createClient();
-
-  const { data: metrics } = await supabase.from('metrics')
-    .select('metric_id, name, unit, source_org, source_tier, period');
-  const metricList = (metrics ?? [])
-    .map((m) => `- ${m.metric_id}: ${m.name} (${m.unit}, ${m.source_org} tier ${m.source_tier}, ${m.period})`)
-    .join('\n');
-
-  const system = CHARTER + (mode === 'ask' ? ASK_INSTRUCTIONS : BRAINSTORM_INSTRUCTIONS);
-
-  let text = '', toolsUsed: string[] = [];
-  try {
-    const r = await callClaude(system, question, metricList);
-    text = r.text; toolsUsed = r.toolsUsed;
-  } catch (e: any) {
-    text = `Research failed: ${e.message}`;
-  }
-
-  const verdict = /VERDICT[^A-Z]*(PUBLISHABLE|NEEDS WORK|KILLED)/i.exec(text)?.[1]
-    ?.toLowerCase().replace(' ', '_') ?? null;
-
-  const { data: row } = await supabase.from('research_sessions').insert({
-    mode, question, answer: text,
-    verdict: verdict === 'needs_work' ? 'needs_work' : verdict,
-    tools_used: [...new Set(toolsUsed)],
-    duration_ms: Date.now() - started,
-  }).select('session_id').single();
-
-  revalidatePath('/studio/ask');
-  return { text, sessionId: row?.session_id ?? null, toolsUsed: [...new Set(toolsUsed)] };
-}
-
-/** Bank a research result as a candidate pitch. */
-export async function bankResearch(sessionId: string, headline: string) {
-  const supabase = createClient();
-  const { data: s, error: sessionErr } = await supabase.from('research_sessions')
-    .select('question, answer').eq('session_id', sessionId).single();
-  if (sessionErr) return { ok: false as const, error: sessionErr.message };
-
-  const { data: pitch, error } = await supabase.from('pitches').insert({
-    headline: headline || (s?.question ?? 'Untitled'),
-    hook: s?.question ?? null,
-    mechanism: (s?.answer ?? '').slice(0, 1200),
-    detector: 'research_session',
-    trigger_rows: { session_id: sessionId },
-    metric_ids: [], state: 'candidate',
-  }).select('id').single();
-
-  if (error) return { ok: false as const, error: error.message };
-  if (!pitch) return { ok: false as const, error: 'Pitch was not created.' };
-
-  await supabase.from('research_sessions')
-    .update({ linked_pitch: pitch.id }).eq('session_id', sessionId);
-
-  revalidatePath('/studio');
-  revalidatePath('/studio/ask');
-  return { ok: true as const, pitchId: pitch.id };
-}
-
-export async function addTopic(label: string, keywords: string, why: string) {
-  const supabase = createClient();
-  await supabase.from('tracked_topics').insert({
-    label,
-    keywords: keywords.split(',').map((k) => k.trim()).filter(Boolean),
-    why: why || null,
-  });
-  revalidatePath('/studio/ask');
-}
-
-export async function toggleTopic(topicId: string, active: boolean) {
-  const supabase = createClient();
-  await supabase.from('tracked_topics').update({ active }).eq('topic_id', topicId);
-  revalidatePath('/studio/ask');
-}
+export { buildInputPrompt, extractAngleText, parseMonitoring, parseVerdict };
+export type { SessionInput, SessionMessage };

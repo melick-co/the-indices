@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import Masthead from '@/components/Masthead';
 import SiteFooter from '@/components/SiteFooter';
 import { STORIES, bySlug } from '@/content/stories';
 
@@ -21,10 +20,9 @@ export default function Evidence({ params }: { params: { slug: string } }) {
 
   return (
     <>
-      <Masthead />
-      <main className="wrap article">
+      <main className="article">
         <div className="card-kicker">Evidence</div>
-        <h1 style={{ fontSize: '1.9rem' }}>{s.title}</h1>
+        <h1>{s.title}</h1>
         <div className="byline">
           <Link href={`/stories/${s.slug}`} style={{ borderBottom: '1px solid var(--pen)' }}>
             ← Back to the story
@@ -36,7 +34,7 @@ export default function Evidence({ params }: { params: { slug: string } }) {
         </p>
 
         <h2>The one number</h2>
-        <p style={{ fontFamily: 'Fraunces, Georgia, serif', fontSize: '2rem', marginBottom: '.2rem' }}>
+        <p className="pull">
           <span className="mark on">{s.oneNumber.value}</span>
         </p>
         <p style={{ color: 'var(--ink-soft)', fontSize: '.95rem' }}>{s.oneNumber.label}</p>

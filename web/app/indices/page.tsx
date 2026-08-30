@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Masthead from '@/components/Masthead';
 import SiteFooter from '@/components/SiteFooter';
 import { ALL_INDICES } from '@/content/indices/registry';
 
@@ -8,8 +7,7 @@ export const metadata = { title: 'Indices — Caveat' };
 export default function Indices() {
   return (
     <>
-      <Masthead />
-      <main className="wrap article">
+      <main className="article">
         <h1>Indices</h1>
         <p className="measure">
           Composite measures built to a published standard. Fixed bounds, equal weights
