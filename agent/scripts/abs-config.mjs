@@ -26,7 +26,6 @@ export const ABS_SERIES = [
     category: 'prices',
     source_id: 'abs_cpi',
     verified: true,
-    // derive annual change from this index and store as a second metric
     derive: {
       metric_id: 'cpi_annual_au',
       name: 'Australia CPI, annual change',
@@ -36,6 +35,19 @@ export const ABS_SERIES = [
       category: 'prices',
       lag: 4,
     },
+  },
+  {
+    metric_id: 'wpi_annual_au',
+    name: 'Australia WPI, annual change',
+    dataflow: 'WPI',
+    dataKey: '3.THRPIB.7.TOT.10.AUS.Q', // YoY | total hourly incl bonuses | all industries | Australia
+    lastN: 40,
+    unit: 'percent',
+    basis: 'Total hourly rates of pay incl bonuses, YoY, all industries',
+    direction: 'higher_is_more_pressure',
+    category: 'labour',
+    source_id: 'abs_awe',
+    verified: true,
   },
 ];
 

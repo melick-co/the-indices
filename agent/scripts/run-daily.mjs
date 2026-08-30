@@ -4,6 +4,7 @@
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY, NOTIFY_WEBHOOK (optional)
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
+import './lib/load-env.mjs';
 import { runDetectors } from './detectors.mjs';
 
 const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY,

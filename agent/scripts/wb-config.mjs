@@ -1,0 +1,67 @@
+/**
+ * World Bank WDI indicators. Maps to existing metrics where possible and adds
+ * history for denominator-flip / step-change detectors.
+ * API: https://api.worldbank.org/v2/
+ */
+export const WB_SERIES = [
+  {
+    metric_id: 'market_cap_gdp',
+    indicator: 'CM.MKT.LCAP.GD.ZS',
+    name: 'Stock market capitalisation',
+    unit: 'percent of GDP',
+    basis: 'Listed domestic companies, annual',
+    direction: 'higher_is_less_pressure',
+    category: 'markets',
+    source_id: 'worldbank_wdi',
+    source_dataset: 'WDI CM.MKT.LCAP.GD.ZS',
+    startYear: 2000,
+  },
+  {
+    metric_id: 'population',
+    indicator: 'SP.POP.TOTL',
+    name: 'Total population',
+    unit: 'persons',
+    basis: 'Mid-year population, annual',
+    direction: 'neutral',
+    category: 'demography',
+    source_id: 'worldbank_wdi',
+    source_dataset: 'WDI SP.POP.TOTL',
+    startYear: 2000,
+  },
+  {
+    metric_id: 'gdp_nominal_usd',
+    indicator: 'NY.GDP.MKTP.CD',
+    name: 'GDP (nominal)',
+    unit: 'USD',
+    basis: 'Current US dollars, annual',
+    direction: 'higher_is_less_pressure',
+    category: 'economy',
+    source_id: 'worldbank_wdi',
+    source_dataset: 'WDI NY.GDP.MKTP.CD',
+    startYear: 2000,
+  },
+  {
+    metric_id: 'inflation_wb',
+    indicator: 'FP.CPI.TOTL.ZG',
+    name: 'Consumer price inflation',
+    unit: 'percent',
+    basis: 'Annual CPI change, World Bank WDI',
+    direction: 'higher_is_more_pressure',
+    category: 'prices',
+    source_id: 'worldbank_wdi',
+    source_dataset: 'WDI FP.CPI.TOTL.ZG',
+    startYear: 2000,
+  },
+  {
+    metric_id: 'unemployment_rate',
+    indicator: 'SL.UEM.TOTL.ZS',
+    name: 'Unemployment rate',
+    unit: 'percent of labour force',
+    basis: 'ILO estimate, annual',
+    direction: 'higher_is_more_pressure',
+    category: 'labour',
+    source_id: 'worldbank_wdi',
+    source_dataset: 'WDI SL.UEM.TOTL.ZS',
+    startYear: 2000,
+  },
+];
