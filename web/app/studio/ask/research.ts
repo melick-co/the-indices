@@ -191,9 +191,11 @@ export async function research(mode: 'ask' | 'brainstorm', question: string) {
 /** Bank a research result as a candidate pitch. */
 export async function bankResearch(sessionId: string, headline: string) {
   const supabase = createClient();
-  const { data: s } = await supabase.from('research_sessions')
+  const { data: s, error: sessionErr } = await supabase.from('research_sessions')
     .select('question, answer').eq('session_id', sessionId).single();
-  const { data: pitch } = await supabase.from('pitches').insert({
+  if (sessionErr) return { ok: false as const, error: sessionErr.message };
+
+  const { data: pitch, error } = await supabase.from('pitches').insert({
     headline: headline || (s?.question ?? 'Untitled'),
     hook: s?.question ?? null,
     mechanism: (s?.answer ?? '').slice(0, 1200),
@@ -201,10 +203,16 @@ export async function bankResearch(sessionId: string, headline: string) {
     trigger_rows: { session_id: sessionId },
     metric_ids: [], state: 'candidate',
   }).select('id').single();
-  if (pitch) await supabase.from('research_sessions')
+
+  if (error) return { ok: false as const, error: error.message };
+  if (!pitch) return { ok: false as const, error: 'Pitch was not created.' };
+
+  await supabase.from('research_sessions')
     .update({ linked_pitch: pitch.id }).eq('session_id', sessionId);
+
   revalidatePath('/studio');
-  return pitch?.id ?? null;
+  revalidatePath('/studio/ask');
+  return { ok: true as const, pitchId: pitch.id };
 }
 
 export async function addTopic(label: string, keywords: string, why: string) {
