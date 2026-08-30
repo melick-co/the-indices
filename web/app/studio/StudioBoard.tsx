@@ -3,6 +3,7 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { act, addToInbox, curate } from './actions';
 import { describeDerivation } from './derivation';
+import { trendInvestigateUrls } from '@/lib/trend-prompts';
 interface Pitch {
   id: string; headline: string; hook: string | null; mechanism: string | null;
   caveat: string | null; chart_hint: string | null; detector: string;
@@ -27,9 +28,9 @@ const LABEL: Record<string, string> = {
   watchlist: 'Watchlist', dormant: 'Dormant', rejected: 'Rejected', published: 'Published',
 };
 
-export default function StudioBoard({ pitches, runs, inbox, feedback, events, metrics, news }:
+export default function StudioBoard({ pitches, runs, inbox, feedback, events, metrics, news, trends }:
   { pitches: Pitch[]; runs: any[]; inbox: any[]; feedback: any[];
-    events: PitchEvent[]; metrics: Metric[]; news: any[] }) {
+    events: PitchEvent[]; metrics: Metric[]; news: any[]; trends: any[] }) {
   const metricById = new Map(metrics.map((m) => [m.metric_id, m]));
   const eventsFor = (id: string) => events.filter((e) => e.pitch_id === id);
   const [tab, setTab] = useState('pitched');
@@ -70,6 +71,9 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
 
         {shown.map((p) => {
           const isOpen = open === p.id;
+          const trendUrls = p.detector === 'trend_hypothesis'
+            ? trendInvestigateUrls(p.headline, p.trigger_rows ?? {})
+            : null;
           return (
             <article key={p.id} style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
@@ -176,6 +180,16 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
 
               <div style={{ display: 'flex', gap: '.4rem', marginTop: '1rem',
                 flexWrap: 'wrap', alignItems: 'center' }}>
+                {trendUrls && (
+                  <>
+                    <Link href={trendUrls.ask} className="btn-accent" style={{ fontSize: '.7rem', padding: '.4rem .75rem' }}>
+                      Ask
+                    </Link>
+                    <Link href={trendUrls.brainstorm} className="studio-btn-outline" style={{ fontSize: '.7rem', padding: '.4rem .75rem' }}>
+                      Brainstorm
+                    </Link>
+                  </>
+                )}
                 <button style={actBtn('var(--verify)')} disabled={pending}
                   onClick={() => run(p.id, 'approve')}>Approve</button>
                 <button style={actBtn('var(--ink-soft)')} disabled={pending}
@@ -207,6 +221,54 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
 
         <section style={{ marginTop: '3rem' }}>
           <h3 className="section-head">
+            Feed trends · clusters warranting investigation ({trends.length} active)
+          </h3>
+          {trends.map((t) => (
+            <div key={t.cluster_id} style={{ padding: '.75rem 0', borderBottom: '1px solid var(--rule)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                <div>
+                  <b style={{ fontSize: '.95rem' }}>{t.label}</b>
+                  <div style={meta}>
+                    {t.item_count} items · {t.outlet_count} outlets · spike {Number(t.spike_score).toFixed(1)}×
+                    {' · '}{t.status}
+                    {t.keywords?.length ? ` · ${t.keywords.slice(0, 4).join(', ')}` : ''}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '.4rem', alignItems: 'center' }}>
+                  {t.linked_pitch ? (
+                    <span style={{ ...meta, textTransform: 'none' }}>Hypothesis in bank</span>
+                  ) : (
+                    <>
+                      <Link
+                        href={`/studio/ask?q=${encodeURIComponent(`What's driving coverage of "${t.label}" and does our data support the narrative?`)}`}
+                        className="btn-accent"
+                        style={{ fontSize: '.68rem', padding: '.35rem .6rem' }}
+                      >
+                        Ask
+                      </Link>
+                      <Link
+                        href={`/studio/brainstorm/start?title=${encodeURIComponent(t.label.slice(0, 80))}&prompt=${encodeURIComponent(`Brainstorm Caveat angles on this feed trend: ${t.label}\nKeywords: ${(t.keywords ?? []).join(', ')}`)}`}
+                        className="studio-btn-outline"
+                        style={{ fontSize: '.68rem', padding: '.35rem .6rem' }}
+                      >
+                        Brainstorm
+                      </Link>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+          {!trends.length && (
+            <p style={meta}>
+              No active trends. The trend watcher runs after each RSS sweep and groups
+              multi-outlet stories and keyword spikes into investigation hypotheses.
+            </p>
+          )}
+        </section>
+
+        <section style={{ marginTop: '3rem' }}>
+          <h3 className="section-head">
             News · tick to feature on the public ticker ({news.filter((n) => n.curated).length} live)
           </h3>
           {news.map((n) => (
@@ -215,8 +277,7 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
               <input type="checkbox" defaultChecked={n.curated} style={{ marginTop: '.3rem' }}
                 onChange={(e) => start(() => { curate(n.item_id, e.target.checked); })} />
               <div style={{ flex: 1 }}>
-                <a href={n.link ?? '#'} target="_blank" rel="noreferrer"
-                  style={{ fontSize: '.88rem' }}>{n.title}</a>
+                <Link href={`/feed/${n.item_id}`} style={{ fontSize: '.88rem' }}>{n.title}</Link>
                 <div style={meta}>
                   {n.published_at ? fmtDate(n.published_at) : ''}
                   {n.matched_keywords?.length ? ` · ${n.matched_keywords.slice(0, 4).join(', ')}` : ''}

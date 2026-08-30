@@ -10,6 +10,7 @@ import {
   runBrainstorm,
   saveBrainstormSession,
   setupMonitoring,
+  trackSession,
   MonitorSelection,
 } from './actions';
 
@@ -33,6 +34,7 @@ export default function BrainstormWorkspace({
   const [linkUrl, setLinkUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [bankMsg, setBankMsg] = useState<string | null>(null);
+  const [trackMsg, setTrackMsg] = useState<string | null>(null);
   const [showMonitor, setShowMonitor] = useState(false);
   const [pending, start] = useTransition();
 
@@ -117,6 +119,18 @@ export default function BrainstormWorkspace({
       if (r.monitoring && (r.monitoring.topics.length || r.monitoring.feeds.length || r.monitoring.dataSources.length)) {
         setShowMonitor(true);
       }
+    });
+  }
+
+  function track() {
+    setTrackMsg(null);
+    start(async () => {
+      const r = await trackSession(session.session_id);
+      if (!r.ok) {
+        setTrackMsg(r.error);
+        return;
+      }
+      setTrackMsg(r.already ? 'Already tracked' : 'Added to brainstorm sessions and news watch');
     });
   }
 
@@ -214,15 +228,27 @@ export default function BrainstormWorkspace({
           )}
 
           <div style={{ marginTop: '1rem', display: 'flex', gap: '.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <button type="button" style={action('var(--verify)')} disabled={pending}
+            <button type="button" className="studio-btn-outline" disabled={pending}
               onClick={() => bank(title.slice(0, 120))}>
               Bank full session
             </button>
-            <button type="button" style={action('var(--ink-soft)')} disabled={pending}
+            <button type="button" className="btn-ghost" disabled={pending} onClick={track}>
+              Track
+            </button>
+            <button type="button" className="studio-link" disabled={pending}
               onClick={() => setShowMonitor(true)}>
               Set up monitoring
             </button>
-            {bankMsg && <span style={{ ...meta, color: 'var(--verify)', textTransform: 'none' }}>{bankMsg}</span>}
+            {bankMsg && <span className="studio-meta" style={{ color: 'var(--verify)', textTransform: 'none' }}>{bankMsg}</span>}
+            {trackMsg && (
+              <span className="studio-meta" style={{ color: 'var(--verify)', textTransform: 'none' }}>
+                {trackMsg} · <Link href="/studio/brainstorm#sessions">View sessions</Link>
+                {' · '}<Link href="/studio/ask#tracked-topics">Topics</Link>
+              </span>
+            )}
+            {(session.monitoring?.tracked || monitors.length > 0) && !trackMsg && (
+              <span className="studio-meta" style={{ color: 'var(--verify)', textTransform: 'none' }}>Tracked</span>
+            )}
           </div>
 
           <div style={{ marginTop: '1.2rem' }}>

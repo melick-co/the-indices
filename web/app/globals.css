@@ -533,6 +533,39 @@ a.studio-tab.is-active { color: var(--color-paper-white); }
   font-weight: var(--font-weight-regular);
 }
 
+.feed-synopsis {
+  margin-top: var(--spacing-42);
+  padding-top: var(--spacing-21);
+  border-top: 1px solid var(--color-ink-black);
+}
+
+.feed-synopsis h2 {
+  font-size: var(--text-subheading);
+  font-weight: var(--font-weight-regular);
+  margin-bottom: var(--spacing-21);
+}
+
+.feed-synopsis p {
+  max-width: var(--measure);
+  line-height: 1.55;
+}
+
+.feed-keywords {
+  margin-top: var(--spacing-21);
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-fossil);
+  text-transform: uppercase;
+}
+
+.feed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-10);
+  margin-top: var(--spacing-42);
+  margin-bottom: var(--spacing-42);
+}
+
 .caveat-box li {
   font-size: var(--text-body);
   margin-left: var(--spacing-21);

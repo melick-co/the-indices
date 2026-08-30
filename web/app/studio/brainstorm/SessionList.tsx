@@ -31,7 +31,7 @@ export default function SessionList({ sessions }: { sessions: SessionRow[] }) {
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         marginBottom: '1rem' }}>
-        <h3 className="section-head" style={{ margin: 0 }}>Sessions</h3>
+        <h3 id="sessions" className="section-head" style={{ margin: 0, borderBottom: 'none' }}>Sessions</h3>
         <button type="button" className="btn-accent" onClick={create} disabled={pending}>
           {pending ? 'Creating…' : '+ New brainstorm'}
         </button>
@@ -51,7 +51,9 @@ export default function SessionList({ sessions }: { sessions: SessionRow[] }) {
               <div>{statusLabel(s.status)}</div>
               <div>{new Date(s.updated_at ?? s.created_at).toLocaleDateString('en-AU')}</div>
               {s.linked_pitch && <div style={{ color: 'var(--verify)' }}>Banked</div>}
-              {s.monitoring?.accepted && <div style={{ color: 'var(--verify)' }}>Monitoring</div>}
+              {(s.monitoring?.tracked || s.monitoring?.accepted) && (
+                <div style={{ color: 'var(--verify)' }}>Tracked</div>
+              )}
             </div>
           </div>
         </Link>

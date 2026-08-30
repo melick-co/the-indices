@@ -17,7 +17,9 @@ condition and wakes when new data or a calendar peg arrives.
 | `scripts/run-daily.mjs` | The runner skeleton: due sources -> detect -> rank -> pitch -> notify. |
 | `supabase/06_rss_schema.sql` | RSS watch list + item lifecycle (fetched -> prefiltered -> evaluated -> linked/converted/discarded). |
 | `scripts/run-rss.mjs` | WORKING RSS watcher: fetch, dedup, keyword prefilter, Claude evaluation, bank linking. Schedule every 6-24h. |
+| `scripts/run-trends.mjs` | Feed trend watcher: cluster recent items, detect keyword spikes, Claude hypotheses → `pitches` with `detector: trend_hypothesis`. Runs after RSS. |
 | `taste/rss-prompt.md` | News-lead evaluation prompt: link to banked idea, convert to new idea, or discard. |
+| `taste/trends-prompt.md` | Trend cluster prompt: generate investigation hypotheses from multi-outlet / spike clusters. |
 
 ## Design decisions (the ones you asked for)
 
@@ -52,6 +54,23 @@ published claim still rests on tier 1/2 statistical sources. The flow:
 4. **Adding feeds**: paste any RSS/Atom URL into the inbox (kind `data_source` or
    `link`) and the next run auto-registers it; or insert into `rss_feeds` directly.
    Feeds that 404 five times are skipped until reactivated.
+
+## The trend layer (hypothesis generation)
+
+After each RSS sweep, `run-trends.mjs` looks for patterns in the last 72 hours:
+
+1. **Mechanical clustering** — groups items by shared keywords or title overlap;
+   flags multi-outlet stories (2+ feeds) and keyword spikes vs the prior 72h window.
+2. **Topic spikes** — tracked topics from Studio that suddenly match more items
+   than usual also become clusters. Prefilter updates `tracked_topics.last_hit`.
+3. **Claude hypothesis pass** — each qualifying cluster gets one decision:
+   **investigate** (new `candidate` pitch with `detector: trend_hypothesis`),
+   **link_to_pitch** (revives a banked idea), or **archive** (noise).
+4. **Studio surface** — active clusters appear under "Feed trends"; hypotheses
+   land in the pitch bank with Ask / Brainstorm shortcuts for investigation.
+
+Clusters are stored in `trend_clusters` (migration `12_trend_clusters.sql`).
+Hypotheses feed the same daily taste pipeline as detector and RSS candidates.
 
 ## Status: working agent
 

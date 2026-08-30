@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase-server';
 
 /** Curated headlines. Reads only rows marked curated, which is the sole table
@@ -21,11 +22,10 @@ export default async function Ticker() {
       <div className="ticker-viewport">
         <div className="ticker-track">
           {run.map((it, i) => (
-            <a key={`${it.item_id}-${i}`} href={it.link ?? '#'} target="_blank"
-              rel="noreferrer" className="ticker-item">
+            <Link key={`${it.item_id}-${i}`} href={`/feed/${it.item_id}`} className="ticker-item">
               {it.curated_note && <span className="ticker-note">{it.curated_note}</span>}
               {it.title}
-            </a>
+            </Link>
           ))}
         </div>
       </div>

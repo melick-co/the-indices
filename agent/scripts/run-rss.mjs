@@ -84,7 +84,7 @@ async function prefilter() {
   // Tracked topics from the studio extend the global watchlist, so adding a
   // topic there immediately changes what the news watcher notices.
   const { data: topics } = await db.from('tracked_topics')
-    .select('keywords').eq('active', true);
+    .select('topic_id, keywords').eq('active', true);
   const topicWords = (topics ?? []).flatMap((t) => t.keywords ?? []);
   const GLOBAL = [...new Set([...GLOBAL_KEYWORDS, ...topicWords])];
 
@@ -92,13 +92,23 @@ async function prefilter() {
   const kwFor = new Map((feeds ?? []).map((f) => [f.feed_id, f.watch_keywords?.length ? f.watch_keywords : GLOBAL]));
   const { data: items } = await db.from('rss_items').select('*').eq('status', 'fetched').limit(500);
   let hits = 0;
+  const now = new Date().toISOString();
   for (const it of items ?? []) {
     const hay = `${it.title} ${it.summary}`.toLowerCase();
     const matched = (kwFor.get(it.feed_id) ?? GLOBAL).filter((k) => hay.includes(k.toLowerCase()));
     await db.from('rss_items').update(
       matched.length ? { status: 'prefiltered', matched_keywords: matched } : { status: 'discarded', eval_notes: 'no keyword match' }
     ).eq('item_id', it.item_id);
-    if (matched.length) hits++;
+    if (matched.length) {
+      hits++;
+      for (const topic of topics ?? []) {
+        const topicHit = (topic.keywords ?? []).some((k) =>
+          matched.some((m) => m.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(m.toLowerCase())));
+        if (topicHit) {
+          await db.from('tracked_topics').update({ last_hit: now }).eq('topic_id', topic.topic_id);
+        }
+      }
+    }
   }
   return hits;
 }

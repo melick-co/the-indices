@@ -1,23 +1,32 @@
 'use client';
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { research, bankResearch, addTopic, toggleTopic } from '../brainstorm/actions';
+import { research, bankResearch, trackSession, addTopic, toggleTopic } from '../brainstorm/actions';
 
 type Mode = 'ask';
 
-export default function AskPanel({ topics, sessions }: { topics: any[]; sessions: any[] }) {
+export default function AskPanel({
+  topics,
+  sessions,
+  initialQ = '',
+}: {
+  topics: any[];
+  sessions: any[];
+  initialQ?: string;
+}) {
   const mode: Mode = 'ask';
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(initialQ);
   const [answer, setAnswer] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [tools, setTools] = useState<string[]>([]);
   const [pending, start] = useTransition();
   const [showTopic, setShowTopic] = useState(false);
   const [banked, setBanked] = useState(false);
+  const [trackMsg, setTrackMsg] = useState<string | null>(null);
 
   function run() {
     if (!q.trim()) return;
-    setAnswer(null); setBanked(false);
+    setAnswer(null); setBanked(false); setTrackMsg(null);
     start(async () => {
       const r = await research(mode, q);
       setAnswer(r.text); setSessionId(r.sessionId); setTools(r.toolsUsed);
@@ -62,11 +71,11 @@ export default function AskPanel({ topics, sessions }: { topics: any[]; sessions
             </div>
             {sessionId && (
               <div style={{ marginTop: '1.2rem', paddingTop: '1rem',
-                borderTop: '1px solid var(--rule)', display: 'flex', gap: '.5rem', alignItems: 'center' }}>
+                borderTop: '1px solid var(--rule)', display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                 {banked ? (
-                  <span style={{ ...meta, color: 'var(--verify)' }}>Banked as a candidate pitch</span>
+                  <span className="studio-meta" style={{ color: 'var(--verify)' }}>Banked as candidate pitch</span>
                 ) : (
-                  <button style={action('var(--verify)')} disabled={pending}
+                  <button type="button" className="studio-btn-outline" disabled={pending}
                     onClick={() => start(async () => {
                       const r = await bankResearch(sessionId, q.slice(0, 120));
                       if (r.ok) setBanked(true);
@@ -74,13 +83,28 @@ export default function AskPanel({ topics, sessions }: { topics: any[]; sessions
                     Bank as pitch
                   </button>
                 )}
-                <span style={meta}>Saved to research history either way</span>
+                <button type="button" className="btn-ghost" disabled={pending}
+                  onClick={() => start(async () => {
+                    const r = await trackSession(sessionId);
+                    if (r.ok) {
+                      setTrackMsg(r.already ? 'Already in tracked topics' : 'Added to tracked topics');
+                      document.getElementById('tracked-topics')?.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  })}>
+                  Track
+                </button>
+                {trackMsg && (
+                  <span className="studio-meta" style={{ color: 'var(--verify)', textTransform: 'none' }}>
+                    {trackMsg} · <a href="#tracked-topics">View</a>
+                  </span>
+                )}
+                <span className="studio-meta" style={{ textTransform: 'none' }}>Saved to research history</span>
               </div>
             )}
           </article>
         )}
 
-        <section style={{ marginTop: '3rem' }}>
+        <section id="tracked-topics" style={{ marginTop: '3rem' }}>
           <h3 className="section-head" style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span>Tracked topics</span>
             <button style={linkBtn} onClick={() => setShowTopic((v) => !v)}>+ Add topic</button>

@@ -26,6 +26,10 @@ export function describeDerivation(detector: string, t: any): string {
       return 'Resurfaced: a watched series gained new data, or a calendar date arrived';
     case 'rss_lead':
       return 'From a news feed, assessed against the charter';
+    case 'trend_hypothesis':
+      return r.cluster_label && r.spike_score != null
+        ? `Feed trend: ${r.cluster_label} (${r.item_ids?.length ?? '?'} items, spike ${Number(r.spike_score).toFixed(1)}×)`
+        : 'Feed trend cluster — hypothesis for investigation';
     case 'inbox_idea':
       return 'Your idea, submitted via the inbox';
     case 'inbox_viral_check':

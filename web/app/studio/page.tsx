@@ -8,7 +8,7 @@ export default async function Studio() {
   const supabase = createClient();
 
   const [{ data: pitches }, { data: runs }, { data: inbox }, { data: feedback },
-    { data: events }, { data: metrics }, { data: news }] =
+    { data: events }, { data: metrics }, { data: news }, { data: trends }] =
     await Promise.all([
       supabase.from('pitches').select('*')
         .order('state').order('rank_value', { ascending: false, nullsFirst: false })
@@ -22,6 +22,11 @@ export default async function Studio() {
         .select('item_id, title, link, summary, published_at, status, curated, curated_note, matched_keywords')
         .in('status', ['prefiltered', 'evaluated', 'linked_to_pitch', 'converted_to_idea'])
         .order('published_at', { ascending: false }).limit(40),
+      supabase.from('trend_clusters')
+        .select('cluster_id, label, keywords, item_count, outlet_count, spike_score, status, linked_pitch, window_end')
+        .in('status', ['open', 'hypothesized'])
+        .order('spike_score', { ascending: false })
+        .limit(12),
     ]);
 
   return (
@@ -29,6 +34,7 @@ export default async function Studio() {
       pitches={pitches ?? []} runs={runs ?? []}
       inbox={inbox ?? []} feedback={feedback ?? []}
       events={events ?? []} metrics={metrics ?? []} news={news ?? []}
+      trends={trends ?? []}
     />
   );
 }

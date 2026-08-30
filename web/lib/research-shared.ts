@@ -78,3 +78,31 @@ export function parseVerdict(text: string) {
     ?.toLowerCase().replace(' ', '_') ?? null;
   return v === 'needs_work' ? 'needs_work' : v;
 }
+
+const STOP = new Set([
+  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'has', 'have', 'had', 'do', 'does', 'did',
+  'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'to', 'of', 'in', 'for',
+  'on', 'with', 'at', 'by', 'from', 'as', 'and', 'but', 'if', 'or', 'not', 'what', 'which',
+  'who', 'how', 'when', 'where', 'why', 'this', 'that', 'these', 'those', 'be', 'been', 'being',
+  'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your',
+  'his', 'its', 'our', 'their', 'any', 'all', 'each', 'few', 'more', 'most', 'some', 'such',
+  'than', 'too', 'very', 'just', 'about', 'into', 'through', 'during', 'before', 'after',
+  'above', 'below', 'between', 'under', 'again', 'further', 'then', 'once', 'here', 'there',
+  'because', 'until', 'while', 'although', 'though', 'am', 'does', 'did', 'doing', 'done',
+]);
+
+/** Derive a tracked-topic label and RSS keywords from session text. */
+export function deriveTopicFromText(text: string) {
+  const trimmed = text.trim();
+  const label = trimmed.slice(0, 80) || 'Untitled topic';
+  const words = trimmed
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP.has(w));
+  const keywords = [...new Set(words)].slice(0, 8);
+  return {
+    label,
+    keywords: keywords.length ? keywords : label.toLowerCase().split(/\s+/).filter((w) => w.length > 2).slice(0, 5),
+  };
+}

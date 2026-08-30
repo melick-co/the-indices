@@ -11,6 +11,7 @@ import {
 } from '@/lib/research-agent';
 import {
   buildInputPrompt,
+  deriveTopicFromText,
   extractAngleText,
   parseMonitoring,
   parseVerdict,
@@ -26,13 +27,13 @@ function revalidateBrainstorm(sessionId?: string) {
   if (sessionId) revalidatePath(`/studio/brainstorm/${sessionId}`);
 }
 
-export async function createBrainstormSession(title?: string) {
+export async function createBrainstormSession(title?: string, prompt?: string) {
   const supabase = createClient();
   const { data, error } = await supabase.from('research_sessions').insert({
     mode: 'brainstorm',
     status: 'draft',
     title: title?.trim() || 'Untitled brainstorm',
-    question: '',
+    question: prompt?.trim() || '',
     answer: null,
     inputs: [],
     messages: [],
@@ -313,6 +314,66 @@ export async function research(mode: 'ask' | 'brainstorm', question: string) {
 
 export async function bankResearch(sessionId: string, headline: string) {
   return bankBrainstorm(sessionId, headline);
+}
+
+/** Route session into the right watch list: Ask → tracked topics, Brainstorm → session index. */
+export async function trackSession(sessionId: string) {
+  const supabase = createClient();
+  const { data: session, error } = await supabase.from('research_sessions')
+    .select('session_id, mode, question, title, monitoring')
+    .eq('session_id', sessionId)
+    .single();
+  if (error || !session) return { ok: false as const, error: 'Session not found' };
+
+  const href = session.mode === 'ask' ? '/studio/ask#tracked-topics' : '/studio/brainstorm#sessions';
+  const area = session.mode === 'ask' ? 'Tracked topics' : 'Brainstorm sessions';
+
+  const { data: existing } = await supabase.from('session_monitors')
+    .select('monitor_id, linked_id')
+    .eq('session_id', sessionId)
+    .eq('kind', 'topic')
+    .eq('active', true)
+    .maybeSingle();
+
+  if (existing || session.monitoring?.tracked) {
+    return { ok: true as const, already: true as const, href, area };
+  }
+
+  const source = (session.title?.trim() || session.question?.trim() || 'Untitled');
+  const { label, keywords } = deriveTopicFromText(source);
+  const why = session.mode === 'ask'
+    ? `Ask: ${source.slice(0, 160)}`
+    : `Brainstorm: ${source.slice(0, 160)}`;
+
+  const { data: topic, error: topicErr } = await supabase.from('tracked_topics').insert({
+    label,
+    keywords,
+    why,
+    active: true,
+  }).select('topic_id').single();
+  if (topicErr) return { ok: false as const, error: topicErr.message };
+
+  await supabase.from('session_monitors').insert({
+    session_id: sessionId,
+    kind: 'topic',
+    label,
+    payload: { keywords, topic_id: topic.topic_id },
+    cadence: 'regular',
+    linked_id: topic.topic_id,
+  });
+
+  await supabase.from('research_sessions').update({
+    monitoring: {
+      ...(session.monitoring ?? {}),
+      tracked: true,
+      tracked_at: new Date().toISOString(),
+      topic_id: topic.topic_id,
+    },
+    updated_at: new Date().toISOString(),
+  }).eq('session_id', sessionId);
+
+  revalidateBrainstorm(sessionId);
+  return { ok: true as const, href, area, topicId: topic.topic_id };
 }
 
 export async function addTopic(label: string, keywords: string, why: string) {

@@ -4,6 +4,8 @@ on:
   schedule:
     - cron: '0 21 * * *'
     - cron: '0 9 * * *'
+    - cron: '15 21 * * *'
+    - cron: '15 9 * * *'
     - cron: '30 20 * * *'
     - cron: '0 2 * * *'
   workflow_dispatch:
@@ -11,7 +13,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, daily, sources, both]
+        options: [rss, trends, daily, sources, both]
         default: both
 
 permissions:
@@ -44,6 +46,28 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+
+  trends:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.task == 'trends' || inputs.task == 'both') ||
+      github.event_name == 'schedule' &&
+      (github.event.schedule == '15 21 * * *' || github.event.schedule == '15 9 * * *')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run: { working-directory: agent }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm install @supabase/supabase-js --no-save --silent
+      - name: Feed trend hypotheses
+        run: node scripts/run-trends.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
   daily:
     if: >-
