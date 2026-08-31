@@ -55,7 +55,7 @@ function CallbackInner() {
       if (!search.get('next')) {
         const { data: profile } = await supabase.from('profiles')
           .select('role').eq('id', session.user.id).single();
-        dest = profile?.role === 'admin' ? '/studio' : '/account';
+        dest = profile?.role === 'admin' ? '/foundry' : '/account';
       }
       window.location.replace(dest);
     }

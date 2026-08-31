@@ -33,7 +33,7 @@ export default function LoginForm() {
         .select('role').eq('id', data.session.user.id).single();
       const dest = (next && next.startsWith('/') && !next.startsWith('//'))
         ? next
-        : profile?.role === 'admin' ? '/studio' : '/account';
+        : profile?.role === 'admin' ? '/foundry' : '/account';
       window.location.replace(dest);
     });
   }, [next]);

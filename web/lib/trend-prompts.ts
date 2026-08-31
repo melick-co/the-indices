@@ -1,4 +1,4 @@
-/** Build Ask / Brainstorm entry URLs from a trend hypothesis pitch. */
+/** Build Foundry work entry URLs from a trend hypothesis pitch. */
 
 type TrendTrigger = {
   cluster_label?: string;
@@ -34,7 +34,8 @@ export function trendInvestigateUrls(headline: string, trigger: TrendTrigger) {
   const askQ = buildTrendAskPrompt(headline, trigger);
   const brainstormQ = buildTrendBrainstormPrompt(headline, trigger);
   return {
-    ask: `/studio/ask?q=${encodeURIComponent(askQ)}`,
-    brainstorm: `/studio/brainstorm/start?title=${encodeURIComponent(title)}&prompt=${encodeURIComponent(brainstormQ)}`,
+    ask: `/foundry/work/start?intent=investigate&prompt=${encodeURIComponent(askQ)}`,
+    work: `/foundry/work/start?intent=brainstorm&title=${encodeURIComponent(title)}&prompt=${encodeURIComponent(brainstormQ)}`,
+    brainstorm: `/foundry/work/start?intent=brainstorm&title=${encodeURIComponent(title)}&prompt=${encodeURIComponent(brainstormQ)}`,
   };
 }

@@ -40,8 +40,8 @@ export default async function FeedItemPage({ params }: Props) {
   const askPrompt = buildAskPrompt(item);
   const brainstormPrompt = buildBrainstormPrompt(item);
   const sessionTitle = feedSessionTitle(item);
-  const askHref = `/studio/ask?q=${encodeURIComponent(askPrompt)}`;
-  const brainstormHref = `/studio/brainstorm/start?title=${encodeURIComponent(sessionTitle)}&prompt=${encodeURIComponent(brainstormPrompt)}`;
+  const askHref = `/foundry/work/start?intent=investigate&prompt=${encodeURIComponent(askPrompt)}`;
+  const brainstormHref = `/foundry/work/start?intent=brainstorm&title=${encodeURIComponent(sessionTitle)}&prompt=${encodeURIComponent(brainstormPrompt)}`;
 
   const published = item.published_at
     ? new Date(item.published_at).toLocaleDateString('en-AU', {

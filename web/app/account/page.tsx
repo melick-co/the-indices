@@ -20,7 +20,7 @@ export default async function Account() {
             stories, indices, methodology and studio — is open in the meantime.
           </p>
           <p style={{ marginTop: 'var(--spacing-21)' }}>
-            <Link href="/studio">Open the studio →</Link>
+            <Link href="/foundry">Open Foundry →</Link>
           </p>
         </main>
         <SiteFooter />
@@ -47,7 +47,7 @@ export default async function Account() {
         <AccountPanel profile={profile} topics={(topics ?? []).map((t) => t.label)} />
         {profile.role === 'admin' && (
           <p style={{ marginTop: 'var(--spacing-42)' }}>
-            <Link href="/studio">Open the studio →</Link>
+            <Link href="/foundry">Open Foundry →</Link>
           </p>
         )}
       </main>

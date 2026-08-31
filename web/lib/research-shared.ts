@@ -13,6 +13,59 @@ export type SessionMessage = {
   at: string;
 };
 
+export type FoundryIntent = 'investigate' | 'brainstorm' | 'refine' | 'precedents';
+
+export type FoundryScore = {
+  surprise: number;
+  checkability: number;
+  mechanism: number;
+  visual: number;
+  timing: number;
+};
+
+export type FoundryMessage = {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  at: string;
+  intent?: FoundryIntent;
+  tool_steps?: { name: string; label: string; detail?: string; at: string }[];
+  follow_ups?: { id: string; prompt: string; intent?: string }[];
+  score?: FoundryScore & { rank_value?: number };
+  verdict?: 'publishable' | 'needs_work' | 'killed';
+  branches?: { id: string; label: string; fork_session_id?: string }[];
+};
+
+export function normalizeMessages(raw: unknown): FoundryMessage[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((m: Record<string, unknown>) => ({
+    id: String(m.id ?? crypto.randomUUID()),
+    role: (m.role as FoundryMessage['role']) ?? 'user',
+    content: String(m.content ?? ''),
+    at: String(m.at ?? new Date().toISOString()),
+    intent: m.intent as FoundryIntent | undefined,
+    tool_steps: m.tool_steps as FoundryMessage['tool_steps'],
+    follow_ups: m.follow_ups as FoundryMessage['follow_ups'],
+    score: m.score as FoundryMessage['score'],
+    verdict: m.verdict as FoundryMessage['verdict'],
+    branches: m.branches as FoundryMessage['branches'],
+  }));
+}
+
+export function newMessage(
+  role: FoundryMessage['role'],
+  content: string,
+  extra?: Partial<FoundryMessage>,
+): FoundryMessage {
+  return {
+    id: crypto.randomUUID(),
+    role,
+    content,
+    at: new Date().toISOString(),
+    ...extra,
+  };
+}
+
 export type MonitoringSuggestion = {
   topics: { label: string; keywords: string[] }[];
   feeds: { url: string; name: string }[];

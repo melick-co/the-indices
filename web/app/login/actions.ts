@@ -128,7 +128,7 @@ export async function verifySignInCode(email: string, token: string, next?: stri
   if (!next) {
     const { data: profile } = await supabase.from('profiles')
       .select('role').eq('id', result.data.session.user.id).single();
-    dest = profile?.role === 'admin' ? '/studio' : '/account';
+    dest = profile?.role === 'admin' ? '/foundry' : '/account';
   }
   return { ok: true as const, dest };
 }

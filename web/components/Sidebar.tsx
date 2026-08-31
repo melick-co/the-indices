@@ -7,9 +7,8 @@ const LINKS = [
   { href: '/', label: 'Stories' },
   { href: '/indices', label: 'Indices' },
   { href: '/methodology', label: 'Method' },
-  { href: '/studio', label: 'Studio' },
-  { href: '/studio/ask', label: 'Ask' },
-  { href: '/studio/brainstorm', label: 'Brainstorm' },
+  { href: '/foundry', label: 'Foundry' },
+  { href: '/foundry/work', label: 'Work' },
   { href: '/account', label: 'Account' },
 ] as const;
 
