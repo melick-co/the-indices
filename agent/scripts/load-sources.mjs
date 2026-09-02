@@ -30,6 +30,7 @@ const tasks = [];
 if (target === 'all' || target === 'abs') tasks.push(() => run('watch-abs.mjs', ['load']));
 if (target === 'all' || target === 'wb') tasks.push(() => run('watch-wb.mjs', ['load']));
 if (target === 'all' || target === 'rba') tasks.push(() => run('watch-rba.mjs', ['load']));
+if (target === 'all' || target === 'rba') tasks.push(() => run('compute-rba-rate-indicator.mjs'));
 
 if (!tasks.length) {
   console.log('Usage: node scripts/load-sources.mjs [all|abs|wb|rba]');
