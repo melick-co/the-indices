@@ -4,6 +4,7 @@ import Capture from '@/components/Capture';
 import SiteFooter from '@/components/SiteFooter';
 import Ticker from '@/components/Ticker';
 import IndexDash from '@/components/IndexDash';
+import IndicatorDash from '@/components/IndicatorDash';
 import { STORIES } from '@/content/stories';
 
 export const revalidate = 900;   // ticker refreshes every 15 minutes
@@ -29,6 +30,7 @@ export default async function Home() {
             ))}
         </div>
         <IndexDash />
+        <IndicatorDash />
         <Capture />
       </main>
       <SiteFooter />
