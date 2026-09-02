@@ -6,6 +6,19 @@ export type RateProbabilities = {
   cut: number;
 };
 
+export type InputSeriesPoint = { period: string; value: number };
+
+export type InputSeries = {
+  metricId: string;
+  title: string;
+  role: string;
+  unit: string;
+  step?: boolean;
+  subtitle?: string;
+  points: InputSeriesPoint[];
+  latest: number | null;
+};
+
 export type RbaRateIndicator = {
   meetingDate: string;
   meetingLabel: string;
@@ -19,7 +32,102 @@ export type RbaRateIndicator = {
   fundamentals: RateProbabilities | null;
   marketBasis: string | null;
   fundamentalsBasis: string | null;
+  inputSeries: InputSeries[];
 };
+
+const INPUT_METRICS = [
+  {
+    metricId: 'cash_rate_au',
+    title: 'Cash rate target',
+    role: 'Current RBA target (A2)',
+    unit: '%',
+    step: true,
+  },
+  {
+    metricId: 'inflation_rate',
+    title: 'Headline CPI / inflation',
+    role: 'Fundamentals: vs 2–3% band',
+    unit: '%',
+    subtitle: 'Annual vintage where monthly is unavailable',
+  },
+  {
+    metricId: 'credit_housing_12m_au',
+    title: 'Housing credit growth (12m)',
+    role: 'Fundamentals: demand pulse',
+    unit: '%',
+  },
+  {
+    metricId: 'asx_ib_implied_yield_au',
+    title: 'ASX IB implied monthly OCR',
+    role: 'Market: futures-implied yield',
+    unit: '%',
+    subtitle: 'Updated when the indicator compute runs',
+  },
+] as const;
+
+function parsePeriod(period: string): Date {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(period)) return new Date(`${period}T00:00:00Z`);
+  if (/^\d{4}-\d{2}$/.test(period)) return new Date(`${period}-01T00:00:00Z`);
+  if (/^\d{4}$/.test(period)) return new Date(`${period}-07-01T00:00:00Z`);
+  return new Date(period);
+}
+
+function monthsAgo(n: number) {
+  const d = new Date();
+  d.setUTCMonth(d.getUTCMonth() - n);
+  return d;
+}
+
+async function loadSeriesHistory(
+  supabase: ReturnType<typeof createClient>,
+  metricId: string,
+  step = false,
+): Promise<InputSeriesPoint[]> {
+  const { data } = await supabase.from('observations')
+    .select('period, value')
+    .eq('metric_id', metricId)
+    .eq('entity', 'AUS')
+    .order('period', { ascending: true })
+    .limit(500);
+  const all = (data ?? []).filter((r) => r.value != null) as InputSeriesPoint[];
+  const cutoff = monthsAgo(12).getTime();
+  const inWindow = all.filter((r) => parsePeriod(r.period).getTime() >= cutoff);
+  if (step) {
+    const before = all.filter((r) => parsePeriod(r.period).getTime() < cutoff);
+    if (before.length && inWindow.length) {
+      return [before[before.length - 1], ...inWindow];
+    }
+    if (before.length && !inWindow.length) {
+      return before.slice(-2);
+    }
+  }
+  if (inWindow.length) return inWindow;
+  return all.slice(-Math.min(4, all.length));
+}
+
+async function loadInputSeries(
+  supabase: ReturnType<typeof createClient>,
+  asxSymbol: string | null,
+): Promise<InputSeries[]> {
+  const series = await Promise.all(
+    INPUT_METRICS.map(async (def) => {
+      const step = 'step' in def ? def.step : false;
+      const points = await loadSeriesHistory(supabase, def.metricId, step);
+      const latest = points.length ? points[points.length - 1].value : null;
+      let subtitle: string | undefined = 'subtitle' in def ? def.subtitle : undefined;
+      if (def.metricId === 'asx_ib_implied_yield_au' && asxSymbol) {
+        subtitle = `${asxSymbol} · ${subtitle ?? 'ASX futures'}`;
+      }
+      return {
+        ...def,
+        points,
+        latest,
+        subtitle,
+      };
+    }),
+  );
+  return series;
+}
 
 const MARKET_IDS = {
   hike: 'rba_hike_prob_market_au',
@@ -90,6 +198,7 @@ export async function loadRbaRateIndicator(): Promise<RbaRateIndicator> {
 
   const meetingDate = market.period ?? fundamentals.period ?? '';
   const asOf = new Date().toISOString().slice(0, 10);
+  const inputSeries = await loadInputSeries(supabase, asx?.basis?.match(/IB[A-Z0-9]+/)?.[0] ?? null);
 
   return {
     meetingDate,
@@ -104,6 +213,7 @@ export async function loadRbaRateIndicator(): Promise<RbaRateIndicator> {
     fundamentals: fundamentals.probs,
     marketBasis: market.basis,
     fundamentalsBasis: fundamentals.basis,
+    inputSeries,
   };
 }
 

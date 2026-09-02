@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import SiteFooter from '@/components/SiteFooter';
+import InputSeriesChart from '@/components/InputSeriesChart';
 import { loadRbaRateIndicator } from '@/lib/rba-rate-indicator';
 
 export const dynamic = 'force-dynamic';
@@ -64,34 +65,25 @@ export default async function RbaRateIndicatorPage() {
               </div>
             ) : null}
 
-            <h2>Inputs</h2>
-            <table className="data">
-              <thead>
-                <tr><th>Series</th><th className="num">Value</th><th>Role</th></tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Cash rate target</td>
-                  <td className="num">{fmt(ind.cashRate)}%</td>
-                  <td>Current RBA target (A2)</td>
-                </tr>
-                <tr>
-                  <td>Headline CPI / inflation</td>
-                  <td className="num">{fmt(ind.cpi)}%</td>
-                  <td>Fundamentals: vs 2–3% band</td>
-                </tr>
-                <tr>
-                  <td>Housing credit growth (12m)</td>
-                  <td className="num">{fmt(ind.creditGrowth12m)}%</td>
-                  <td>Fundamentals: demand pulse</td>
-                </tr>
-                <tr>
-                  <td>ASX IB implied monthly OCR</td>
-                  <td className="num">{fmt(ind.asxImpliedYield)}%</td>
-                  <td>Market: {ind.asxSymbol ?? 'front contract'}</td>
-                </tr>
-              </tbody>
-            </table>
+            <h2>Inputs · past twelve months</h2>
+            <p style={{ color: 'var(--ink-soft)', fontSize: '.9rem', marginBottom: '1rem' }}>
+              Each series in its own panel. Cash rate is a step series (holds between RBA decisions);
+              credit is monthly; CPI may update annually.
+            </p>
+            <div className="input-chart-grid">
+              {ind.inputSeries.map((s) => (
+                <InputSeriesChart
+                  key={s.metricId}
+                  title={s.title}
+                  role={s.role}
+                  subtitle={s.subtitle}
+                  unit={s.unit}
+                  points={s.points}
+                  step={s.step}
+                  latest={s.latest}
+                />
+              ))}
+            </div>
 
             <h2>Method</h2>
             <h3>Market-implied</h3>
@@ -187,5 +179,3 @@ function ProbBar({ label, value, color }: { label: string; value: number; color:
     </div>
   );
 }
-
-const fmt = (n: number | null) => (n == null ? '—' : n.toFixed(2));

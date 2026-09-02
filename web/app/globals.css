@@ -935,6 +935,82 @@ table.data tr:hover td { background: transparent; }
   font-style: normal;
 }
 
+/* ---------- input series charts ---------- */
+.input-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--spacing-21);
+  margin-bottom: var(--spacing-42);
+}
+
+.input-chart-box {
+  border: 1px solid var(--color-ink-black);
+  padding: var(--spacing-21);
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.input-chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--spacing-10);
+  margin-bottom: var(--spacing-10);
+}
+
+.input-chart-title {
+  font-size: var(--text-subheading);
+  font-weight: var(--font-weight-regular);
+  line-height: 1.2;
+}
+
+.input-chart-role {
+  font-size: 0.75rem;
+  color: var(--color-charcoal);
+  margin-top: 0.25rem;
+  line-height: 1.35;
+}
+
+.input-chart-latest {
+  display: flex;
+  align-items: baseline;
+  gap: 0.1rem;
+  flex-shrink: 0;
+}
+
+.input-chart-value {
+  font-family: var(--font-helveticaneue);
+  font-size: 1.35rem;
+  font-weight: var(--font-weight-regular);
+}
+
+.input-chart-unit {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--color-fossil);
+}
+
+.input-chart-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--color-fossil);
+  margin-bottom: var(--spacing-10);
+}
+
+.input-chart-svg {
+  width: 100%;
+  height: auto;
+  margin-top: auto;
+}
+
+.input-chart-empty {
+  font-size: 0.85rem;
+  color: var(--color-fossil);
+  font-style: italic;
+  margin: var(--spacing-21) 0;
+}
+
 /* ---------- account ---------- */
 .acct { max-width: var(--measure); }
 
