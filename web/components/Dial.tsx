@@ -5,6 +5,9 @@ export type DialProps = {
   value: number | null;
   min?: number;
   max?: number;
+  invertScale?: boolean;
+  decimals?: number;
+  compact?: boolean;
   label: string;
   subtitle?: string;
   unit?: string;
@@ -33,11 +36,32 @@ function arcPath(startDeg: number, endDeg: number, r = R) {
   return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large} 1 ${e.x} ${e.y}`;
 }
 
+function formatDisplay(
+  value: number,
+  unit: string,
+  decimals?: number,
+  compact?: boolean,
+): string {
+  if (unit === '/100') return value.toFixed(1);
+  if (compact || unit === 'USD') {
+    return new Intl.NumberFormat('en-AU', { maximumFractionDigits: 0 }).format(value);
+  }
+  if (decimals != null) return value.toFixed(decimals);
+  if (unit === 'percent' || unit === '%' || unit === 'percent per year') {
+    return value.toFixed(1);
+  }
+  if (unit === 'years' || unit === 'USD PPP') return value.toFixed(1);
+  return Math.round(value).toString();
+}
+
 export default function Dial({
   id = 'dial',
   value,
   min = 0,
   max = 100,
+  invertScale = false,
+  decimals,
+  compact = false,
   label,
   subtitle,
   unit = '%',
@@ -46,11 +70,19 @@ export default function Dial({
 }: DialProps) {
   const gradId = `${id}-gradient`;
   const hasValue = value != null && Number.isFinite(value);
-  const norm = hasValue ? clamp((value - min) / (max - min), 0, 1) : 0;
+  const rawNorm = hasValue ? clamp((value - min) / (max - min), 0, 1) : 0;
+  const norm = invertScale ? 1 - rawNorm : rawNorm;
   const needleDeg = 180 - norm * 180;
   const needle = polar(R - STROKE / 2, needleDeg);
-  const display = hasValue ? (unit === '/100' ? value.toFixed(1) : Math.round(value).toString()) : '—';
+  const display = hasValue ? formatDisplay(value, unit, decimals, compact) : '—';
   const dim = size === 'lg' ? 220 : 180;
+  const unitLabel = unit === '/100' ? '/100'
+    : unit === 'USD' ? 'USD'
+    : unit === 'USD PPP' ? 'USD PPP'
+    : unit === 'percent per year' ? '%/yr'
+    : unit === 'years' ? 'yrs'
+    : unit === 'percent' ? '%'
+    : unit;
 
   return (
     <figure className={`dial dial-${size}`} aria-label={`${label}: ${display}${unit === '/100' ? '' : unit}`}>
@@ -104,8 +136,8 @@ export default function Dial({
       </svg>
       <div className="dial-readout">
         <span className="dial-value">{display}</span>
-        {unit !== '/100' && unit && <span className="dial-unit">{unit}</span>}
-        {unit === '/100' && <span className="dial-unit">/100</span>}
+        {unitLabel && unitLabel !== '/100' && <span className="dial-unit">{unitLabel}</span>}
+        {unitLabel === '/100' && <span className="dial-unit">/100</span>}
       </div>
       <figcaption className="dial-label">{label}</figcaption>
       {subtitle && <p className="dial-sub">{subtitle}</p>}

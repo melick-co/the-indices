@@ -812,6 +812,27 @@ table.data tr:hover td { background: transparent; }
 /* ---------- dashboard dials ---------- */
 .dashboard { max-width: 56rem; }
 
+.dashboard-section {
+  margin-top: var(--spacing-42);
+}
+
+.dashboard-section:first-of-type {
+  margin-top: var(--spacing-21);
+}
+
+.dashboard-section-title {
+  font-size: var(--text-heading-sm);
+  font-weight: var(--font-weight-regular);
+  margin-bottom: var(--spacing-10);
+}
+
+.dashboard-section-desc {
+  font-size: 0.92rem;
+  color: var(--color-charcoal);
+  margin-bottom: var(--spacing-10);
+  max-width: 42rem;
+}
+
 .dial-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
