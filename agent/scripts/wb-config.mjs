@@ -64,4 +64,16 @@ export const WB_SERIES = [
     source_dataset: 'WDI SL.UEM.TOTL.ZS',
     startYear: 2000,
   },
+  {
+    metric_id: 'government_debt_gdp',
+    indicator: 'GC.DOD.TOTL.GD.ZS',
+    name: 'Central government debt',
+    unit: 'percent of GDP',
+    basis: 'Central government, gross debt, annual',
+    direction: 'higher_is_more_pressure',
+    category: 'fiscal',
+    source_id: 'worldbank_wdi',
+    source_dataset: 'WDI GC.DOD.TOTL.GD.ZS',
+    startYear: 2000,
+  },
 ];
