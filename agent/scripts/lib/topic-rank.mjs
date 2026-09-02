@@ -76,7 +76,8 @@ export async function rankRssWithClaude(items, windowLabel) {
 
   const body = await res.json();
   if (!res.ok) {
-    throw new Error(`Claude trending topics ${res.status}: ${JSON.stringify(body).slice(0, 200)}`);
+    console.warn(`Claude trending topics ${res.status} — falling back to mechanical ranking`);
+    return null;
   }
 
   const text = (body.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join('');
@@ -84,7 +85,8 @@ export async function rankRssWithClaude(items, windowLabel) {
   try {
     parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
   } catch {
-    throw new Error('Unparseable Claude trending topics response');
+    console.warn('Unparseable Claude trending topics response — falling back to mechanical ranking');
+    return null;
   }
 
   return (parsed.topics ?? []).slice(0, TOP_N).map((t, i) => ({
@@ -116,7 +118,7 @@ export async function rankRssTopics(allItems, baselineItems, trackedTopics, peri
     : `the seven days ending ${periodEnd} (Australia/Sydney)`;
 
   let topics = await rankRssWithClaude(recent, windowLabel);
-  if (!topics) {
+  if (!topics?.length) {
     topics = rankRssMechanical(recent, baseline, trackedTopics);
   }
 
