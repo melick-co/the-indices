@@ -809,6 +809,132 @@ table.data tr:hover td { background: transparent; }
   border-style: dashed;
 }
 
+/* ---------- dashboard dials ---------- */
+.dashboard { max-width: 56rem; }
+
+.dial-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--spacing-21);
+  margin: var(--spacing-42) 0;
+}
+
+.dial-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--spacing-21);
+  border: 1px solid var(--color-ink-black);
+  transition: border-color 0.15s, background 0.15s;
+  min-height: 100%;
+}
+
+.dial-card:hover {
+  border-color: var(--color-charcoal);
+  background: var(--color-paper-white);
+}
+
+.dial-card-kicker {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-fossil);
+  margin-bottom: var(--spacing-10);
+  align-self: stretch;
+  text-align: left;
+}
+
+.dial-card-tier {
+  font-size: 12px;
+  color: var(--color-charcoal);
+  margin-top: var(--spacing-10);
+  line-height: 1.4;
+}
+
+.dial-card-cta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--color-slate-iris);
+  margin-top: auto;
+  padding-top: var(--spacing-21);
+}
+
+.dial {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  width: 100%;
+}
+
+.dial-readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.15rem;
+  margin-top: -0.35rem;
+}
+
+.dial-value {
+  font-family: var(--font-helveticaneue);
+  font-size: 2.4rem;
+  font-weight: var(--font-weight-regular);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.dial-unit {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--color-fossil);
+}
+
+.dial-label {
+  font-size: var(--text-subheading);
+  font-weight: var(--font-weight-regular);
+  margin-top: var(--spacing-10);
+  line-height: var(--leading-subheading);
+}
+
+.dial-sub {
+  font-size: 0.85rem;
+  color: var(--color-charcoal);
+  margin-top: 0.35rem;
+  line-height: 1.35;
+}
+
+.dial-foot {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--color-fossil);
+  margin-top: 0.35rem;
+}
+
+.dashboard-legend {
+  display: flex;
+  gap: var(--spacing-21);
+  flex-wrap: wrap;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--color-charcoal);
+}
+
+.dashboard-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dashboard-legend-item i {
+  display: inline-block;
+  width: 1.25rem;
+  height: 0.35rem;
+  font-style: normal;
+}
+
 /* ---------- account ---------- */
 .acct { max-width: var(--measure); }
 
