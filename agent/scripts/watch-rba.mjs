@@ -20,10 +20,9 @@ async function fetchCsv(file) {
   return res.text();
 }
 
-async function load() {
-  const db = createDb();
+export async function loadRba(db = createDb()) {
   let totalNew = 0;
-  const changed = [];
+  const changedMetrics = [];
 
   for (const s of RBA_SERIES) {
     try {
@@ -49,7 +48,7 @@ async function load() {
       }, rows);
 
       totalNew += fresh;
-      if (fresh) changed.push(`${s.metric_id}+${fresh}`);
+      if (fresh) changedMetrics.push(s.metric_id);
       const periods = rows.map((r) => r.period).sort();
       console.log(`${s.metric_id}: ${rows.length} obs (${fresh} new), ${periods[0]}–${periods[periods.length - 1]}`);
     } catch (e) {
@@ -57,12 +56,21 @@ async function load() {
     }
   }
 
-  console.log(`\nDone. ${totalNew} new observations${changed.length ? ': ' + changed.join(', ') : ''}.`);
+  const summary = `${totalNew} new observations${changedMetrics.length ? ': ' + changedMetrics.join(', ') : ''}`;
+  console.log(`\nDone. ${summary}.`);
+  return { totalNew, changedMetrics, summary };
 }
 
-const cmd = process.argv[2];
-if (cmd !== 'load') {
-  console.log('Usage: node scripts/watch-rba.mjs load');
-  process.exit(0);
+async function load() {
+  return loadRba();
 }
-load().catch((e) => { console.error(e.message); process.exit(1); });
+
+const isMain = process.argv[1]?.endsWith('watch-rba.mjs');
+if (isMain) {
+  const cmd = process.argv[2];
+  if (cmd !== 'load') {
+    console.log('Usage: node scripts/watch-rba.mjs load');
+    process.exit(0);
+  }
+  load().catch((e) => { console.error(e.message); process.exit(1); });
+}

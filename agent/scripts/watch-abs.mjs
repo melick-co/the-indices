@@ -99,10 +99,9 @@ async function peek(id, key = 'all', lastN = 8) {
   obs.forEach((o) => console.log(`  ${o.period}  ${o.value}`));
 }
 
-async function load() {
-  const db = createDb();
-
-  let totalNew = 0, changed = [];
+export async function loadAbs(db = createDb()) {
+  let totalNew = 0;
+  const changedMetrics = [];
   for (const s of ABS_SERIES) {
     try {
       const json = await absFetch(
@@ -122,7 +121,7 @@ async function load() {
         source_id: s.source_id,
       }, rows);
       totalNew += fresh;
-      if (fresh) changed.push(`${s.metric_id}+${fresh}`);
+      if (fresh) changedMetrics.push(s.metric_id);
       console.log(`${s.metric_id}: ${rows.length} obs (${fresh} new), ` +
         `${obs[0].period} to ${obs[obs.length - 1].period}`);
 
@@ -144,7 +143,7 @@ async function load() {
             source_id: s.source_id,
           }, derived);
           totalNew += dFresh;
-          if (dFresh) changed.push(`${d.metric_id}+${dFresh}`);
+          if (dFresh) changedMetrics.push(d.metric_id);
           console.log(`${d.metric_id}: ${derived.length} derived (latest ` +
             `${derived[derived.length - 1].period} = ${derived[derived.length - 1].value}%)`);
         }
@@ -153,26 +152,35 @@ async function load() {
       console.error(`${s.metric_id}: ${e.message}`);
     }
   }
-  console.log(`\nDone. ${totalNew} new observations${changed.length ? ': ' + changed.join(', ') : ''}.`);
+  const summary = `${totalNew} new observations${changedMetrics.length ? ': ' + changedMetrics.join(', ') : ''}`;
+  console.log(`\nDone. ${summary}.`);
   console.log(totalNew ? 'New periods will wake resurfacing pitches on the next daily run.' : '');
+  return { totalNew, changedMetrics, summary };
 }
 
-const [, , cmd, a, b] = process.argv;
-const run = {
-  discover: () => discover(a),
-  structure: () => structure(a),
-  peek: () => peek(a, b),
-  keys: () => keys(a, ...process.argv.slice(4)),
-  load,
-}[cmd];
+async function load() {
+  return loadAbs();
+}
 
-if (!run) {
-  console.log(`Usage:
+const isMain = process.argv[1]?.endsWith('watch-abs.mjs');
+if (isMain) {
+  const [, , cmd, a, b] = process.argv;
+  const run = {
+    discover: () => discover(a),
+    structure: () => structure(a),
+    peek: () => peek(a, b),
+    keys: () => keys(a, ...process.argv.slice(4)),
+    load,
+  }[cmd];
+
+  if (!run) {
+    console.log(`Usage:
   node scripts/watch-abs.mjs discover <term>         find dataflow ids
   node scripts/watch-abs.mjs structure <dataflowId>  list dimensions + codes
   node scripts/watch-abs.mjs keys <dataflowId> <term...>  list real dataKeys matching labels
   node scripts/watch-abs.mjs peek <dataflowId> <key> preview, no writes
   node scripts/watch-abs.mjs load                    fetch all configured series`);
-  process.exit(0);
+    process.exit(0);
+  }
+  run().catch((e) => { console.error(e.message); process.exit(1); });
 }
-run().catch((e) => { console.error(e.message); process.exit(1); });

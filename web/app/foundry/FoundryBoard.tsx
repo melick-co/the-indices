@@ -1,6 +1,7 @@
 'use client';
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { act, addToInbox, curate } from './actions';
 import { describeDerivation } from './derivation';
 import { trendInvestigateUrls } from '@/lib/trend-prompts';
@@ -40,6 +41,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
   const [note, setNote] = useState<Record<string, string>>({});
   const [pending, start] = useTransition();
   const [showInbox, setShowInbox] = useState(false);
+  const router = useRouter();
 
   const byState = (s: string) => pitches.filter((p) => p.state === s);
   const shown = byState(tab);
@@ -52,8 +54,9 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
       <main style={{ paddingBottom: 'var(--spacing-84)' }}>
         <h1 className="section-head" style={{ borderBottom: 'none', marginBottom: 'var(--spacing-21)' }}>Foundry</h1>
         {showInbox && <InboxForm onDone={() => setShowInbox(false)} />}
-        <p style={{ marginBottom: 'var(--spacing-21)' }}>
+        <p style={{ marginBottom: 'var(--spacing-21)', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <button type="button" className="studio-link" onClick={() => setShowInbox((v) => !v)}>+ Inbox</button>
+          <RefreshDataButton onDone={() => router.refresh()} />
         </p>
 
         <div style={{ display: 'flex', gap: 'var(--spacing-10)', flexWrap: 'wrap', marginBottom: 'var(--spacing-42)' }}>
@@ -357,6 +360,72 @@ function Field({ label, value, pen }: { label: string; value: string; pen?: bool
       <div style={{ ...meta, color: pen ? 'var(--pen)' : 'var(--ink-faint)' }}>{label}</div>
       <div style={{ fontSize: '.9rem' }}>{value}</div>
     </div>
+  );
+}
+
+function RefreshDataButton({ onDone }: { onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [log, setLog] = useState<string[]>([]);
+  const [result, setResult] = useState<string | null>(null);
+
+  async function refresh() {
+    setBusy(true);
+    setLog([]);
+    setResult(null);
+    try {
+      const res = await fetch('/api/foundry/refresh', { method: 'POST' });
+      if (!res.ok || !res.body) throw new Error(`Refresh failed (${res.status})`);
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() ?? '';
+        for (const chunk of parts) {
+          const ev = chunk.match(/^event: (\w+)\ndata: ([\s\S]+)/);
+          if (!ev) continue;
+          const [, event, raw] = ev;
+          const data = JSON.parse(raw);
+          if (event === 'log') setLog((l) => [...l, data.message]);
+          if (event === 'done') {
+            setResult(`${data.pitches_revised} revised · ${data.sources_changed} new obs · ${data.candidates_new} new candidates`);
+            onDone();
+          }
+          if (event === 'error') throw new Error(data.message);
+        }
+      }
+    } catch (e) {
+      setResult(e instanceof Error ? e.message : 'Refresh failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: '.35rem' }}>
+      <button
+        type="button"
+        className="studio-link"
+        disabled={busy}
+        onClick={refresh}
+        title="Pull RBA, ABS, and rate-indicator data; revise pitches that moved"
+      >
+        {busy ? 'Refreshing…' : '↻ Refresh data & revise pitches'}
+      </button>
+      {result && (
+        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.68rem', color: 'var(--ink-soft)' }}>
+          {result}
+        </span>
+      )}
+      {busy && log.length > 0 && (
+        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.62rem', color: 'var(--ink-faint)', maxWidth: '28rem' }}>
+          {log[log.length - 1]}
+        </span>
+      )}
+    </span>
   );
 }
 
