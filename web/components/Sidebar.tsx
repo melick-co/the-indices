@@ -7,6 +7,7 @@ const LINKS = [
   { href: '/', label: 'Stories' },
   { href: '/indices', label: 'Indices' },
   { href: '/indicators', label: 'Indicators' },
+  { href: '/trending', label: 'Trending' },
   { href: '/methodology', label: 'Method' },
   { href: '/foundry', label: 'Foundry' },
   { href: '/foundry/work', label: 'Work' },
