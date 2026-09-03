@@ -6,10 +6,15 @@ import Ticker from '@/components/Ticker';
 import IndexDash from '@/components/IndexDash';
 import IndicatorDash from '@/components/IndicatorDash';
 import { STORIES } from '@/content/stories';
+import { loadTrendingPage } from '@/lib/trending-topics';
+import { buildTrendIndex, sortStoriesByTrend } from '@/lib/trend-weight';
 
 export const revalidate = 900;   // ticker refreshes every 15 minutes
 
 export default async function Home() {
+  const trendingData = await loadTrendingPage();
+  const stories = sortStoriesByTrend(STORIES, buildTrendIndex(trendingData));
+
   return (
     <>
       <main>
@@ -17,7 +22,7 @@ export default async function Home() {
         <HeroFlip />
         <h2 className="section-head">Stories</h2>
         <div className="cards">
-            {STORIES.map((s) => (
+            {stories.map((s) => (
               <Link key={s.slug} href={`/stories/${s.slug}`} className="card">
                 <div className="card-kicker">{s.kicker}</div>
                 <h3 className="card-title">{s.title}</h3>
