@@ -6,6 +6,10 @@ const nextConfig = {
         '../agent/scripts/**/*',
         '../agent/EDITORIAL.md',
       ],
+      '/api/foundry/pitch/[pitchId]/strengthen': [
+        '../agent/scripts/lib/hot-sources.mjs',
+        '../agent/EDITORIAL.md',
+      ],
     },
   },
   async redirects() {
