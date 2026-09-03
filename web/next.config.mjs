@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    outputFileTracingIncludes: {
+      '/api/foundry/refresh': [
+        '../agent/scripts/**/*',
+        '../agent/EDITORIAL.md',
+      ],
+    },
+  },
   async redirects() {
     return [
       { source: '/studio', destination: '/foundry', permanent: true },

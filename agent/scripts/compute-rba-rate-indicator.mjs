@@ -38,31 +38,7 @@ async function latestObs(db, metricId) {
   return data;
 }
 
-async function upsertProbSeries(db, defs, probs, period, basis, source) {
-  for (const def of defs) {
-    await upsertSeries(db, {
-      metric_id: def.metric_id,
-      name: def.name,
-      unit: 'percent probability',
-      basis,
-      direction: 'neutral',
-      category: 'monetary',
-      source_org: source.org,
-      source_dataset: source.dataset,
-      source_url: source.url,
-      source_tier: source.tier,
-    }, [{
-      metric_id: def.metric_id,
-      entity: ENTITY,
-      period,
-      value: probs[def.field],
-      status: 'derived',
-    }]);
-  }
-}
-
-async function main() {
-  const db = createDb();
+export async function computeRbaIndicator(db = createDb()) {
   const meeting = nextRbaMeeting(new Date());
   const { nb, na } = meetingDayFractions(meeting.date);
   const period = meeting.iso;
@@ -73,8 +49,12 @@ async function main() {
   }
   const cashRate = cashObs.value;
 
-  let cpiObs = await latestObs(db, 'inflation_rate');
-  if (!cpiObs) cpiObs = await latestObs(db, 'cpi_au');
+  let cpiMetric = 'inflation_rate';
+  let cpiObs = await latestObs(db, cpiMetric);
+  if (!cpiObs) {
+    cpiMetric = 'cpi_annual_au';
+    cpiObs = await latestObs(db, cpiMetric);
+  }
   const creditObs = await latestObs(db, 'credit_housing_12m_au');
 
   const contracts = await fetchAsxIbContracts();
@@ -98,21 +78,45 @@ async function main() {
     `Derived model: CPI gap vs 2.5% target, real rate (cash − CPI), housing credit growth. ` +
     `Not an RBA forecast. Score ${fundamentals.score}.`;
 
-  await upsertProbSeries(db, MARKET_METRICS, market, period, marketBasis, {
-    org: 'ASX',
-    dataset: '30-day interbank cash rate futures',
-    url: 'https://www.asx.com.au/markets/trade-our-derivatives-market/futures-market/rba-rate-tracker',
-    tier: 2,
-  });
+  let totalNew = 0;
+  for (const [defs, probs, basis, source] of [
+    [MARKET_METRICS, market, marketBasis, {
+      org: 'ASX',
+      dataset: '30-day interbank cash rate futures',
+      url: 'https://www.asx.com.au/markets/trade-our-derivatives-market/futures-market/rba-rate-tracker',
+      tier: 2,
+    }],
+    [FUND_METRICS, fundamentals, fundBasis, {
+      org: 'Caveat',
+      dataset: 'RBA rate indicator fundamentals model',
+      url: 'https://the-indices.vercel.app/indicators/rba-rate-rise',
+      tier: 2,
+    }],
+  ]) {
+    for (const def of defs) {
+      const { fresh } = await upsertSeries(db, {
+        metric_id: def.metric_id,
+        name: def.name,
+        unit: 'percent probability',
+        basis,
+        direction: 'neutral',
+        category: 'monetary',
+        source_org: source.org,
+        source_dataset: source.dataset,
+        source_url: source.url,
+        source_tier: source.tier,
+      }, [{
+        metric_id: def.metric_id,
+        entity: ENTITY,
+        period,
+        value: probs[def.field],
+        status: 'derived',
+      }]);
+      totalNew += fresh;
+    }
+  }
 
-  await upsertProbSeries(db, FUND_METRICS, fundamentals, period, fundBasis, {
-    org: 'Caveat',
-    dataset: 'RBA rate indicator fundamentals model',
-    url: 'https://the-indices.vercel.app/indicators/rba-rate-rise',
-    tier: 2,
-  });
-
-  await upsertSeries(db, {
+  const { fresh: asxFresh } = await upsertSeries(db, {
     metric_id: 'asx_ib_implied_yield_au',
     name: 'ASX IB implied monthly OCR yield',
     unit: 'percent per annum',
@@ -129,8 +133,18 @@ async function main() {
     value: contract.yieldPct,
     status: 'derived',
   }]);
+  totalNew += asxFresh;
 
-  console.log(JSON.stringify({
+  const changedMetrics = [
+    ...MARKET_METRICS.map((m) => m.metric_id),
+    ...FUND_METRICS.map((m) => m.metric_id),
+    'asx_ib_implied_yield_au',
+    'cash_rate_au',
+    'credit_housing_12m_au',
+    cpiMetric,
+  ];
+
+  const result = {
     meeting: period,
     cash_rate: cashRate,
     cpi: cpiObs?.value ?? null,
@@ -138,10 +152,21 @@ async function main() {
     asx: { symbol: contract.symbol, price: contract.price, yield: contract.yieldPct },
     market,
     fundamentals,
-  }, null, 2));
+    totalNew,
+    changedMetrics,
+  };
+  console.log(JSON.stringify(result, null, 2));
+  return result;
 }
 
-main().catch((e) => {
-  console.error(e.message);
-  process.exit(1);
-});
+async function main() {
+  await computeRbaIndicator();
+}
+
+const isMain = process.argv[1]?.endsWith('compute-rba-rate-indicator.mjs');
+if (isMain) {
+  main().catch((e) => {
+    console.error(e.message);
+    process.exit(1);
+  });
+}

@@ -16,7 +16,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, email, daily, sources, both]
+        options: [rss, trends, trending, email, daily, sources, refresh, both]
         default: both
 
 permissions:
@@ -141,6 +141,26 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
 
+  refresh:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      inputs.task == 'refresh'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run: { working-directory: agent }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm install @supabase/supabase-js --no-save --silent
+      - name: Hot refresh + revise pitches
+        run: node scripts/refresh-and-revise.mjs --json
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
   sources:
     if: >-
       github.event_name == 'workflow_dispatch' &&
@@ -156,7 +176,8 @@ jobs:
         with: { node-version: 22 }
       - run: npm install @supabase/supabase-js --no-save --silent
       - name: Source connectors (ABS + World Bank + RBA)
-        run: node scripts/load-sources.mjs
+        run: node scripts/load-sources.mjs all --revise
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
