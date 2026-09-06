@@ -30,10 +30,10 @@ const LABEL: Record<string, string> = {
   watchlist: 'Watchlist', dormant: 'Dormant', rejected: 'Rejected', published: 'Published',
 };
 
-export default function FoundryBoard({ pitches, runs, inbox, feedback, events, metrics, news, trends, sourceSuggestions }:
+export default function FoundryBoard({ pitches, runs, inbox, feedback, events, metrics, news, trends, sourceSuggestions, storyByPitch = {} }:
   { pitches: Pitch[]; runs: any[]; inbox: any[]; feedback: any[];
     events: PitchEvent[]; metrics: Metric[]; news: any[]; trends: any[];
-    sourceSuggestions: SourceSuggestion[] }) {
+    sourceSuggestions: SourceSuggestion[]; storyByPitch?: Record<string, string> }) {
   const metricById = new Map(metrics.map((m) => [m.metric_id, m]));
   const eventsFor = (id: string) => events.filter((e) => e.pitch_id === id);
   const [tab, setTab] = useState('pitched');
@@ -197,6 +197,15 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
                 )}
                 <button style={actBtn('var(--verify)')} disabled={pending}
                   onClick={() => run(p.id, 'approve')}>Approve</button>
+                {p.state === 'approved' && (
+                  <PublishStoryButton pitchId={p.id} onDone={() => router.refresh()} />
+                )}
+                {storyByPitch[p.id] && (
+                  <Link href={`/stories/${storyByPitch[p.id]}`} className="studio-link"
+                    style={{ fontSize: '.7rem' }}>
+                    View story →
+                  </Link>
+                )}
                 <button style={actBtn('var(--ink-soft)')} disabled={pending}
                   onClick={() => run(p.id, 'watchlist')}>Watchlist</button>
                 <button style={actBtn('var(--pen)')} disabled={pending}
@@ -360,6 +369,68 @@ function Field({ label, value, pen }: { label: string; value: string; pen?: bool
       <div style={{ ...meta, color: pen ? 'var(--pen)' : 'var(--ink-faint)' }}>{label}</div>
       <div style={{ fontSize: '.9rem' }}>{value}</div>
     </div>
+  );
+}
+
+function PublishStoryButton({ pitchId, onDone }: { pitchId: string; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  async function publish() {
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await fetch(`/api/foundry/pitch/${pitchId}/publish`, { method: 'POST' });
+      if (!res.ok || !res.body) throw new Error(`Publish failed (${res.status})`);
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() ?? '';
+        for (const chunk of parts) {
+          const ev = chunk.match(/^event: (\w+)\ndata: ([\s\S]+)/);
+          if (!ev) continue;
+          const [, event, raw] = ev;
+          const data = JSON.parse(raw);
+          if (event === 'log' && data.phase === 'structure') {
+            setNote(data.message);
+          }
+          if (event === 'done') {
+            setNote(`Published · ${data.storyUrl}`);
+            onDone();
+          }
+          if (event === 'error') throw new Error(data.message);
+        }
+      }
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : 'Publish failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem' }}>
+      <button
+        type="button"
+        style={actBtn('var(--ink)')}
+        disabled={busy}
+        onClick={publish}
+        title="Research, draft, and publish a story to the home page"
+      >
+        {busy ? 'Publishing…' : 'Publish story'}
+      </button>
+      {note && (
+        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.62rem',
+          color: 'var(--ink-soft)', maxWidth: '16rem' }}>
+          {note}
+        </span>
+      )}
+    </span>
   );
 }
 

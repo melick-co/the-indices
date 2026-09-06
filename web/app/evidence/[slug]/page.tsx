@@ -1,21 +1,25 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import SiteFooter from '@/components/SiteFooter';
-import { STORIES, bySlug } from '@/content/stories';
+import { STORIES } from '@/content/stories';
+import { loadStoryBySlug } from '@/lib/stories-loader';
 
-export const dynamicParams = false;
+export const revalidate = 900;
+export const dynamicParams = true;
+
 export function generateStaticParams() {
   return STORIES.map((s) => ({ slug: s.slug }));
 }
-export function generateMetadata({ params }: { params: { slug: string } }) {
-  const s = bySlug(params.slug);
+
+export async function generateMetadata({ params }: { params: { slug: string } }) {
+  const s = await loadStoryBySlug(params.slug);
   return s ? { title: `Evidence — ${s.title}` } : {};
 }
 
 const TIER_CLASS: Record<number, string> = { 1: 't1', 2: 't2', 3: 't3' };
 
-export default function Evidence({ params }: { params: { slug: string } }) {
-  const s = bySlug(params.slug);
+export default async function Evidence({ params }: { params: { slug: string } }) {
+  const s = await loadStoryBySlug(params.slug);
   if (!s) notFound();
 
   return (
