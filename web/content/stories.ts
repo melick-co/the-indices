@@ -1,15 +1,9 @@
 /** Story registry. Each story is a versioned entry here; the body lives in its page.
  *  Evidence pages are generated from `evidence` below, so every claim on social
- *  resolves to its receipts. */
-export interface SourceRow {
-  metric: string; org: string; tier: 1 | 2 | 3; url: string;
-  period: string; basis: string;
-}
-export interface Story {
-  slug: string; kicker: string; title: string; hook: string; caveat: string;
-  published: string; oneNumber: { value: string; label: string };
-  evidence: { table?: { head: string[]; rows: string[][] }; sources: SourceRow[] };
-}
+ *  resolves to its receipts. Agent-generated stories live in Supabase instead. */
+import type { SourceRow, Story } from '@/lib/story-types';
+
+export type { SourceRow, Story };
 
 export const STORIES: Story[] = [
   {

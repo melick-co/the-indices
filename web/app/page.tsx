@@ -5,15 +5,18 @@ import SiteFooter from '@/components/SiteFooter';
 import Ticker from '@/components/Ticker';
 import IndexDash from '@/components/IndexDash';
 import IndicatorDash from '@/components/IndicatorDash';
-import { STORIES } from '@/content/stories';
+import { loadAllStories } from '@/lib/stories-loader';
 import { loadTrendingPage } from '@/lib/trending-topics';
 import { buildTrendIndex, sortStoriesByTrend } from '@/lib/trend-weight';
 
 export const revalidate = 900;   // ticker refreshes every 15 minutes
 
 export default async function Home() {
-  const trendingData = await loadTrendingPage();
-  const stories = sortStoriesByTrend(STORIES, buildTrendIndex(trendingData));
+  const [allStories, trendingData] = await Promise.all([
+    loadAllStories(),
+    loadTrendingPage(),
+  ]);
+  const stories = sortStoriesByTrend(allStories, buildTrendIndex(trendingData));
 
   return (
     <>
