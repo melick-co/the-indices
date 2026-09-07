@@ -199,6 +199,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
                   onClick={() => run(p.id, 'approve')}>Approve</button>
                 <button style={actBtn('var(--ink-soft)')} disabled={pending}
                   onClick={() => run(p.id, 'watchlist')}>Watchlist</button>
+                <StrengthenPitchButton pitchId={p.id} onDone={() => router.refresh()} />
                 <button style={actBtn('var(--pen)')} disabled={pending}
                   onClick={() => run(p.id, 'reject')}>Reject</button>
                 <button style={actBtn('var(--ink-faint)')} disabled={pending}
@@ -360,6 +361,68 @@ function Field({ label, value, pen }: { label: string; value: string; pen?: bool
       <div style={{ ...meta, color: pen ? 'var(--pen)' : 'var(--ink-faint)' }}>{label}</div>
       <div style={{ fontSize: '.9rem' }}>{value}</div>
     </div>
+  );
+}
+
+function StrengthenPitchButton({ pitchId, onDone }: { pitchId: string; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  async function strengthen() {
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await fetch(`/api/foundry/pitch/${pitchId}/strengthen`, { method: 'POST' });
+      if (!res.ok || !res.body) throw new Error(`Strengthen failed (${res.status})`);
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() ?? '';
+        for (const chunk of parts) {
+          const ev = chunk.match(/^event: (\w+)\ndata: ([\s\S]+)/);
+          if (!ev) continue;
+          const [, event, raw] = ev;
+          const data = JSON.parse(raw);
+          if (event === 'log') setNote(data.message);
+          if (event === 'done') {
+            setNote(data.strengthened
+              ? `Strengthened · ${data.strengthening_note}`
+              : data.strengthening_note ?? 'No material improvement found');
+            onDone();
+          }
+          if (event === 'error') throw new Error(data.message);
+        }
+      }
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : 'Strengthen failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+      <button
+        type="button"
+        style={actBtn('var(--color-slate-iris, #495472)')}
+        disabled={busy}
+        onClick={strengthen}
+        title="Search for additional tier 1/2 data and strengthen this pitch"
+      >
+        {busy ? 'Strengthening…' : '⚡ Strengthen'}
+      </button>
+      {note && (
+        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.62rem',
+          color: 'var(--ink-faint)', marginTop: '.25rem', maxWidth: '16rem' }}>
+          {note}
+        </span>
+      )}
+    </span>
   );
 }
 
