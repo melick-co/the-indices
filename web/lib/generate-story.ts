@@ -112,6 +112,7 @@ type StructuredStory = {
   body: StoryBody;
   slug_hint: string;
   generation_note: string;
+  frame_check: boolean;
 };
 
 async function structureStory(
@@ -169,13 +170,15 @@ Return JSON matching this schema exactly:
     ]
   },
   "slug_hint": "3-5 word slug from topic",
-  "generation_note": "one line on what the story does"
+  "generation_note": "one line on what the story does",
+  "frame_check": true if this corrects a widely shared frame (denominator flip, viral claim check, rank surprise, two-truths gap) else false
 }
 
 Rules:
 - All sources must be tier 1 or 2. No tier 3 headline claims.
 - body.blocks must follow the layered story structure from EDITORIAL.md.
-- Use only block types: paragraph, layers, heading, pull.`,
+- Use only block types: paragraph, layers, heading, pull.
+- Prefer frame_check true for Caveat's core archetypes.`,
       }],
     }),
   });
@@ -260,6 +263,7 @@ export async function publishStoryFromPitch(
       one_number: story.one_number,
       evidence: story.evidence,
       body: story.body,
+      frame_check: Boolean(story.frame_check),
       updated_at: now,
     }).eq('pitch_id', pitchId);
   } else {
@@ -275,6 +279,7 @@ export async function publishStoryFromPitch(
       one_number: story.one_number,
       evidence: story.evidence,
       body: story.body,
+      frame_check: Boolean(story.frame_check),
     });
     if (insertErr) throw new Error(insertErr.message);
   }

@@ -12,6 +12,7 @@ export const STORIES: Story[] = [
     title: 'America takes the most migrants in the world. Per person, it ranks 26th.',
     hook: 'The chart everyone shared measures the size of the economy, not how open a country is.',
     caveat: 'Per-capita structurally favours micro-states like Luxembourg and Iceland. Eight countries here use unstandardised national statistics.',
+    frameCheck: true,
     published: '2026-08-07',
     oneNumber: { value: '1st → 26th', label: 'United States, absolute intake to intake per person' },
     evidence: {
@@ -42,6 +43,7 @@ export const STORIES: Story[] = [
     title: 'The minimum wage just jumped 6%. The last two big rises were followed by falling inflation.',
     hook: 'The spiral has now been predicted six years running. The regulator measured what one rise actually adds.',
     caveat: 'Timing is not exoneration: rate rises did much of the disinflation work in 2023 and 2024. The 2023 minimum-wage figure of 8.65% includes a one-off technical realignment, so award rates are the like-for-like comparison.',
+    frameCheck: true,
     published: '2026-08-07',
     oneNumber: { value: '0.36pp', label: 'Measured contribution of the 2024 rise to wage growth' },
     evidence: {

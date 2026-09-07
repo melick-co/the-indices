@@ -15,7 +15,13 @@ type DbStoryRow = {
   one_number: StoryOneNumber;
   evidence: StoryEvidence;
   body: StoryBody;
+  frame_check?: boolean | null;
 };
+
+function inferFrameCheck(kicker: string, title: string): boolean {
+  return /\b(check|denominator|blindspot|flip|surprise|claim check|frame)\b/i
+    .test(`${kicker} ${title}`);
+}
 
 function rowToStory(row: DbStoryRow): Story {
   return {
@@ -29,13 +35,14 @@ function rowToStory(row: DbStoryRow): Story {
     evidence: row.evidence,
     body: row.body,
     pitchId: row.pitch_id ?? undefined,
+    frameCheck: row.frame_check ?? inferFrameCheck(row.kicker, row.title),
   };
 }
 
 export async function loadPublishedDbStories(): Promise<Story[]> {
   const supabase = createClient();
   const { data, error } = await supabase.from('stories')
-    .select('story_id, pitch_id, slug, status, kicker, title, hook, caveat, published, one_number, evidence, body')
+    .select('story_id, pitch_id, slug, status, kicker, title, hook, caveat, published, one_number, evidence, body, frame_check')
     .eq('status', 'published')
     .order('published', { ascending: false });
   if (error || !data?.length) return [];
@@ -61,7 +68,7 @@ export async function loadStoryBySlug(slug: string): Promise<Story | null> {
 export async function loadStoryByPitchId(pitchId: string): Promise<Story | null> {
   const supabase = createClient();
   const { data } = await supabase.from('stories')
-    .select('story_id, pitch_id, slug, status, kicker, title, hook, caveat, published, one_number, evidence, body')
+    .select('story_id, pitch_id, slug, status, kicker, title, hook, caveat, published, one_number, evidence, body, frame_check')
     .eq('pitch_id', pitchId)
     .maybeSingle();
   if (!data) return null;

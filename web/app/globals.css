@@ -427,20 +427,72 @@ a.studio-tab.is-active { color: var(--color-paper-white); }
 }
 
 .card-caveat {
-  font-size: var(--text-caption);
-  color: var(--color-charcoal);
-  padding-left: var(--spacing-21);
-  border-left: 1px solid var(--color-ink-black);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--color-ink-black);
+  padding: var(--spacing-21) var(--spacing-21) var(--spacing-21) var(--spacing-28);
+  margin-top: var(--spacing-10);
+  border-left: 2px solid var(--color-ink-black);
+  background: color-mix(in srgb, var(--color-ink-black) 4%, transparent);
 }
 
 .card-caveat b {
   font-family: var(--font-helveticaneue);
   font-size: var(--text-caption);
   letter-spacing: var(--tracking-caption);
-  color: var(--color-charcoal);
+  text-transform: uppercase;
+  color: var(--color-ink-black);
   display: block;
   font-weight: var(--font-weight-regular);
-  margin-bottom: var(--spacing-5);
+  margin-bottom: var(--spacing-10);
+}
+
+.card-receipt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-10);
+  margin-top: var(--spacing-28);
+  font-family: var(--font-helveticaneue);
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-fossil);
+  text-decoration: none;
+}
+
+.card-receipt:hover {
+  color: var(--color-ink-black);
+}
+
+.card-receipt-orgs {
+  color: inherit;
+}
+
+.card-receipt-check {
+  margin-left: auto;
+  color: var(--color-ink-black);
+  border-bottom: 1px solid currentColor;
+}
+
+.home-section {
+  margin-bottom: var(--spacing-84);
+}
+
+.section-lede {
+  max-width: 42rem;
+  margin: calc(var(--spacing-21) * -1) 0 var(--spacing-42);
+  color: var(--color-charcoal);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+}
+
+.story-card .card-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.story-card .card-title a:hover {
+  color: var(--color-charcoal);
 }
 
 /* ---------- article ---------- */

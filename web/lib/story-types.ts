@@ -41,4 +41,20 @@ export interface Story {
   /** Present for agent-generated stories; static stories use React body components. */
   body?: StoryBody;
   pitchId?: string;
+  /**
+   * Marks a story that corrects a widely shared frame (denominator flip,
+   * viral claim check, rank surprise). Surfaces in the home Frame checks section.
+   */
+  frameCheck?: boolean;
+}
+
+/** Best (lowest) tier and unique publisher names for the receipt strip. */
+export function storyReceipt(story: Story): { tier: 1 | 2 | 3; orgs: string } {
+  const sources = story.evidence?.sources ?? [];
+  const tier = (sources.reduce((best, s) => Math.min(best, s.tier) as 1 | 2 | 3, 3 as 1 | 2 | 3));
+  const orgs = [...new Set(sources.map((s) => s.org).filter(Boolean))];
+  return {
+    tier: sources.length ? tier : 3,
+    orgs: orgs.length ? orgs.join(' + ') : 'Sources pending',
+  };
 }
