@@ -1,15 +1,9 @@
 /** Story registry. Each story is a versioned entry here; the body lives in its page.
  *  Evidence pages are generated from `evidence` below, so every claim on social
- *  resolves to its receipts. */
-export interface SourceRow {
-  metric: string; org: string; tier: 1 | 2 | 3; url: string;
-  period: string; basis: string;
-}
-export interface Story {
-  slug: string; kicker: string; title: string; hook: string; caveat: string;
-  published: string; oneNumber: { value: string; label: string };
-  evidence: { table?: { head: string[]; rows: string[][] }; sources: SourceRow[] };
-}
+ *  resolves to its receipts. Agent-generated stories live in Supabase instead. */
+import type { SourceRow, Story } from '@/lib/story-types';
+
+export type { SourceRow, Story };
 
 export const STORIES: Story[] = [
   {
@@ -18,6 +12,7 @@ export const STORIES: Story[] = [
     title: 'America takes the most migrants in the world. Per person, it ranks 26th.',
     hook: 'The chart everyone shared measures the size of the economy, not how open a country is.',
     caveat: 'Per-capita structurally favours micro-states like Luxembourg and Iceland. Eight countries here use unstandardised national statistics.',
+    frameCheck: true,
     published: '2026-08-07',
     oneNumber: { value: '1st → 26th', label: 'United States, absolute intake to intake per person' },
     evidence: {
@@ -48,6 +43,7 @@ export const STORIES: Story[] = [
     title: 'The minimum wage just jumped 6%. The last two big rises were followed by falling inflation.',
     hook: 'The spiral has now been predicted six years running. The regulator measured what one rise actually adds.',
     caveat: 'Timing is not exoneration: rate rises did much of the disinflation work in 2023 and 2024. The 2023 minimum-wage figure of 8.65% includes a one-off technical realignment, so award rates are the like-for-like comparison.',
+    frameCheck: true,
     published: '2026-08-07',
     oneNumber: { value: '0.36pp', label: 'Measured contribution of the 2024 rise to wage growth' },
     evidence: {
