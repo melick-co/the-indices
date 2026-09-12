@@ -83,6 +83,10 @@ function formatTokens(n: number) {
   return `${(n / 1000).toFixed(1)}k`;
 }
 
+function plural(n: number, word: string) {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
+}
+
 export default function FoundryChat({
   session,
   dataSources,
@@ -186,7 +190,7 @@ export default function FoundryChat({
     setElapsed(0);
     setPhases({ context: 'running' });
     if (overrideIntent) setIntent(overrideIntent);
-    if (!overridePrompt) setComposer('');
+    setComposer('');
 
     const startedAt = Date.now();
     await saveFoundrySession(sessionId, { title, prompt, inputs, intent: activeIntent });
@@ -311,9 +315,11 @@ export default function FoundryChat({
       router.refresh();
     } catch (e: unknown) {
       if (e instanceof Error && e.name === 'AbortError') {
-        note('Interrupted.');
+        note('Interrupted. Nothing was saved for this turn.');
+        setComposer(outbound);
       } else if (e instanceof Error) {
         setError(e.message);
+        setComposer(outbound);
       }
     } finally {
       setRunning(false);
@@ -518,6 +524,7 @@ export default function FoundryChat({
   }
 
   const activeMonitors = monitors.filter((m) => m.active);
+  const turnCount = messages.filter((m) => m.role === 'assistant').length;
   const spinner = SPINNER[tick % SPINNER.length];
   const toolsRun = liveTools.length;
 
@@ -551,11 +558,11 @@ export default function FoundryChat({
             ))}
           </select>
           <span>·</span>
-          <span>{messages.filter((m) => m.role === 'assistant').length} turns</span>
+          <span>{plural(turnCount, 'turn')}</span>
           {activeMonitors.length > 0 && (
             <>
               <span>·</span>
-              <span>{activeMonitors.length} monitors</span>
+              <span>{plural(activeMonitors.length, 'monitor')}</span>
             </>
           )}
           <span className="cc-header-spacer" />
@@ -574,7 +581,7 @@ export default function FoundryChat({
             )}
             {forks.map((f) => (
               <Link key={f.session_id} className="cc-link" href={`/foundry/work/${f.session_id}`}>
-                ⑂ {f.title ?? f.session_id.slice(0, 8)}
+                ↳ branch: {f.title ?? f.session_id.slice(0, 8)}
               </Link>
             ))}
           </div>
@@ -752,7 +759,9 @@ function Plan({ phases }: { phases: Record<string, PhaseStatus> }) {
         const status = phases[p.id] ?? 'pending';
         return (
           <div key={p.id} className={`cc-plan-row cc-plan-${status}`}>
-            <span className="cc-plan-box">{status === 'done' ? '☒' : '☐'}</span>
+            <span className="cc-plan-box">
+              {status === 'done' ? '✓' : status === 'running' ? '▸' : '·'}
+            </span>
             <span>{p.label}</span>
           </div>
         );
@@ -769,26 +778,33 @@ function ToolStream({ steps, elapsed }: { steps: FoundryToolStep[]; elapsed?: nu
   }
   return (
     <div className="cc-tools">
-      {steps.map((s, i) => (
-        <div key={s.id ?? i} className={`cc-tool cc-tool-${s.status ?? 'done'}`}>
-          <div className="cc-tool-head">
-            <span className="cc-tool-dot">{s.status === 'running' ? '◐' : '●'}</span>
-            <span className="cc-tool-label">{s.label}</span>
-            <span className="cc-tool-name">{s.name}</span>
+      {steps.map((s, i) => {
+        const isRunning = s.status === 'running';
+        // Turns recorded before results were tracked carry no result line.
+        const showResult = isRunning || Boolean(s.result);
+        return (
+          <div key={s.id ?? i} className={`cc-tool cc-tool-${s.status ?? 'done'}`}>
+            <div className="cc-tool-head">
+              <span className="cc-tool-dot">{isRunning ? '◐' : '●'}</span>
+              <span className="cc-tool-label">{s.label}</span>
+              <span className="cc-tool-name">{s.name}</span>
+            </div>
+            {showResult && (
+              <div className="cc-tool-result">
+                <span className="cc-tool-elbow">⎿</span>
+                {isRunning
+                  ? <span className="cc-dim">running{elapsed ? ` · ${formatDuration(elapsed)}` : ''}</span>
+                  : (
+                    <span>
+                      {s.result}
+                      {s.ms ? <span className="cc-dim"> · {formatDuration(s.ms)}</span> : null}
+                    </span>
+                  )}
+              </div>
+            )}
           </div>
-          <div className="cc-tool-result">
-            <span className="cc-tool-elbow">⎿</span>
-            {s.status === 'running'
-              ? <span className="cc-dim">running{elapsed ? ` · ${formatDuration(elapsed)}` : ''}</span>
-              : (
-                <span>
-                  {s.result ?? s.detail ?? 'complete'}
-                  {s.ms ? <span className="cc-dim"> · {formatDuration(s.ms)}</span> : null}
-                </span>
-              )}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -933,12 +949,12 @@ function Turn({
           {m.branches.map((b) => (
             b.fork_session_id ? (
               <Link key={b.id} href={`/foundry/work/${b.fork_session_id}`} className="cc-branch">
-                ⑂ {b.label} →
+                branch: {b.label} →
               </Link>
             ) : (
               <button key={b.id} type="button" className="cc-branch" disabled={disabled}
                 onClick={() => onFork(b.label)}>
-                ⑂ fork: {b.label}
+                fork: {b.label}
               </button>
             )
           ))}

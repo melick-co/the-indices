@@ -242,6 +242,8 @@ export async function runFoundryTurn(options: {
   userPrompt: string;
   priorMessages: FoundryMessage[];
   onEvent: (event: FoundryEvent) => void;
+  /** Abort mid-loop when the editor interrupts the run. */
+  signal?: AbortSignal;
 }): Promise<{ text: string; toolsUsed: string[] }> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) {
@@ -288,6 +290,10 @@ export async function runFoundryTurn(options: {
   };
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
+    if (options.signal?.aborted) {
+      closeAllTools();
+      throw new DOMException('Run interrupted', 'AbortError');
+    }
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -296,6 +302,7 @@ export async function runFoundryTurn(options: {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({ model: MODEL, max_tokens: 4000, system, tools, messages }),
+      signal: options.signal,
     });
     if (!res.ok) {
       const detail = (await res.text()).slice(0, 300);

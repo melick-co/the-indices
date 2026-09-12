@@ -1214,9 +1214,14 @@ table.data tr:hover td { background: transparent; }
 .cc-link:disabled { color: var(--color-fossil); cursor: default; text-decoration: none; }
 
 .cc-kbd {
+  display: inline-block;
+  min-width: 1.1em;
+  text-align: center;
   border: 1px solid var(--color-ink-black);
-  padding: 0 0.25rem;
-  font-size: 0.66rem;
+  padding: 0 0.28rem;
+  font-family: var(--cc-mono);
+  font-size: 0.68rem;
+  color: var(--color-charcoal);
   text-transform: lowercase;
 }
 
@@ -1403,7 +1408,10 @@ table.data tr:hover td { background: transparent; }
 
 .cc-plan-box { user-select: none; }
 .cc-plan-running { color: var(--color-ink-black); }
-.cc-plan-done { color: var(--color-charcoal); text-decoration: line-through; }
+.cc-plan-running .cc-plan-box { color: var(--color-slate-iris); }
+.cc-plan-done { color: var(--color-charcoal); }
+.cc-plan-done .cc-plan-box { color: var(--color-slate-iris); }
+.cc-plan-done span + span { text-decoration: line-through; }
 
 /* tool lines */
 .cc-tools { display: grid; gap: 0.5rem; }
@@ -1462,6 +1470,9 @@ table.data tr:hover td { background: transparent; }
 }
 
 .cc-prose-marker { color: var(--color-slate-iris); }
+
+/* The body weight is 300, so the UA's relative `bolder` barely reads. */
+.cc-prose strong { font-weight: 600; }
 
 .cc-code {
   font-family: var(--cc-mono);
@@ -1637,7 +1648,7 @@ table.data tr:hover td { background: transparent; }
 .cc-palette {
   border: 1px solid var(--color-ink-black);
   border-bottom: 0;
-  max-height: 13rem;
+  max-height: 17rem;
   overflow-y: auto;
 }
 

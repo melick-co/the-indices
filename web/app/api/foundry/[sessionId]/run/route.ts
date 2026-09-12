@@ -50,10 +50,14 @@ export async function POST(
     updated_at: new Date().toISOString(),
   }).eq('session_id', params.sessionId);
 
+  // The editor can interrupt a run. Closing the stream aborts the agent loop so
+  // we neither keep spending on the API nor save a half-finished turn.
+  const interrupt = new AbortController();
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
       const send = (event: string, data: unknown) => {
+        if (interrupt.signal.aborted) return;
         controller.enqueue(encoder.encode(sse(event, data)));
       };
 
@@ -103,6 +107,7 @@ export async function POST(
               send('text_delta', ev);
             }
           },
+          signal: interrupt.signal,
         });
 
         phase('research', 'done');
@@ -167,15 +172,25 @@ export async function POST(
         phase('save', 'done');
         send('done', { messageId: assistantMsg.id });
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Run failed';
-        send('error', { message: msg });
+        const interrupted = interrupt.signal.aborted
+          || (e instanceof Error && e.name === 'AbortError');
+        if (!interrupted) {
+          send('error', { message: e instanceof Error ? e.message : 'Run failed' });
+        }
         await supabase.from('research_sessions').update({
           status: 'complete',
           updated_at: new Date().toISOString(),
         }).eq('session_id', params.sessionId);
       } finally {
-        controller.close();
+        try {
+          controller.close();
+        } catch {
+          /* already closed by the interrupt */
+        }
       }
+    },
+    cancel() {
+      interrupt.abort();
     },
   });
 
