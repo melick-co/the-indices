@@ -36,13 +36,17 @@ function rowToStory(row: DbStoryRow): Story {
     body: row.body,
     pitchId: row.pitch_id ?? undefined,
     frameCheck: row.frame_check ?? inferFrameCheck(row.kicker, row.title),
+    status: (row.status as Story['status']) ?? 'published',
   };
 }
+
+const STORY_COLS =
+  'story_id, pitch_id, slug, status, kicker, title, hook, caveat, published, one_number, evidence, body, frame_check';
 
 export async function loadPublishedDbStories(): Promise<Story[]> {
   const supabase = createClient();
   const { data, error } = await supabase.from('stories')
-    .select('story_id, pitch_id, slug, status, kicker, title, hook, caveat, published, one_number, evidence, body, frame_check')
+    .select(STORY_COLS)
     .eq('status', 'published')
     .order('published', { ascending: false });
   if (error || !data?.length) return [];
@@ -53,24 +57,51 @@ export async function loadPublishedDbStories(): Promise<Story[]> {
 export async function loadAllStories(): Promise<Story[]> {
   const dbStories = await loadPublishedDbStories();
   const bySlug = new Map<string, Story>();
-  for (const s of STATIC_STORIES) bySlug.set(s.slug, s);
+  for (const s of STATIC_STORIES) bySlug.set(s.slug, { ...s, status: 'published' });
   for (const s of dbStories) bySlug.set(s.slug, s);
   return [...bySlug.values()].sort((a, b) => b.published.localeCompare(a.published));
 }
 
-export async function loadStoryBySlug(slug: string): Promise<Story | null> {
-  const dbStories = await loadPublishedDbStories();
-  const fromDb = dbStories.find((s) => s.slug === slug);
-  if (fromDb) return fromDb;
-  return STATIC_STORIES.find((s) => s.slug === slug) ?? null;
+export async function loadStoryBySlug(
+  slug: string,
+  opts?: { allowDraft?: boolean },
+): Promise<Story | null> {
+  const supabase = createClient();
+  const { data } = await supabase.from('stories')
+    .select(STORY_COLS)
+    .eq('slug', slug)
+    .maybeSingle();
+  if (data) {
+    const row = data as DbStoryRow;
+    if (row.status === 'published' || opts?.allowDraft) return rowToStory(row);
+  }
+  const staticStory = STATIC_STORIES.find((s) => s.slug === slug);
+  return staticStory ? { ...staticStory, status: 'published' } : null;
 }
 
 export async function loadStoryByPitchId(pitchId: string): Promise<Story | null> {
   const supabase = createClient();
   const { data } = await supabase.from('stories')
-    .select('story_id, pitch_id, slug, status, kicker, title, hook, caveat, published, one_number, evidence, body, frame_check')
+    .select(STORY_COLS)
     .eq('pitch_id', pitchId)
     .maybeSingle();
   if (!data) return null;
   return rowToStory(data as DbStoryRow);
+}
+
+/** Map pitch_id → { slug, status } for Foundry/Studio boards (includes drafts). */
+export async function loadStoryLinksByPitch(): Promise<Record<string, { slug: string; status: string }>> {
+  const supabase = createClient();
+  const { data } = await supabase.from('stories')
+    .select('pitch_id, slug, status')
+    .not('pitch_id', 'is', null)
+    .in('status', ['draft', 'published']);
+  return Object.fromEntries(
+    (data ?? [])
+      .filter((r: { pitch_id: string | null }) => r.pitch_id)
+      .map((r: { pitch_id: string; slug: string; status: string }) => [
+        r.pitch_id,
+        { slug: r.slug, status: r.status },
+      ]),
+  );
 }

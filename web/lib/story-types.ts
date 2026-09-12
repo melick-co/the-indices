@@ -19,11 +19,31 @@ export interface StoryOneNumber {
   label: string;
 }
 
+export type ChartKind = 'bars' | 'rank_swap' | 'timeline';
+
+export type ChartSeriesPoint = {
+  label: string;
+  value: number;
+  highlight?: boolean;
+};
+
+export type StoryChartBlock = {
+  type: 'chart';
+  kind: ChartKind;
+  title?: string;
+  caption?: string;
+  series: ChartSeriesPoint[];
+  alt_series?: ChartSeriesPoint[];
+  primary_label?: string;
+  alt_label?: string;
+};
+
 export type StoryBlock =
   | { type: 'paragraph'; text: string }
   | { type: 'layers'; items: string[] }
   | { type: 'heading'; text: string }
-  | { type: 'pull'; text: string };
+  | { type: 'pull'; text: string }
+  | StoryChartBlock;
 
 export interface StoryBody {
   blocks: StoryBlock[];
@@ -46,6 +66,8 @@ export interface Story {
    * viral claim check, rank surprise). Surfaces in the home Frame checks section.
    */
   frameCheck?: boolean;
+  /** Draft stories are preview-only until an editor promotes them. */
+  status?: 'draft' | 'published' | 'archived';
 }
 
 /** Best (lowest) tier and unique publisher names for the receipt strip. */

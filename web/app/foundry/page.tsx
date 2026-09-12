@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase-server';
 import { loadTrendingPage } from '@/lib/trending-topics';
 import { buildTrendIndex, sortPitchesByTrend } from '@/lib/trend-weight';
+import { loadStoryLinksByPitch } from '@/lib/stories-loader';
 import FoundryBoard from './FoundryBoard';
 import type { SourceSuggestion } from './SourceSuggestionsPanel';
 
@@ -12,7 +13,7 @@ export default async function FoundryPage() {
 
   const [{ data: pitches }, { data: runs }, { data: inbox }, { data: feedback },
     { data: events }, { data: metrics }, { data: news }, { data: trends },
-    { data: sourceSuggestions }, { data: storyRows }, trendingData] =
+    { data: sourceSuggestions }, storyByPitch, trendingData] =
     await Promise.all([
       supabase.from('pitches').select('*')
         .order('state').order('rank_value', { ascending: false, nullsFirst: false })
@@ -35,21 +36,12 @@ export default async function FoundryPage() {
         .select('suggestion_id, session_id, action, status, summary, payload, created_at')
         .order('created_at', { ascending: false })
         .limit(30),
-      supabase.from('stories')
-        .select('pitch_id, slug')
-        .eq('status', 'published')
-        .not('pitch_id', 'is', null),
+      loadStoryLinksByPitch(),
       loadTrendingPage(),
     ]);
 
   const trendIndex = buildTrendIndex(trendingData);
   const orderedPitches = sortPitchesByTrend(pitches ?? [], trendIndex);
-
-  const storyByPitch = Object.fromEntries(
-    (storyRows ?? [])
-      .filter((r: { pitch_id: string | null }) => r.pitch_id)
-      .map((r: { pitch_id: string; slug: string }) => [r.pitch_id, r.slug]),
-  );
 
   const suggestionRows: SourceSuggestion[] = (sourceSuggestions ?? []).map((s: {
     suggestion_id: string;

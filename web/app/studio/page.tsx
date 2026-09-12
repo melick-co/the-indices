@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase-server';
+import { loadStoryLinksByPitch } from '@/lib/stories-loader';
 import StudioBoard from './StudioBoard';
 import type { TopicSuggestion } from './SuggestionPanel';
 
@@ -10,7 +11,7 @@ export default async function Studio() {
 
   const [{ data: pitches }, { data: runs }, { data: inbox }, { data: feedback },
     { data: events }, { data: metrics }, { data: news }, { data: trends },
-    { data: suggestions }] =
+    { data: suggestions }, storyByPitch] =
     await Promise.all([
       supabase.from('pitches').select('*')
         .order('state').order('rank_value', { ascending: false, nullsFirst: false })
@@ -33,6 +34,7 @@ export default async function Studio() {
         .select('suggestion_id, source_kind, source_id, action, status, summary, payload, created_at')
         .order('created_at', { ascending: false })
         .limit(30),
+      loadStoryLinksByPitch(),
     ]);
 
   const emailFrom = new Map(
@@ -67,6 +69,7 @@ export default async function Studio() {
       inbox={inbox ?? []} feedback={feedback ?? []}
       events={events ?? []} metrics={metrics ?? []} news={news ?? []}
       trends={trends ?? []} suggestions={suggestionRows}
+      storyByPitch={storyByPitch}
     />
   );
 }

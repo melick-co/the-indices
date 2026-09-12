@@ -1,4 +1,5 @@
 import type { StoryBody as StoryBodyType } from '@/lib/story-types';
+import StoryChart from '@/components/StoryChart';
 
 export default function StoryBody({ body }: { body: StoryBodyType }) {
   return (
@@ -19,6 +20,8 @@ export default function StoryBody({ body }: { body: StoryBodyType }) {
             return <h2 key={i}>{block.text}</h2>;
           case 'pull':
             return <div className="pull" key={i}>{block.text}</div>;
+          case 'chart':
+            return <StoryChart key={i} chart={block} />;
           default:
             return null;
         }

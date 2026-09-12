@@ -9,6 +9,7 @@ function sse(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
+/** Generate or refresh a draft story from an approved pitch (does not go live). */
 export async function POST(
   _req: Request,
   { params }: { params: { pitchId: string } },
@@ -31,12 +32,11 @@ export async function POST(
       };
 
       try {
-        send('status', { phase: 'start', message: 'Generating story…' });
+        send('status', { phase: 'start', message: 'Drafting story…' });
         const result = await publishStoryFromPitch(params.pitchId, onEvent);
-        revalidatePath('/');
         revalidatePath(`/stories/${result.slug}`);
-        revalidatePath(`/evidence/${result.slug}`);
         revalidatePath('/foundry');
+        revalidatePath('/studio');
         send('done', result);
       } catch (e) {
         send('error', { message: e instanceof Error ? e.message : String(e) });
