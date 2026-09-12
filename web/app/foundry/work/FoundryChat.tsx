@@ -569,6 +569,12 @@ export default function FoundryChat({
           <button type="button" className="cc-link" onClick={() => setShowContext((v) => !v)}>
             {showContext ? 'hide context' : `context${inputs.length ? ` (${inputs.length})` : ''}`}
           </button>
+          {lastAssistant && (
+            <button type="button" className="cc-link" disabled={running || pending}
+              onClick={() => bank(title.slice(0, 120), lastAssistant.id)}>
+              bank
+            </button>
+          )}
           <button type="button" className="cc-link" onClick={saveDraft} disabled={pending}>save</button>
           <button type="button" className="cc-link" onClick={archive} disabled={pending}>archive</button>
         </div>
