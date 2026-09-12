@@ -57,10 +57,19 @@ export async function POST(
         controller.enqueue(encoder.encode(sse(event, data)));
       };
 
+      const phase = (id: string, status: 'running' | 'done') => {
+        send('phase', { id, status });
+      };
+
       try {
         const userMsg = newMessage('user', followUp || basePrompt, { intent });
         const toolSteps: FoundryMessage['tool_steps'] = [];
         let assistantText = '';
+        const usage = { input_tokens: 0, output_tokens: 0 };
+
+        phase('context', 'running');
+        phase('context', 'done');
+        phase('research', 'running');
 
         const { text, toolsUsed } = await runFoundryTurn({
           intent,
@@ -68,10 +77,27 @@ export async function POST(
           priorMessages: priorMessages.filter((m) => m.role !== 'system'),
           onEvent: (ev) => {
             if (ev.type === 'tool_start') {
-              toolSteps.push({ name: ev.name, label: ev.label, detail: ev.detail, at: ev.at });
+              toolSteps.push({
+                id: ev.id,
+                name: ev.name,
+                label: ev.label,
+                detail: ev.detail,
+                at: ev.at,
+                status: 'running',
+              });
               send('tool_start', ev);
             } else if (ev.type === 'tool_result') {
+              const step = toolSteps.find((s) => (ev.id ? s.id === ev.id : s.name === ev.name));
+              if (step) {
+                step.status = 'done';
+                step.result = ev.detail;
+                step.ms = ev.ms;
+              }
               send('tool_result', ev);
+            } else if (ev.type === 'usage') {
+              usage.input_tokens += ev.input_tokens;
+              usage.output_tokens += ev.output_tokens;
+              send('usage', usage);
             } else if (ev.type === 'text_delta') {
               assistantText += ev.delta;
               send('text_delta', ev);
@@ -79,7 +105,11 @@ export async function POST(
           },
         });
 
+        phase('research', 'done');
+        phase('score', 'running');
+
         const meta = await scoreFoundryTurn(intent, userPrompt, text);
+        phase('score', 'done');
         send('score', {
           score: meta.score,
           rank_value: meta.rank_value,
@@ -115,6 +145,7 @@ export async function POST(
           score: { ...meta.score, rank_value: meta.rank_value },
           verdict: meta.verdict as FoundryMessage['verdict'],
           branches: meta.branches,
+          usage,
         });
 
         const messages: FoundryMessage[] = [
@@ -123,6 +154,7 @@ export async function POST(
           assistantMsg,
         ];
 
+        phase('save', 'running');
         await supabase.from('research_sessions').update({
           messages,
           answer: text,
@@ -132,6 +164,7 @@ export async function POST(
           updated_at: new Date().toISOString(),
         }).eq('session_id', params.sessionId);
 
+        phase('save', 'done');
         send('done', { messageId: assistantMsg.id });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Run failed';

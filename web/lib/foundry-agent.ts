@@ -10,8 +10,10 @@ import {
 import type { FoundryMessage, FoundryScore, FoundryIntent } from '@/lib/research-shared';
 
 export type FoundryEvent =
-  | { type: 'tool_start'; name: string; label: string; detail?: string; at: string }
-  | { type: 'tool_result'; name: string; label: string; detail?: string; at: string }
+  // `id` pairs a result with its call. Coarse pipeline steps elsewhere omit it and key on `name`.
+  | { type: 'tool_start'; id?: string; name: string; label: string; detail?: string; at: string }
+  | { type: 'tool_result'; id?: string; name: string; label: string; detail?: string; at: string; ms?: number }
+  | { type: 'usage'; input_tokens: number; output_tokens: number }
   | { type: 'text_delta'; delta: string }
   | { type: 'follow_ups'; items: { id: string; prompt: string; intent?: string }[] }
   | { type: 'score'; score: FoundryScore; verdict?: string; rank_value?: number }
@@ -78,6 +80,27 @@ function toolLabel(name: string, input: Record<string, unknown>): string {
       return `Searching metrics for "${String(input.query ?? '').slice(0, 40)}"`;
     default:
       return name;
+  }
+}
+
+/** One-line summary of a tool result, for the run transcript. */
+function resultDetail(name: string, out: unknown): string | undefined {
+  const o = (out ?? {}) as Record<string, unknown>;
+  if (typeof o.error === 'string') return `error · ${o.error.slice(0, 80)}`;
+  switch (name) {
+    case 'query_data':
+      return `${(o.rows as unknown[] | undefined)?.length ?? 0} observations`;
+    case 'search_metrics':
+      return `${(o.metrics as unknown[] | undefined)?.length ?? 0} metrics`;
+    case 'lookup_sources':
+      return `${(o.sources as unknown[] | undefined)?.length ?? 0} sources`;
+    case 'fetch_url': {
+      const words = String(o.text ?? '').split(/\s+/).filter(Boolean).length;
+      const cached = o.cached ? ' · cached' : '';
+      return `${o.title ? `${String(o.title).slice(0, 50)} · ` : ''}${words} words${cached}`;
+    }
+    default:
+      return undefined;
   }
 }
 
@@ -243,6 +266,27 @@ export async function runFoundryTurn(options: {
 
   let finalText = '';
 
+  // Tool calls the model has opened but not yet closed. Anything still open when a
+  // model turn ends is reported as finished so the transcript never stalls.
+  const openTools = new Map<string, { name: string; label: string; startedAt: number }>();
+  const closeTool = (id: string, detail?: string) => {
+    const open = openTools.get(id);
+    if (!open) return;
+    openTools.delete(id);
+    options.onEvent({
+      type: 'tool_result',
+      id,
+      name: open.name,
+      label: open.label,
+      detail,
+      at: new Date().toISOString(),
+      ms: Date.now() - open.startedAt,
+    });
+  };
+  const closeAllTools = () => {
+    for (const id of [...openTools.keys()]) closeTool(id);
+  };
+
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -263,21 +307,38 @@ export async function runFoundryTurn(options: {
       throw new Error(`Anthropic ${res.status}: ${detail}`);
     }
     const body = await res.json();
+    if (body.usage) {
+      options.onEvent({
+        type: 'usage',
+        input_tokens: Number(body.usage.input_tokens ?? 0),
+        output_tokens: Number(body.usage.output_tokens ?? 0),
+      });
+    }
 
     for (const b of body.content ?? []) {
       if (b.type === 'tool_use' || b.type === 'server_tool_use') {
+        const id = String(b.id ?? crypto.randomUUID());
+        const label = toolLabel(b.name, b.input ?? {});
         toolsUsed.push(b.name);
+        openTools.set(id, { name: b.name, label, startedAt: Date.now() });
         options.onEvent({
           type: 'tool_start',
+          id,
           name: b.name,
-          label: toolLabel(b.name, b.input ?? {}),
+          label,
           detail: b.name === 'query_data' ? String(b.input?.metric_id ?? '') : undefined,
           at: new Date().toISOString(),
         });
       }
+      // Server-side web search returns its results inline in the same response.
+      if (b.type === 'web_search_tool_result') {
+        const hits = Array.isArray(b.content) ? b.content.length : 0;
+        closeTool(String(b.tool_use_id ?? ''), hits ? `${hits} results` : undefined);
+      }
     }
 
     if (body.stop_reason !== 'tool_use') {
+      closeAllTools();
       finalText = (body.content ?? [])
         .filter((c: { type: string }) => c.type === 'text')
         .map((c: { text: string }) => c.text)
@@ -294,30 +355,11 @@ export async function runFoundryTurn(options: {
     const results: { type: string; tool_use_id: string; content: string }[] = [];
     for (const b of body.content ?? []) {
       if (b.type !== 'tool_use') continue;
-      if (b.name === 'web_search') {
-        options.onEvent({
-          type: 'tool_result',
-          name: b.name,
-          label: 'Web search complete',
-          at: new Date().toISOString(),
-        });
-        continue;
-      }
       const out = await executeTool(b.name, b.input ?? {});
-      const detail = b.name === 'query_data' && 'rows' in out
-        ? `${(out.rows as unknown[])?.length ?? 0} rows`
-        : b.name === 'fetch_url' && 'text' in out
-          ? `${String((out as { text?: string }).text ?? '').slice(0, 80)}…`
-          : undefined;
-      options.onEvent({
-        type: 'tool_result',
-        name: b.name,
-        label: toolLabel(b.name, b.input ?? {}),
-        detail,
-        at: new Date().toISOString(),
-      });
+      closeTool(String(b.id), resultDetail(b.name, out));
       results.push({ type: 'tool_result', tool_use_id: b.id, content: JSON.stringify(out) });
     }
+    closeAllTools();
     if (!results.length) {
       finalText = (body.content ?? [])
         .filter((c: { type: string }) => c.type === 'text')

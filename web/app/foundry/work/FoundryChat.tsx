@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState, useTransition } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type KeyboardEvent,
+} from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -10,6 +18,7 @@ import {
   SessionInput,
   type FoundryIntent,
   type FoundryMessage,
+  type FoundryToolStep,
 } from '@/lib/research-shared';
 import {
   archiveFoundrySession,
@@ -24,12 +33,55 @@ import {
 type DataSource = { source_id: string; name: string; org: string; cadence: string; active: boolean };
 type MonitorRow = { monitor_id: string; kind: string; label: string; cadence: string; active: boolean };
 
-const INTENTS: { value: FoundryIntent; label: string }[] = [
-  { value: 'investigate', label: 'Investigate' },
-  { value: 'brainstorm', label: 'Brainstorm' },
-  { value: 'refine', label: 'Refine' },
-  { value: 'precedents', label: 'Precedents' },
+const INTENTS: { value: FoundryIntent; label: string; blurb: string }[] = [
+  { value: 'investigate', label: 'investigate', blurb: 'Check a claim and reach a verdict' },
+  { value: 'brainstorm', label: 'brainstorm', blurb: 'Generate angles worth chasing' },
+  { value: 'refine', label: 'refine', blurb: 'Sharpen the thread so far' },
+  { value: 'precedents', label: 'precedents', blurb: 'Find comparable cases elsewhere' },
 ];
+
+const PHASES: { id: string; label: string }[] = [
+  { id: 'context', label: 'Load session context' },
+  { id: 'research', label: 'Research with the data store and the web' },
+  { id: 'score', label: 'Score the angle against the charter' },
+  { id: 'save', label: 'Save the turn to the session' },
+];
+
+type PhaseStatus = 'pending' | 'running' | 'done';
+
+type Command = {
+  name: string;
+  arg?: string;
+  blurb: string;
+};
+
+const COMMANDS: Command[] = [
+  { name: '/investigate', arg: '[claim]', blurb: 'Run an investigate turn' },
+  { name: '/brainstorm', arg: '[topic]', blurb: 'Run a brainstorm turn' },
+  { name: '/refine', arg: '[note]', blurb: 'Run a refine turn on the thread' },
+  { name: '/precedents', arg: '[topic]', blurb: 'Research cross-market precedents' },
+  { name: '/context', blurb: 'Show or hide session context, links and files' },
+  { name: '/bank', arg: '[headline]', blurb: 'Bank the last turn as a candidate pitch' },
+  { name: '/track', blurb: 'Track this session in the news watch' },
+  { name: '/monitor', blurb: 'Set up monitoring for suggested sources' },
+  { name: '/fork', arg: '[label]', blurb: 'Branch the session from the last turn' },
+  { name: '/archive', blurb: 'Archive this session' },
+  { name: '/help', blurb: 'List the commands' },
+];
+
+const SPINNER = ['·', '✳', '✶', '✳'];
+
+function formatDuration(ms: number) {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  const mins = Math.floor(ms / 60000);
+  return `${mins}m ${Math.round((ms % 60000) / 1000)}s`;
+}
+
+function formatTokens(n: number) {
+  if (n < 1000) return `${n}`;
+  return `${(n / 1000).toFixed(1)}k`;
+}
 
 export default function FoundryChat({
   session,
@@ -57,15 +109,24 @@ export default function FoundryChat({
   );
   const [composer, setComposer] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
+  const [showContext, setShowContext] = useState(
+    () => !normalizeMessages(session.messages).length,
+  );
   const [running, setRunning] = useState(false);
+  const [runIntent, setRunIntent] = useState<FoundryIntent>('investigate');
   const [liveText, setLiveText] = useState('');
-  const [liveTools, setLiveTools] = useState<FoundryMessage['tool_steps']>([]);
+  const [liveTools, setLiveTools] = useState<FoundryToolStep[]>([]);
+  const [phases, setPhases] = useState<Record<string, PhaseStatus>>({});
+  const [liveUsage, setLiveUsage] = useState<{ input_tokens: number; output_tokens: number } | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [tick, setTick] = useState(0);
+  const [notes, setNotes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [bankMsg, setBankMsg] = useState<string | null>(null);
-  const [trackMsg, setTrackMsg] = useState<string | null>(null);
   const [showMonitor, setShowMonitor] = useState(false);
   const [pending, start] = useTransition();
   const abortRef = useRef<AbortController | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const tailRef = useRef<HTMLDivElement | null>(null);
 
   const lastAssistant = useMemo(
     () => [...messages].reverse().find((m) => m.role === 'assistant'),
@@ -82,8 +143,21 @@ export default function FoundryChat({
     };
   }, [lastAssistant, session]);
 
+  const slashQuery = composer.startsWith('/') && !composer.includes('\n')
+    ? composer.split(/\s/)[0]
+    : null;
+  const slashMatches = useMemo(() => {
+    if (slashQuery == null) return [];
+    if (composer.includes(' ')) return [];
+    return COMMANDS.filter((c) => c.name.startsWith(slashQuery));
+  }, [slashQuery, composer]);
+
   function uid() {
     return crypto.randomUUID();
+  }
+
+  function note(text: string) {
+    setNotes((prev) => [...prev, text]);
   }
 
   const saveDraft = useCallback(() => {
@@ -92,67 +166,37 @@ export default function FoundryChat({
     });
   }, [sessionId, title, prompt, inputs, intent, start]);
 
-  function addLink() {
-    if (!linkUrl.trim()) return;
-    const url = linkUrl.trim();
-    setLinkUrl('');
-    start(async () => {
-      setError(null);
-      const fetched = await fetchLinkContent(url);
-      if (!fetched.ok) {
-        setError(fetched.error);
-        return;
-      }
-      const next: SessionInput[] = [...inputs, {
-        id: uid(),
-        type: 'link' as const,
-        url,
-        label: fetched.title,
-        content: fetched.text,
-      }];
-      setInputs(next);
-      await saveFoundrySession(sessionId, { title, prompt, inputs: next, intent });
-    });
-  }
+  /* ---------- run loop ---------- */
 
-  function onFile(file: File | null) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const content = String(reader.result ?? '').slice(0, 12000);
-      const next: SessionInput[] = [...inputs, { id: uid(), type: 'file' as const, fileName: file.name, content }];
-      setInputs(next);
-      start(async () => {
-        await saveFoundrySession(sessionId, { title, prompt, inputs: next, intent });
-      });
-    };
-    reader.readAsText(file);
-  }
-
-  async function runTurn(runPrompt?: string, runIntent?: FoundryIntent) {
-    setError(null);
-    setBankMsg(null);
-    setRunning(true);
-    setLiveText('');
-    setLiveTools([]);
-    await saveFoundrySession(sessionId, { title, prompt, inputs, intent: runIntent ?? intent });
-
-    const body = {
-      prompt: (runPrompt ?? composer.trim()) || undefined,
-      intent: runIntent ?? intent,
-    };
-    if (!body.prompt && !prompt.trim() && !inputs.length) {
-      setError('Add a prompt, link, or file before running.');
-      setRunning(false);
+  const runTurn = useCallback(async (overridePrompt?: string, overrideIntent?: FoundryIntent) => {
+    const activeIntent = overrideIntent ?? intent;
+    const outbound = (overridePrompt ?? composer).trim();
+    if (!outbound && !prompt.trim() && !inputs.length) {
+      setError('Add a prompt, a link, or a file before running.');
       return;
     }
+
+    setError(null);
+    setNotes([]);
+    setRunning(true);
+    setRunIntent(activeIntent);
+    setLiveText('');
+    setLiveTools([]);
+    setLiveUsage(null);
+    setElapsed(0);
+    setPhases({ context: 'running' });
+    if (overrideIntent) setIntent(overrideIntent);
+    if (!overridePrompt) setComposer('');
+
+    const startedAt = Date.now();
+    await saveFoundrySession(sessionId, { title, prompt, inputs, intent: activeIntent });
 
     abortRef.current = new AbortController();
     try {
       const res = await fetch(`/api/foundry/${sessionId}/run`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ prompt: outbound || undefined, intent: activeIntent }),
         signal: abortRef.current.signal,
       });
       if (!res.ok || !res.body) {
@@ -164,11 +208,12 @@ export default function FoundryChat({
       const decoder = new TextDecoder();
       let buffer = '';
       let accumulated = '';
-      let streamToolSteps: FoundryMessage['tool_steps'] = [];
+      let steps: FoundryToolStep[] = [];
       let followUps: FoundryMessage['follow_ups'];
       let score: FoundryMessage['score'];
       let verdict: FoundryMessage['verdict'];
       let branches: FoundryMessage['branches'];
+      let usage: FoundryMessage['usage'];
       let messageId: string | undefined;
 
       while (true) {
@@ -178,23 +223,38 @@ export default function FoundryChat({
         const parts = buffer.split('\n\n');
         buffer = parts.pop() ?? '';
         for (const part of parts) {
-          const lines = part.split('\n');
           let event = 'message';
           let data = '';
-          for (const line of lines) {
+          for (const line of part.split('\n')) {
             if (line.startsWith('event: ')) event = line.slice(7);
             if (line.startsWith('data: ')) data = line.slice(6);
           }
           if (!data) continue;
           const parsed = JSON.parse(data);
-          if (event === 'tool_start') {
-            streamToolSteps = [...(streamToolSteps ?? []), {
+
+          if (event === 'phase') {
+            setPhases((prev) => ({ ...prev, [parsed.id]: parsed.status }));
+          } else if (event === 'tool_start') {
+            steps = [...steps, {
+              id: parsed.id,
               name: parsed.name,
               label: parsed.label,
               detail: parsed.detail,
               at: parsed.at,
+              status: 'running',
             }];
-            setLiveTools(streamToolSteps);
+            setLiveTools(steps);
+          } else if (event === 'tool_result') {
+            const matches = (s: FoundryToolStep) => (
+              parsed.id ? s.id === parsed.id : s.name === parsed.name && s.status === 'running'
+            );
+            steps = steps.map((s) => (
+              matches(s) ? { ...s, status: 'done' as const, result: parsed.detail, ms: parsed.ms } : s
+            ));
+            setLiveTools(steps);
+          } else if (event === 'usage') {
+            usage = { input_tokens: parsed.input_tokens, output_tokens: parsed.output_tokens };
+            setLiveUsage(usage);
           } else if (event === 'text_delta') {
             accumulated += parsed.delta;
             setLiveText(accumulated);
@@ -205,6 +265,11 @@ export default function FoundryChat({
             verdict = parsed.verdict;
           } else if (event === 'branches') {
             branches = parsed.items;
+          } else if (event === 'source_suggestions') {
+            const items = (parsed.items ?? []) as { summary: string }[];
+            if (items.length) {
+              note(`${items.length} source suggestion${items.length > 1 ? 's' : ''} queued: ${items.map((i) => i.summary).join('; ').slice(0, 160)}`);
+            }
           } else if (event === 'done') {
             messageId = parsed.messageId;
           } else if (event === 'error') {
@@ -213,18 +278,18 @@ export default function FoundryChat({
         }
       }
 
-      const userContent = (runPrompt ?? composer.trim()) || prompt;
+      const userContent = outbound || prompt;
       if (userContent.trim()) {
         setMessages((prev) => {
-          const hasUser = runPrompt ? true : prev.some((m) => m.role === 'user');
           const next = [...prev];
-          if (runPrompt || !hasUser) {
+          const alreadyOpened = prev.some((m) => m.role === 'user');
+          if (outbound || !alreadyOpened) {
             next.push({
               id: uid(),
               role: 'user',
               content: userContent,
               at: new Date().toISOString(),
-              intent: runIntent ?? intent,
+              intent: activeIntent,
             });
           }
           next.push({
@@ -232,26 +297,104 @@ export default function FoundryChat({
             role: 'assistant',
             content: accumulated,
             at: new Date().toISOString(),
-            tool_steps: streamToolSteps.length ? streamToolSteps : undefined,
+            tool_steps: steps.length ? steps : undefined,
             follow_ups: followUps,
             score,
             verdict,
             branches,
+            usage,
           });
           return next;
         });
       }
-      setComposer('');
+      note(`Done in ${formatDuration(Date.now() - startedAt)}`);
       router.refresh();
     } catch (e: unknown) {
-      if (e instanceof Error && e.name !== 'AbortError') {
+      if (e instanceof Error && e.name === 'AbortError') {
+        note('Interrupted.');
+      } else if (e instanceof Error) {
         setError(e.message);
       }
     } finally {
       setRunning(false);
       setLiveText('');
       setLiveTools([]);
+      setPhases({});
+      abortRef.current = null;
     }
+  }, [composer, inputs, intent, prompt, router, sessionId, title]);
+
+  function interrupt() {
+    abortRef.current?.abort();
+  }
+
+  /* ---------- live status timers ---------- */
+
+  useEffect(() => {
+    if (!running) return;
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      setElapsed(Date.now() - started);
+      setTick((t) => t + 1);
+    }, 400);
+    return () => window.clearInterval(timer);
+  }, [running]);
+
+  useEffect(() => {
+    if (!running) return;
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        interrupt();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [running]);
+
+  useEffect(() => {
+    tailRef.current?.scrollIntoView({ block: 'end', behavior: running ? 'auto' : 'smooth' });
+  }, [messages.length, liveText, liveTools.length, running]);
+
+  /* ---------- session actions ---------- */
+
+  function addLink(url: string) {
+    const clean = url.trim();
+    if (!clean) return;
+    setLinkUrl('');
+    start(async () => {
+      setError(null);
+      const fetched = await fetchLinkContent(clean);
+      if (!fetched.ok) {
+        setError(fetched.error);
+        return;
+      }
+      const next: SessionInput[] = [...inputs, {
+        id: uid(),
+        type: 'link' as const,
+        url: clean,
+        label: fetched.title,
+        content: fetched.text,
+      }];
+      setInputs(next);
+      note(`Added link · ${fetched.title}`);
+      await saveFoundrySession(sessionId, { title, prompt, inputs: next, intent });
+    });
+  }
+
+  function onFile(file: File | null) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = String(reader.result ?? '').slice(0, 12000);
+      const next: SessionInput[] = [...inputs, { id: uid(), type: 'file' as const, fileName: file.name, content }];
+      setInputs(next);
+      note(`Added file · ${file.name}`);
+      start(async () => {
+        await saveFoundrySession(sessionId, { title, prompt, inputs: next, intent });
+      });
+    };
+    reader.readAsText(file);
   }
 
   function fork(messageId?: string, label?: string) {
@@ -267,26 +410,24 @@ export default function FoundryChat({
   }
 
   function bank(headline: string, messageId?: string, angleHeadline?: string) {
-    setBankMsg(null);
     start(async () => {
       const r = await bankFoundrySession(sessionId, headline, messageId, angleHeadline);
       if (!r.ok) {
-        setBankMsg(r.error);
+        setError(r.error);
         return;
       }
-      setBankMsg('Banked as candidate pitch — see Foundry → Awaiting ranking.');
+      note('Banked as a candidate pitch. Foundry board → Awaiting ranking.');
     });
   }
 
   function track() {
-    setTrackMsg(null);
     start(async () => {
       const r = await trackSession(sessionId);
       if (!r.ok) {
-        setTrackMsg(r.error);
+        setError(r.error);
         return;
       }
-      setTrackMsg(r.already ? 'Already tracked' : 'Added to sessions and news watch');
+      note(r.already ? 'Already tracked.' : 'Added to sessions and the news watch.');
     });
   }
 
@@ -297,40 +438,210 @@ export default function FoundryChat({
     });
   }
 
+  /* ---------- composer ---------- */
+
+  function runCommand(raw: string): boolean {
+    const [head, ...rest] = raw.trim().split(/\s+/);
+    const arg = rest.join(' ').trim();
+    const known = COMMANDS.find((c) => c.name === head);
+    if (!known) {
+      setError(`Unknown command ${head}. Type /help for the list.`);
+      return true;
+    }
+    setComposer('');
+    setError(null);
+
+    switch (head) {
+      case '/investigate':
+      case '/brainstorm':
+      case '/refine':
+      case '/precedents':
+        void runTurn(arg || undefined, head.slice(1) as FoundryIntent);
+        return true;
+      case '/context':
+        setShowContext((v) => !v);
+        return true;
+      case '/bank':
+        bank((arg || title).slice(0, 120), lastAssistant?.id);
+        return true;
+      case '/track':
+        track();
+        return true;
+      case '/monitor':
+        setShowMonitor(true);
+        return true;
+      case '/fork':
+        fork(lastAssistant?.id, arg || undefined);
+        return true;
+      case '/archive':
+        archive();
+        return true;
+      case '/help':
+        setNotes([
+          'Commands',
+          ...COMMANDS.map((c) => `${c.name}${c.arg ? ` ${c.arg}` : ''} — ${c.blurb}`),
+        ]);
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  function submit() {
+    const raw = composer.trim();
+    if (!raw) {
+      if (!running) void runTurn();
+      return;
+    }
+    if (raw.startsWith('/')) {
+      runCommand(raw);
+      return;
+    }
+    void runTurn(raw);
+  }
+
+  function onComposerKey(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Tab' && slashMatches.length) {
+      e.preventDefault();
+      setComposer(`${slashMatches[0].name} `);
+      return;
+    }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (running) return;
+      if (slashMatches.length === 1 && slashMatches[0].name !== composer.trim()) {
+        setComposer(`${slashMatches[0].name} `);
+        return;
+      }
+      submit();
+    }
+  }
+
+  const activeMonitors = monitors.filter((m) => m.active);
+  const spinner = SPINNER[tick % SPINNER.length];
+  const toolsRun = liveTools.length;
+
   return (
-    <main className="foundry-chat" style={{ paddingBottom: 'var(--spacing-84)' }}>
-      <header className="foundry-chat-header">
-        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} onBlur={saveDraft}
-            className="foundry-title-input" />
-          <select value={intent} onChange={(e) => setIntent(e.target.value as FoundryIntent)}
-            onBlur={saveDraft} className="foundry-intent-select">
+    <main className="cc-session">
+      <header className="cc-header">
+        <div className="cc-header-line">
+          <span className="cc-prefix">foundry</span>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={saveDraft}
+            aria-label="Session title"
+            className="cc-title"
+          />
+        </div>
+        <div className="cc-header-meta">
+          <span>session {sessionId.slice(0, 8)}</span>
+          <span>·</span>
+          <select
+            value={intent}
+            onChange={(e) => {
+              setIntent(e.target.value as FoundryIntent);
+              saveDraft();
+            }}
+            aria-label="Default intent"
+            className="cc-intent"
+          >
             {INTENTS.map((i) => (
               <option key={i.value} value={i.value}>{i.label}</option>
             ))}
           </select>
-          <button type="button" className="btn-ghost" onClick={saveDraft} disabled={pending}>Save</button>
-          <button type="button" className="btn-ghost" onClick={archive} disabled={pending}>Archive</button>
+          <span>·</span>
+          <span>{messages.filter((m) => m.role === 'assistant').length} turns</span>
+          {activeMonitors.length > 0 && (
+            <>
+              <span>·</span>
+              <span>{activeMonitors.length} monitors</span>
+            </>
+          )}
+          <span className="cc-header-spacer" />
+          <button type="button" className="cc-link" onClick={() => setShowContext((v) => !v)}>
+            {showContext ? 'hide context' : `context${inputs.length ? ` (${inputs.length})` : ''}`}
+          </button>
+          <button type="button" className="cc-link" onClick={saveDraft} disabled={pending}>save</button>
+          <button type="button" className="cc-link" onClick={archive} disabled={pending}>archive</button>
         </div>
         {(parentSession || forks.length > 0) && (
-          <div className="foundry-lineage">
+          <div className="cc-header-meta">
             {parentSession && (
-              <Link href={`/foundry/work/${parentSession.session_id}`}>
+              <Link className="cc-link" href={`/foundry/work/${parentSession.session_id}`}>
                 ↳ forked from {parentSession.title ?? 'parent'}
               </Link>
             )}
             {forks.map((f) => (
-              <Link key={f.session_id} href={`/foundry/work/${f.session_id}`}>
-                branch: {f.title ?? f.session_id.slice(0, 8)}
+              <Link key={f.session_id} className="cc-link" href={`/foundry/work/${f.session_id}`}>
+                ⑂ {f.title ?? f.session_id.slice(0, 8)}
               </Link>
             ))}
           </div>
         )}
       </header>
 
-      <section className="foundry-thread">
+      {showContext && (
+        <section className="cc-context">
+          <div className="cc-context-head">context</div>
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onBlur={saveDraft}
+            rows={3}
+            placeholder="The standing question or topic for this session. Every turn is run against it."
+            className="cc-textarea"
+          />
+          <div className="cc-context-row">
+            <input
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLink(linkUrl); } }}
+              placeholder="Paste a link to read into context"
+              className="cc-input"
+            />
+            <button type="button" className="cc-link" onClick={() => addLink(linkUrl)}
+              disabled={pending || !linkUrl.trim()}>
+              fetch
+            </button>
+            <label className="cc-link" style={{ cursor: 'pointer' }}>
+              upload
+              <input type="file" accept=".txt,.md,.csv,.json,.html" style={{ display: 'none' }}
+                onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+            </label>
+          </div>
+          {inputs.map((input) => (
+            <div key={input.id} className="cc-context-item">
+              <span>
+                {input.type === 'link' ? '🔗' : '📄'}{' '}
+                {input.type === 'link' ? (input.label ?? input.url) : input.fileName}
+              </span>
+              <button type="button" className="cc-link" onClick={() => {
+                const next = inputs.filter((i) => i.id !== input.id);
+                setInputs(next);
+                start(async () => { await saveFoundrySession(sessionId, { title, prompt, inputs: next, intent }); });
+              }}>remove</button>
+            </div>
+          ))}
+        </section>
+      )}
+
+      <section className="cc-transcript">
+        {messages.length === 0 && !running && (
+          <div className="cc-welcome">
+            <p>
+              This is a working session. Ask a question and the agent researches it against the
+              Caveat data store and tier 1 and 2 sources, then scores the angle against the
+              editorial charter.
+            </p>
+            <p className="cc-dim">
+              Type a message and press Enter. Type <span className="cc-kbd">/</span> for commands.
+            </p>
+          </div>
+        )}
+
         {messages.map((m) => (
-          <MessageBubble
+          <Turn
             key={m.id}
             message={m}
             onFollowUp={(p, i) => runTurn(p, i ?? 'refine')}
@@ -341,84 +652,73 @@ export default function FoundryChat({
         ))}
 
         {running && (
-          <div className="foundry-message foundry-message-assistant">
-            <div className="foundry-message-role">Assistant · running</div>
-            {(liveTools?.length ?? 0) > 0 && (
-              <ul className="foundry-tool-steps">
-                {(liveTools ?? []).map((t, i) => (
-                  <li key={i}>{t.label}{t.detail ? ` · ${t.detail}` : ''}</li>
-                ))}
-              </ul>
-            )}
-            {liveText && <div className="foundry-message-body">{liveText}</div>}
-            {!liveText && !(liveTools?.length) && (
-              <div className="foundry-message-body foundry-muted">Starting…</div>
-            )}
+          <div className="cc-turn cc-turn-agent">
+            <Plan phases={phases} />
+            <ToolStream steps={liveTools} elapsed={elapsed} />
+            {liveText && <AgentText text={liveText} />}
           </div>
         )}
+
+        {notes.length > 0 && (
+          <div className="cc-notes">
+            {notes.map((n, i) => <div key={i}>{n}</div>)}
+          </div>
+        )}
+
+        {error && <div className="cc-error">✗ {error}</div>}
+        <div ref={tailRef} />
       </section>
 
-      <section className="foundry-composer">
-        <h3 className="section-head">Context</h3>
-        <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} onBlur={saveDraft}
-          rows={3} placeholder="Session prompt — the question or topic you're working on"
-          className="foundry-textarea" />
-        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', margin: '.6rem 0' }}>
-          <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="Paste a link"
-            className="foundry-input" style={{ flex: 1, minWidth: '14rem' }} />
-          <button type="button" className="btn-accent" onClick={addLink} disabled={pending || !linkUrl.trim()}>
-            Fetch link
-          </button>
-          <label className="btn-ghost" style={{ cursor: 'pointer' }}>
-            Upload file
-            <input type="file" accept=".txt,.md,.csv,.json,.html" style={{ display: 'none' }}
-              onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
-          </label>
-        </div>
-        {inputs.map((input) => (
-          <div key={input.id} className="foundry-input-row">
-            <div className="foundry-meta">
-              {input.type === 'link' && `Link · ${input.label ?? input.url}`}
-              {input.type === 'file' && `File · ${input.fileName}`}
-            </div>
-            <button type="button" className="studio-link" onClick={() => {
-              const next = inputs.filter((i) => i.id !== input.id);
-              setInputs(next);
-              start(async () => { await saveFoundrySession(sessionId, { title, prompt, inputs: next, intent }); });
-            }}>Remove</button>
+      <section className="cc-composer">
+        {running ? (
+          <div className="cc-status">
+            <span className="cc-status-glyph">{spinner}</span>
+            <span>{runIntent === 'precedents' ? 'Researching precedents' : `Running ${runIntent}`}…</span>
+            <span className="cc-dim">
+              {formatDuration(elapsed)}
+              {toolsRun ? ` · ${toolsRun} tool${toolsRun > 1 ? 's' : ''}` : ''}
+              {liveUsage ? ` · ${formatTokens(liveUsage.input_tokens + liveUsage.output_tokens)} tokens` : ''}
+            </span>
+            <button type="button" className="cc-link" onClick={interrupt}>esc to interrupt</button>
           </div>
-        ))}
-
-        <h3 className="section-head" style={{ marginTop: '1.5rem' }}>Message</h3>
-        <textarea value={composer} onChange={(e) => setComposer(e.target.value)} rows={2}
-          placeholder="Ask a follow-up, refine an angle, or request precedents…"
-          className="foundry-textarea" />
-        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '.6rem' }}>
-          <button type="button" className="btn-accent" disabled={running || pending}
-            onClick={() => runTurn()}>
-            {running ? 'Running…' : messages.length ? 'Send' : 'Run'}
-          </button>
-          <button type="button" className="btn-ghost" disabled={running || pending}
-            onClick={() => runTurn(undefined, 'precedents')}>
-            Research precedents
-          </button>
-          <button type="button" className="btn-ghost" disabled={running || pending} onClick={track}>
-            Track
-          </button>
-          {lastAssistant && (
-            <button type="button" className="studio-link" disabled={running || pending}
-              onClick={() => bank(title.slice(0, 120), lastAssistant.id)}>
-              Bank turn
-            </button>
-          )}
-          <button type="button" className="studio-link" disabled={running || pending}
-            onClick={() => setShowMonitor(true)}>
-            Set up monitoring
-          </button>
-        </div>
-        {error && <p className="foundry-error">{error}</p>}
-        {bankMsg && <p className="foundry-success">{bankMsg}</p>}
-        {trackMsg && <p className="foundry-success">{trackMsg}</p>}
+        ) : (
+          <>
+            {slashMatches.length > 0 && (
+              <div className="cc-palette">
+                {slashMatches.map((c) => (
+                  <button key={c.name} type="button" className="cc-palette-row"
+                    onClick={() => {
+                      setComposer(`${c.name} `);
+                      composerRef.current?.focus();
+                    }}>
+                    <span className="cc-palette-name">{c.name}{c.arg ? ` ${c.arg}` : ''}</span>
+                    <span className="cc-dim">{c.blurb}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="cc-prompt">
+              <span className="cc-caret">&gt;</span>
+              <textarea
+                ref={composerRef}
+                value={composer}
+                onChange={(e) => setComposer(e.target.value)}
+                onKeyDown={onComposerKey}
+                rows={Math.min(8, Math.max(1, composer.split('\n').length))}
+                placeholder={messages.length ? 'Reply, or / for commands' : 'Ask the desk a question, or / for commands'}
+                aria-label="Message"
+                className="cc-prompt-input"
+              />
+            </div>
+            <div className="cc-hints">
+              <span><span className="cc-kbd">enter</span> send</span>
+              <span><span className="cc-kbd">shift</span> + <span className="cc-kbd">enter</span> newline</span>
+              <span><span className="cc-kbd">/</span> commands</span>
+              <span className="cc-header-spacer" />
+              <span className="cc-dim">{INTENTS.find((i) => i.value === intent)?.blurb}</span>
+            </div>
+          </>
+        )}
       </section>
 
       {showMonitor && (
@@ -429,20 +729,125 @@ export default function FoundryChat({
           onSave={(selection) => start(async () => {
             await setupMonitoring(sessionId, selection);
             setShowMonitor(false);
+            note('Monitoring enabled.');
           })}
         />
       )}
 
       {Boolean(session.linked_pitch) && (
-        <p className="foundry-meta" style={{ marginTop: '1.5rem' }}>
-          Linked pitch · <Link href="/foundry">Open Foundry board</Link>
+        <p className="cc-dim" style={{ marginTop: '1rem', fontSize: '.72rem' }}>
+          Banked · <Link className="cc-link" href="/foundry">open the Foundry board</Link>
         </p>
       )}
     </main>
   );
 }
 
-function MessageBubble({
+/* ---------- run plan ---------- */
+
+function Plan({ phases }: { phases: Record<string, PhaseStatus> }) {
+  return (
+    <div className="cc-plan">
+      {PHASES.map((p) => {
+        const status = phases[p.id] ?? 'pending';
+        return (
+          <div key={p.id} className={`cc-plan-row cc-plan-${status}`}>
+            <span className="cc-plan-box">{status === 'done' ? '☒' : '☐'}</span>
+            <span>{p.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- tool lines ---------- */
+
+function ToolStream({ steps, elapsed }: { steps: FoundryToolStep[]; elapsed?: number }) {
+  if (!steps.length) {
+    return <div className="cc-tool cc-tool-waiting">● Thinking…</div>;
+  }
+  return (
+    <div className="cc-tools">
+      {steps.map((s, i) => (
+        <div key={s.id ?? i} className={`cc-tool cc-tool-${s.status ?? 'done'}`}>
+          <div className="cc-tool-head">
+            <span className="cc-tool-dot">{s.status === 'running' ? '◐' : '●'}</span>
+            <span className="cc-tool-label">{s.label}</span>
+            <span className="cc-tool-name">{s.name}</span>
+          </div>
+          <div className="cc-tool-result">
+            <span className="cc-tool-elbow">⎿</span>
+            {s.status === 'running'
+              ? <span className="cc-dim">running{elapsed ? ` · ${formatDuration(elapsed)}` : ''}</span>
+              : (
+                <span>
+                  {s.result ?? s.detail ?? 'complete'}
+                  {s.ms ? <span className="cc-dim"> · {formatDuration(s.ms)}</span> : null}
+                </span>
+              )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- agent prose ---------- */
+
+/** Render the charter-shaped markdown the agent returns: headings, bullets, bold. */
+function AgentText({ text }: { text: string }) {
+  const lines = text.split('\n');
+  return (
+    <div className="cc-prose">
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={i} className="cc-prose-gap" />;
+        const heading = /^#{1,6}\s+(.*)$/.exec(trimmed);
+        if (heading) {
+          return <div key={i} className="cc-prose-head">{inline(heading[1])}</div>;
+        }
+        const bullet = /^[-*]\s+(.*)$/.exec(trimmed);
+        if (bullet) {
+          return (
+            <div key={i} className="cc-prose-bullet">
+              <span className="cc-prose-marker">·</span>
+              <span>{inline(bullet[1])}</span>
+            </div>
+          );
+        }
+        const numbered = /^(\d+)\.\s+(.*)$/.exec(trimmed);
+        if (numbered) {
+          return (
+            <div key={i} className="cc-prose-bullet">
+              <span className="cc-prose-marker">{numbered[1]}.</span>
+              <span>{inline(numbered[2])}</span>
+            </div>
+          );
+        }
+        return <div key={i} className="cc-prose-line">{inline(trimmed)}</div>;
+      })}
+    </div>
+  );
+}
+
+/** Split a line on **bold** and `code` runs. */
+function inline(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
+      return <code key={i} className="cc-code">{part.slice(1, -1)}</code>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+/* ---------- one exchange ---------- */
+
+function Turn({
   message: m,
   onFollowUp,
   onFork,
@@ -455,84 +860,99 @@ function MessageBubble({
   onBank: (headline: string, angle?: string) => void;
   disabled: boolean;
 }) {
-  const angles = m.role === 'assistant' ? parseAngles(m.content) : [];
+  if (m.role === 'user') {
+    return (
+      <div className="cc-turn cc-turn-user">
+        <span className="cc-caret">&gt;</span>
+        <div>
+          <div className="cc-user-text">{m.content}</div>
+          {m.intent && <div className="cc-dim cc-turn-tag">{m.intent}</div>}
+        </div>
+      </div>
+    );
+  }
+
+  const angles = parseAngles(m.content);
+  const totalTokens = m.usage ? m.usage.input_tokens + m.usage.output_tokens : 0;
 
   return (
-    <div className={`foundry-message foundry-message-${m.role}`}>
-      <div className="foundry-message-role">
-        {m.role}{m.intent ? ` · ${m.intent}` : ''}
-      </div>
-      {m.tool_steps?.length ? (
-        <ul className="foundry-tool-steps">
-          {m.tool_steps.map((t, i) => (
-            <li key={i}>{t.label}{t.detail ? ` · ${t.detail}` : ''}</li>
-          ))}
-        </ul>
-      ) : null}
-      <div className="foundry-message-body">{m.content}</div>
+    <div className="cc-turn cc-turn-agent">
+      {m.tool_steps?.length ? <ToolStream steps={m.tool_steps} /> : null}
+      <AgentText text={m.content} />
 
       {m.score && (
-        <div className="foundry-score-card">
-          <div className="foundry-meta">Hypothesis score · rank {m.score.rank_value?.toFixed(1) ?? '—'}</div>
-          <div className="foundry-score-bars">
+        <div className="cc-score">
+          <div className="cc-score-head">
+            score {m.score.rank_value?.toFixed(1) ?? '—'} / 5
+            {m.verdict && <span className={`cc-verdict cc-verdict-${m.verdict}`}>{m.verdict.replace('_', ' ')}</span>}
+          </div>
+          <div className="cc-score-grid">
             {(['surprise', 'checkability', 'mechanism', 'visual', 'timing'] as const).map((k) => (
-              <div key={k} className="foundry-score-row">
-                <span>{k.slice(0, 5)}</span>
-                <div className="foundry-score-bar">
-                  <div style={{ width: `${(m.score![k] / 5) * 100}%` }} />
-                </div>
+              <div key={k} className="cc-score-row">
+                <span>{k}</span>
+                <span className="cc-score-bar">
+                  <span style={{ width: `${(m.score![k] / 5) * 100}%` }} />
+                </span>
                 <span>{m.score![k]}</span>
               </div>
             ))}
           </div>
-          {m.verdict && <div className="foundry-verdict">{m.verdict.replace('_', ' ')}</div>}
+        </div>
+      )}
+
+      {angles.length > 0 && (
+        <div className="cc-angles">
+          {angles.map((a) => (
+            <div key={a.index} className="cc-angle">
+              <span>{a.headline}</span>
+              <button type="button" className="cc-link" disabled={disabled}
+                onClick={() => onBank(a.headline.slice(0, 120), a.headline)}>
+                bank
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
       {m.follow_ups?.length ? (
-        <div className="foundry-follow-ups">
+        <div className="cc-next">
+          <div className="cc-next-head">next steps</div>
           {m.follow_ups.map((f) => (
-            <button key={f.id} type="button" className="foundry-chip" disabled={disabled}
+            <button key={f.id} type="button" className="cc-next-row" disabled={disabled}
               onClick={() => onFollowUp(f.prompt, f.intent as FoundryIntent | undefined)}>
-              {f.prompt}
+              <span className="cc-next-arrow">↳</span>
+              <span>{f.prompt}</span>
+              {f.intent && <span className="cc-dim">{f.intent}</span>}
             </button>
           ))}
         </div>
       ) : null}
 
       {m.branches?.length ? (
-        <div className="foundry-branches">
+        <div className="cc-branches">
           {m.branches.map((b) => (
             b.fork_session_id ? (
-              <Link key={b.id} href={`/foundry/work/${b.fork_session_id}`} className="foundry-chip">
-                {b.label} →
+              <Link key={b.id} href={`/foundry/work/${b.fork_session_id}`} className="cc-branch">
+                ⑂ {b.label} →
               </Link>
             ) : (
-              <button key={b.id} type="button" className="foundry-chip" disabled={disabled}
+              <button key={b.id} type="button" className="cc-branch" disabled={disabled}
                 onClick={() => onFork(b.label)}>
-                Fork: {b.label}
+                ⑂ fork: {b.label}
               </button>
             )
           ))}
         </div>
       ) : null}
 
-      {angles.length > 0 && (
-        <div className="foundry-angles">
-          {angles.map((a) => (
-            <div key={a.index} className="foundry-angle-row">
-              <span>{a.headline}</span>
-              <button type="button" className="btn-accent" style={{ fontSize: '.68rem' }}
-                disabled={disabled} onClick={() => onBank(a.headline.slice(0, 120), a.headline)}>
-                Bank
-              </button>
-            </div>
-          ))}
-        </div>
+      {totalTokens > 0 && (
+        <div className="cc-turn-foot">{formatTokens(totalTokens)} tokens</div>
       )}
     </div>
   );
 }
+
+/* ---------- monitoring ---------- */
 
 function MonitoringModal({
   suggested,
@@ -558,6 +978,11 @@ function MonitoringModal({
     <div className="studio-overlay">
       <div className="studio-modal">
         <h3 className="section-head">Monitor sources?</h3>
+        {topicState.length === 0 && feedState.length === 0 && (
+          <p className="cc-dim" style={{ fontSize: '.8rem', margin: '.6rem 0' }}>
+            No sources suggested yet. Run a turn first, or add a feed by hand.
+          </p>
+        )}
         {topicState.map((t, i) => (
           <label key={i} className="studio-check-row">
             <input type="checkbox" checked={t.checked}
@@ -574,7 +999,7 @@ function MonitoringModal({
         ))}
         <div style={{ display: 'flex', gap: '.4rem', marginTop: '.4rem' }}>
           <input value={extraFeed} onChange={(e) => setExtraFeed(e.target.value)} placeholder="Add RSS URL"
-            className="foundry-input" style={{ flex: 1 }} />
+            className="cc-input" style={{ flex: 1 }} />
           <button type="button" className="btn-ghost" onClick={() => {
             if (!extraFeed.trim()) return;
             setFeedState((s) => [...s, { url: extraFeed.trim(), name: extraFeed.trim(), checked: true, cadence: 'regular' }]);

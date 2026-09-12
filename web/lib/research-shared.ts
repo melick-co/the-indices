@@ -23,17 +23,30 @@ export type FoundryScore = {
   timing: number;
 };
 
+/** One tool call in a run, from request through to result. */
+export type FoundryToolStep = {
+  id?: string;
+  name: string;
+  label: string;
+  detail?: string;
+  at: string;
+  status?: 'running' | 'done';
+  result?: string;
+  ms?: number;
+};
+
 export type FoundryMessage = {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   at: string;
   intent?: FoundryIntent;
-  tool_steps?: { name: string; label: string; detail?: string; at: string }[];
+  tool_steps?: FoundryToolStep[];
   follow_ups?: { id: string; prompt: string; intent?: string }[];
   score?: FoundryScore & { rank_value?: number };
   verdict?: 'publishable' | 'needs_work' | 'killed';
   branches?: { id: string; label: string; fork_session_id?: string }[];
+  usage?: { input_tokens: number; output_tokens: number };
 };
 
 export function normalizeMessages(raw: unknown): FoundryMessage[] {
@@ -49,6 +62,7 @@ export function normalizeMessages(raw: unknown): FoundryMessage[] {
     score: m.score as FoundryMessage['score'],
     verdict: m.verdict as FoundryMessage['verdict'],
     branches: m.branches as FoundryMessage['branches'],
+    usage: m.usage as FoundryMessage['usage'],
   }));
 }
 
