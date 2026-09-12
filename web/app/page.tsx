@@ -26,12 +26,13 @@ export default async function Home() {
     stories.filter((s) => !s.frameCheck),
     trendIndex,
   );
+  const heroStory = frameChecks[0] ?? null;
 
   return (
     <>
       <main>
         <Ticker />
-        <HeroFlip />
+        <HeroFlip story={heroStory} />
 
         {frameChecks.length > 0 && (
           <section className="home-section">

@@ -11,16 +11,30 @@ export function generateStaticParams() {
   return STORIES.map((s) => ({ slug: s.slug }));
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const s = await loadStoryBySlug(params.slug);
+export async function generateMetadata({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams?: { preview?: string };
+}) {
+  const s = await loadStoryBySlug(params.slug, { allowDraft: searchParams?.preview === '1' });
   return s ? { title: `Evidence — ${s.title}` } : {};
 }
 
 const TIER_CLASS: Record<number, string> = { 1: 't1', 2: 't2', 3: 't3' };
 
-export default async function Evidence({ params }: { params: { slug: string } }) {
-  const s = await loadStoryBySlug(params.slug);
+export default async function Evidence({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams?: { preview?: string };
+}) {
+  const preview = searchParams?.preview === '1';
+  const s = await loadStoryBySlug(params.slug, { allowDraft: preview });
   if (!s) notFound();
+  if (s.status === 'draft' && !preview) notFound();
 
   return (
     <>

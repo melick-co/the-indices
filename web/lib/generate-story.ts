@@ -9,7 +9,16 @@ export type PublishResult = {
   slug: string;
   title: string;
   storyUrl: string;
+  previewUrl: string;
+  status: 'draft' | 'published';
   generation_note: string;
+};
+
+export type GoLiveResult = {
+  slug: string;
+  title: string;
+  storyUrl: string;
+  status: 'published';
 };
 
 const PUBLISH_SYSTEM = `${CHARTER}
@@ -99,6 +108,9 @@ Research task:
 3. Draft the layered narrative prose (opening frame → shifts → corrected frame).
 4. Identify the one number that carries the story.
 
+5. Design a chart from the evidence that matches chart_hint when possible
+   (rank_swap for denominator flips, timeline for sequences, bars otherwise).
+
 Write up findings in prose with explicit source citations. Be specific with numbers.`;
 }
 
@@ -163,6 +175,13 @@ Return JSON matching this schema exactly:
     "blocks": [
       { "type": "paragraph", "text": "opening frame" },
       { "type": "layers", "items": ["layer 1 shift", "layer 2 shift", "layer 3 shift"] },
+      { "type": "chart", "kind": "bars|rank_swap|timeline", "title": "optional",
+        "caption": "source line",
+        "primary_label": "Absolute",
+        "alt_label": "Per person",
+        "series": [{ "label": "Australia", "value": 8.8, "highlight": true }],
+        "alt_series": [{ "label": "Australia", "value": 14, "highlight": true }]
+      },
       { "type": "heading", "text": "optional section heading" },
       { "type": "paragraph", "text": "..." },
       { "type": "pull", "text": "pull quote with the corrected frame" },
@@ -177,7 +196,10 @@ Return JSON matching this schema exactly:
 Rules:
 - All sources must be tier 1 or 2. No tier 3 headline claims.
 - body.blocks must follow the layered story structure from EDITORIAL.md.
-- Use only block types: paragraph, layers, heading, pull.
+- Use only block types: paragraph, layers, heading, pull, chart.
+- Include exactly one chart block. Prefer rank_swap when chart_hint implies a denominator flip;
+  timeline for sequences over time; bars otherwise.
+- Chart series values must be numbers drawn from the evidence. Highlight Australia when present.
 - Prefer frame_check true for Caveat's core archetypes.`,
       }],
     }),
@@ -247,14 +269,15 @@ export async function publishStoryFromPitch(
   onEvent({ type: 'tool_start', name: 'structure', label: 'Drafting story', at: new Date().toISOString() });
 
   const story = await structureStory(pitch, researchText);
-  const slug = await uniqueSlug(story.slug_hint || story.title);
+  const slug = existing?.slug ?? await uniqueSlug(story.slug_hint || story.title);
   const now = new Date().toISOString();
   const today = now.slice(0, 10);
 
+  // Save as draft — editor previews before going live.
   if (existing?.slug) {
     await supabase.from('stories').update({
       slug,
-      status: 'published',
+      status: 'draft',
       kicker: story.kicker,
       title: story.title,
       hook: story.hook,
@@ -270,7 +293,7 @@ export async function publishStoryFromPitch(
     const { error: insertErr } = await supabase.from('stories').insert({
       pitch_id: pitchId,
       slug,
-      status: 'published',
+      status: 'draft',
       kicker: story.kicker,
       title: story.title,
       hook: story.hook,
@@ -285,6 +308,57 @@ export async function publishStoryFromPitch(
   }
 
   await supabase.rpc('set_actor', { who: 'editor' }).then(() => {}, () => {});
+  await supabase.from('pitch_feedback').insert({
+    pitch_id: pitchId,
+    action: 'comment',
+    comment: `Draft story ready for preview: /stories/${slug}?preview=1 — ${story.generation_note}`,
+  });
+
+  onEvent({
+    type: 'tool_result',
+    name: 'done',
+    label: 'Draft ready for preview',
+    detail: story.generation_note,
+    at: now,
+  });
+
+  return {
+    slug,
+    title: story.title,
+    storyUrl: `/stories/${slug}`,
+    previewUrl: `/stories/${slug}?preview=1`,
+    status: 'draft',
+    generation_note: story.generation_note,
+  };
+}
+
+/** Promote a draft story to published and mark the pitch published. */
+export async function goLiveFromPitch(pitchId: string): Promise<GoLiveResult> {
+  const supabase = createClient();
+  const { data: story, error } = await supabase.from('stories')
+    .select('slug, title, status')
+    .eq('pitch_id', pitchId)
+    .maybeSingle();
+  if (error || !story) throw new Error('No draft story found for this pitch — draft it first');
+  if (story.status === 'published') {
+    return {
+      slug: story.slug,
+      title: story.title,
+      storyUrl: `/stories/${story.slug}`,
+      status: 'published',
+    };
+  }
+
+  const now = new Date().toISOString();
+  const today = now.slice(0, 10);
+  const { error: updErr } = await supabase.from('stories').update({
+    status: 'published',
+    published: today,
+    updated_at: now,
+  }).eq('pitch_id', pitchId);
+  if (updErr) throw new Error(updErr.message);
+
+  await supabase.rpc('set_actor', { who: 'editor' }).then(() => {}, () => {});
   await supabase.from('pitches').update({
     state: 'published',
     state_changed: now,
@@ -294,21 +368,13 @@ export async function publishStoryFromPitch(
   await supabase.from('pitch_feedback').insert({
     pitch_id: pitchId,
     action: 'comment',
-    comment: `Published story: /stories/${slug} — ${story.generation_note}`,
-  });
-
-  onEvent({
-    type: 'tool_result',
-    name: 'done',
-    label: 'Story published',
-    detail: story.generation_note,
-    at: now,
+    comment: `Published story: /stories/${story.slug}`,
   });
 
   return {
-    slug,
+    slug: story.slug,
     title: story.title,
-    storyUrl: `/stories/${slug}`,
-    generation_note: story.generation_note,
+    storyUrl: `/stories/${story.slug}`,
+    status: 'published',
   };
 }
