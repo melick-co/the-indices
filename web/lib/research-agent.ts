@@ -126,11 +126,7 @@ export async function callClaude(system: string, question: string, metricList: s
     { type: 'web_search_20250305', name: 'web_search', max_uses: 6 },
   ];
 
-  // Index of the newest message on the previous pass, which is the prefix this pass reads back.
-  let cachedThrough: number | null = null;
-
   for (let turn = 0; turn < MAX_TURNS; turn++) {
-    const cached = withCachedPrefix(messages, cachedThrough);
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -143,10 +139,9 @@ export async function callClaude(system: string, question: string, metricList: s
         max_tokens: 4000,
         system: cachedSystem(system),
         tools,
-        messages: cached.messages,
+        messages: withCachedPrefix(messages),
       }),
     });
-    cachedThrough = cached.newestIndex;
     if (!res.ok) {
       const detail = (await res.text()).slice(0, 300);
       if (res.status === 401) {

@@ -5,9 +5,15 @@
  * pass two is billed again in full on passes three through eight. A cached prefix read costs a
  * tenth of a fresh read, which is what makes those repeats cheap.
  *
- * The cached prefix runs from the start of the request (tools, then system, then messages) up to
- * and including the block carrying the breakpoint, and a request may carry at most four. One is
- * spent closing the static tools-and-system prefix; two roll along the transcript.
+ * Two breakpoints per request, against a limit of four. One closes the static tools-and-system
+ * prefix so it still hits on the first pass of a turn, when the transcript has changed but the
+ * charter and tool definitions have not. The other sits on the newest message: a breakpoint looks
+ * back up to twenty block positions for an existing entry, and a pass adds only two positions (a
+ * run of tool_use blocks, then a run of tool_result blocks), so it finds the previous pass's write.
+ *
+ * Sonnet 4.6 will not cache a prefix below 1,024 tokens. Tool definitions and the charter come to
+ * roughly 1,700, so the static breakpoint clears it; short prefixes are silently left uncached
+ * rather than erroring.
  */
 
 const EPHEMERAL = { type: 'ephemeral' } as const;
@@ -33,27 +39,18 @@ function markMessage(msg: CacheableMessage): CacheableMessage {
   const blocks = [...msg.content];
   const last = blocks[blocks.length - 1];
   if (!last || typeof last !== 'object') return msg;
-  blocks[blocks.length - 1] = { ...(last as object), cache_control: EPHEMERAL };
+  blocks[blocks.length - 1] = { ...last, cache_control: EPHEMERAL };
   return { ...msg, content: blocks };
 }
 
 /**
- * Breakpoints on the newest message and on whichever message was newest last pass. The older one
- * is the prefix this pass reads back; the newer one extends the cache ready for the next pass.
- *
- * Returns the marked copy alongside the index to pass back as `previousIndex` next time. The
- * caller's own array stays clean so breakpoints cannot accumulate past the limit of four.
+ * The message list with a breakpoint on the newest message, ready to send. The caller's own array
+ * is left untouched so breakpoints cannot accumulate past the limit across passes.
  */
-export function withCachedPrefix(
-  messages: CacheableMessage[],
-  previousIndex: number | null,
-): { messages: CacheableMessage[]; newestIndex: number } {
-  const newestIndex = messages.length - 1;
-  if (newestIndex < 0) return { messages, newestIndex };
-  const marked = messages.map((m, i) =>
-    i === newestIndex || i === previousIndex ? markMessage(m) : m,
-  );
-  return { messages: marked, newestIndex };
+export function withCachedPrefix(messages: CacheableMessage[]): CacheableMessage[] {
+  if (!messages.length) return messages;
+  const newest = messages.length - 1;
+  return messages.map((m, i) => (i === newest ? markMessage(m) : m));
 }
 
 export type CacheUsage = {

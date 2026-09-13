@@ -296,15 +296,11 @@ export async function runFoundryTurn(options: {
     for (const id of [...openTools.keys()]) closeTool(id);
   };
 
-  // Index of the newest message on the previous pass, which is the prefix this pass reads back.
-  let cachedThrough: number | null = null;
-
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     if (options.signal?.aborted) {
       closeAllTools();
       throw new DOMException('Run interrupted', 'AbortError');
     }
-    const cached = withCachedPrefix(messages, cachedThrough);
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -317,11 +313,10 @@ export async function runFoundryTurn(options: {
         max_tokens: 4000,
         system: cachedSystem(system),
         tools,
-        messages: cached.messages,
+        messages: withCachedPrefix(messages),
       }),
       signal: options.signal,
     });
-    cachedThrough = cached.newestIndex;
     if (!res.ok) {
       const detail = (await res.text()).slice(0, 300);
       if (res.status === 401) {
