@@ -1030,6 +1030,59 @@ table.data tr:hover td { background: transparent; }
   margin-top: 0.35rem;
 }
 
+.dial-change {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--color-charcoal);
+  margin-top: var(--spacing-10);
+}
+
+.dial-spark {
+  display: block;
+  width: 100%;
+  max-width: 10rem;
+  height: 30px;
+  margin-top: 0.4rem;
+  overflow: visible;
+}
+
+.dial-age {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-charcoal);
+  border-top: 1px solid var(--color-charcoal);
+  padding-top: 0.3rem;
+  margin-top: 0.5rem;
+}
+
+.readings-table {
+  font-size: 0.86rem;
+}
+
+.readings-link {
+  border-bottom: 1px solid var(--color-fossil);
+}
+
+.readings-link:hover { border-bottom-color: var(--color-ink-black); }
+
+.readings-unit {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.66rem;
+  color: var(--color-fossil);
+}
+
+.readings-period,
+.readings-change {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.readings-change { color: var(--color-charcoal); }
+
 .dashboard-legend {
   display: flex;
   gap: var(--spacing-21);

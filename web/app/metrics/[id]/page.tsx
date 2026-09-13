@@ -42,6 +42,27 @@ const METRIC_PAGES: Record<string, { title?: string; caveat?: string; historyMon
   inflation_rate: {
     historyMonths: 24,
   },
+  cash_rate_au: {
+    caveat: 'The target cash rate as announced. The series records decisions, not months, so it holds its level between moves.',
+    historyMonths: 36,
+    step: true,
+  },
+  bond_yield_10y_au: {
+    caveat: 'RBA table F17 analytical zero-coupon yield at month end. Not a traded benchmark bond, so it differs slightly from quoted 10-year yields.',
+    historyMonths: 24,
+  },
+  cpi_annual_au: {
+    caveat: 'Derived from the ABS all groups CPI index as the change on the same quarter a year earlier. Headline, not trimmed mean, so it carries volatile items.',
+    historyMonths: 36,
+  },
+  wpi_annual_au: {
+    caveat: 'ABS wage price index, total hourly rates of pay including bonuses, all industries. Measures the price of labour for a fixed job mix, so it is not average earnings.',
+    historyMonths: 36,
+  },
+  credit_housing_12m_au: {
+    caveat: 'RBA total housing credit, seasonally adjusted, as a 12-month change. Credit growth is a stock measure and lags new lending approvals.',
+    historyMonths: 24,
+  },
 };
 
 export const dynamicParams = false;
@@ -132,7 +153,7 @@ export default async function MetricPage({ params }: { params: { id: string } })
 
         <p style={{ marginTop: '2rem', fontFamily: 'IBM Plex Mono, monospace', fontSize: '.78rem' }}>
           <Link href="/indices" style={{ borderBottom: '1px solid var(--pen)' }}>
-            ← Dashboard
+            ← Indices &amp; indicators
           </Link>
         </p>
       </main>

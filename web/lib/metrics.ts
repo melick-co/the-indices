@@ -39,6 +39,11 @@ export const DIAL_SCALES: Record<string, DialScale> = {
   years_to_buy_home: { min: 5, max: 25, decimals: 1 },
   unemployment_rate: { min: 2, max: 12, decimals: 1 },
   inflation_rate: { min: 0, max: 8, decimals: 1 },
+  cash_rate_au: { min: 0, max: 8, decimals: 2 },
+  bond_yield_10y_au: { min: 0, max: 8, decimals: 2 },
+  cpi_annual_au: { min: 0, max: 8, decimals: 1 },
+  wpi_annual_au: { min: 0, max: 6, decimals: 1 },
+  credit_housing_12m_au: { min: 0, max: 12, invertScale: true, decimals: 1 },
 };
 
 const OECD_LIKE = new Set([
@@ -64,6 +69,14 @@ function monthsAgo(n: number) {
   const d = new Date();
   d.setUTCMonth(d.getUTCMonth() - n);
   return d;
+}
+
+const META_COLS = 'metric_id, name, unit, basis, direction, category, source_tier, source_org, source_dataset, source_url, source_published, period';
+
+export async function loadMetricMetaBatch(metricIds: string[]): Promise<Map<string, MetricMeta>> {
+  const supabase = createClient();
+  const { data } = await supabase.from('metrics').select(META_COLS).in('metric_id', metricIds);
+  return new Map((data ?? []).map((row) => [row.metric_id, row as MetricMeta]));
 }
 
 export async function loadMetricMeta(metricId: string): Promise<MetricMeta | null> {
@@ -101,6 +114,64 @@ export async function loadLatestBatch(metricIds: string[]): Promise<Map<string, 
     out.set(row.metric_id, { period: row.period, value: row.value, status: row.status });
   }
   return out;
+}
+
+/**
+ * Latest observations plus a short recent history for each metric, oldest first.
+ * One bounded query per metric: a single `in` query would share PostgREST's row
+ * cap and could silently drop whichever series happened to sort last.
+ */
+export async function loadRecentSeries(
+  metricIds: string[],
+  pointsPerMetric = 16,
+): Promise<Map<string, MetricObservation[]>> {
+  const supabase = createClient();
+  const results = await Promise.all(metricIds.map(async (metricId) => {
+    const { data } = await supabase.from('observations')
+      .select('period, value, status')
+      .eq('metric_id', metricId)
+      .eq('entity', 'AUS')
+      .order('period', { ascending: false })
+      .limit(pointsPerMetric);
+    const rows = (data ?? [])
+      .filter((r) => r.value != null)
+      .reverse() as MetricObservation[];
+    return [metricId, rows] as const;
+  }));
+  return new Map(results.filter(([, rows]) => rows.length));
+}
+
+/** How far behind today's date an observation is, in whole months. */
+export function observationAgeMonths(period: string): number {
+  const then = parsePeriod(period);
+  if (Number.isNaN(then.getTime())) return 0;
+  const now = new Date();
+  return (now.getUTCFullYear() - then.getUTCFullYear()) * 12
+    + (now.getUTCMonth() - then.getUTCMonth());
+}
+
+/**
+ * Plain-language age for readings that are well behind today. Annual series are
+ * always a year or two back by nature, so only flag what a reader would call old.
+ */
+export function readingAgeLabel(period: string): string | undefined {
+  const months = observationAgeMonths(period);
+  if (months < 18) return undefined;
+  const years = Math.floor(months / 12);
+  if (years < 2) return `${months} months old`;
+  return `${years} years old`;
+}
+
+/** Signed change against the observation `back` steps earlier in the series. */
+export function seriesChange(
+  series: MetricObservation[] | undefined,
+  back = 1,
+): { delta: number; from: string } | undefined {
+  if (!series || series.length < back + 1) return undefined;
+  const latest = series[series.length - 1];
+  const prior = series[series.length - 1 - back];
+  if (latest.value == null || prior.value == null) return undefined;
+  return { delta: latest.value - prior.value, from: prior.period };
 }
 
 export async function loadSeriesHistory(
@@ -143,6 +214,12 @@ async function loadCrossSection(metricId: string): Promise<{ entity: string; val
   return [...latest.entries()].map(([entity, value]) => ({ entity, value }));
 }
 
+/**
+ * Australia's standing against OECD peers, counted from the end of the
+ * distribution the reader cares about: highest where more is better, lowest
+ * where more is pressure. Counting from the wrong end reads as the opposite
+ * verdict, so the direction of the metric decides.
+ */
 export async function oecdPercentileFootnote(
   metricId: string,
   value: number | null,
@@ -152,20 +229,17 @@ export async function oecdPercentileFootnote(
   const peers = await loadCrossSection(metricId);
   if (peers.length < 5) return undefined;
   const higherIsGood = direction === 'higher_is_less_pressure';
-  const sorted = [...peers].sort((a, b) => a.value - b.value);
-  const rank = sorted.findIndex((p) => p.entity === 'AUS') + 1;
-  if (!rank) {
-    const pct = higherIsGood
-      ? (sorted.filter((p) => p.value <= value).length / sorted.length) * 100
-      : (sorted.filter((p) => p.value >= value).length / sorted.length) * 100;
-    return `${Math.round(pct)}th percentile vs ${sorted.length} OECD peers`;
+
+  // Sort so position 1 is the favourable end for this metric.
+  const sorted = [...peers].sort((a, b) => (higherIsGood ? b.value - a.value : a.value - b.value));
+  const end = higherIsGood ? 'highest' : 'lowest';
+  const index = sorted.findIndex((p) => p.entity === 'AUS');
+
+  if (index < 0) {
+    const better = sorted.filter((p) => (higherIsGood ? p.value > value : p.value < value)).length;
+    return `${ordinal(better + 1)} ${end} of ${sorted.length + 1} OECD`;
   }
-  const ord = ordinal(rank);
-  const reading = higherIsGood ? 'among highest' : 'among lowest';
-  if (rank <= 3) return `${ord} of ${sorted.length} OECD · ${reading}`;
-  if (rank >= sorted.length - 2) return `${ord} of ${sorted.length} OECD · ${higherIsGood ? 'among lowest' : 'among highest'}`;
-  const pct = Math.round((rank / sorted.length) * 100);
-  return `${ord} of ${sorted.length} OECD (${pct}th percentile)`;
+  return `${ordinal(index + 1)} ${end} of ${sorted.length} OECD`;
 }
 
 function ordinal(n: number) {
@@ -200,6 +274,11 @@ export function formatUsd(n: number, compact = false) {
 export function formatPeriodLabel(period: string) {
   if (/^\d{4}-Q[1-4]$/i.test(period)) return period.replace('-Q', ' Q');
   if (/^\d{4}$/.test(period)) return period;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(period)) {
+    return new Date(`${period}T00:00:00Z`).toLocaleDateString('en-AU', {
+      day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+    });
+  }
   if (/^\d{4}-\d{2}$/.test(period)) {
     return new Date(`${period}-01T00:00:00Z`).toLocaleDateString('en-AU', {
       month: 'short', year: 'numeric', timeZone: 'UTC',
