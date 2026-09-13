@@ -936,6 +936,11 @@ table.data tr:hover td { background: transparent; }
   margin: var(--spacing-42) 0;
 }
 
+/* A section holding one dial would otherwise stretch it across the full row. */
+.dial-grid-solo {
+  grid-template-columns: minmax(15rem, 24rem);
+}
+
 .dial-card {
   display: flex;
   flex-direction: column;

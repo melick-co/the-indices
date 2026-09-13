@@ -32,7 +32,7 @@ export default async function IndicesDashboard() {
             {section.description && (
               <p className="dashboard-section-desc">{section.description}</p>
             )}
-            <div className="dial-grid">
+            <div className={`dial-grid${section.dials.length === 1 ? ' dial-grid-solo' : ''}`}>
               {section.dials.map((d) => (
                 <DialCard
                   key={d.id}

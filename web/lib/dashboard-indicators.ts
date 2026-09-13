@@ -225,6 +225,21 @@ function formatChange(
   return `${sign}${shown}${changeSuffix(unit)} on ${when}`;
 }
 
+/** Store units are spelled out, which wraps to two lines in a table cell. */
+const SHORT_UNITS: Record<string, string> = {
+  percent: '%',
+  'percent per annum': '% pa',
+  'percent per year': '% / yr',
+  'percent of GDP': '% of GDP',
+  'percent of labour force': '% of labour force',
+  'percent probability': '% probability',
+  'index (NYC=100)': 'index',
+};
+
+function shortUnit(unit: string): string {
+  return SHORT_UNITS[unit] ?? unit;
+}
+
 function formatReading(value: number | null, unit: string, decimals: number): string {
   if (value == null) return '—';
   if (unit === 'persons' || Math.abs(value) >= 1000) {
@@ -396,7 +411,7 @@ export async function loadDashboard(): Promise<{
       href: spec ? `/metrics/${metricId}` : undefined,
       label: spec?.label ?? TABLE_ONLY[metricId] ?? m?.name ?? metricId,
       value: formatReading(obs?.value ?? null, unit, decimals),
-      unit: m?.unit ?? unit,
+      unit: shortUnit(m?.unit ?? unit),
       period: obs ? formatPeriodLabel(obs.period) : '—',
       change: formatChange(series.get(metricId), unit, decimals) ?? '—',
       source: m?.source_org ?? '—',
