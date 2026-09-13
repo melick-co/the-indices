@@ -16,8 +16,14 @@ export const REEL_FORMAT = {
   fps: 30,
 };
 
-/** A news read sits near this pace, which is what turns a duration into a word budget. */
-export const WORDS_PER_SECOND = 2.6;
+/** The pace a reel is written to: brisk, still clear. Quoted to the generator. */
+export const WORDS_PER_SECOND = 3;
+
+/**
+ * The pace past which a read stops fitting its scene. Sits above the target so a scene is only
+ * flagged for a real overrun, not for landing a word or two long.
+ */
+export const WORD_CEILING_PER_SECOND = 3.6;
 
 export const SCENE_SECONDS = { min: 3, max: 9 };
 export const REEL_SECONDS = { min: 20, max: 75 };
@@ -109,9 +115,9 @@ export function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
-/** Words a scene of this length can carry at a news read pace. */
+/** The most words a scene of this length can carry before the read stops fitting. */
 export function wordBudget(seconds: number): number {
-  return Math.floor(seconds * WORDS_PER_SECOND);
+  return Math.floor(seconds * WORD_CEILING_PER_SECOND);
 }
 
 function numbersIn(text: string): number[] {
@@ -160,16 +166,27 @@ export function collectStoryNumbers(story: Story): number[] {
 const SCALES = [1, 100, 0.01, 1000, 0.001, 1e6, 1e-6];
 
 /**
- * True when `value` restates one of the story's own numbers. Rounding is allowed, since a reel
- * rounds to what survives scrutiny, as is a change of unit.
+ * Half a unit in the last place of `value`, which is the most a figure can have been rounded by and
+ * still be the same figure. Keying the tolerance to the stated value rather than the source value
+ * is what lets a reel round 8.83 down to 8.8 while stopping it from stating 8.83 when the story
+ * only ever said 8.8, since claiming precision the evidence lacks is its own error.
+ */
+function roundingTolerance(value: number): number {
+  const text = Math.abs(value).toString();
+  if (text.includes('e')) return Math.abs(value) * 1e-6;
+  const dot = text.indexOf('.');
+  const decimals = dot < 0 ? 0 : text.length - dot - 1;
+  return 0.5 * 10 ** -decimals;
+}
+
+/**
+ * True when `value` restates one of the story's own numbers. Rounding to fewer digits is allowed,
+ * since a reel rounds to what survives scrutiny, as is a change of unit.
  */
 export function tracesToStory(value: number, known: number[]): boolean {
+  const tolerance = roundingTolerance(value) + 1e-9;
   return known.some((k) =>
-    SCALES.some((scale) => {
-      const target = k * scale;
-      const tolerance = Math.max(0.05, Math.abs(target) * 0.01);
-      return Math.abs(value - target) <= tolerance;
-    }),
+    SCALES.some((scale) => Math.abs(value - k * scale) <= tolerance),
   );
 }
 
@@ -247,15 +264,18 @@ export function validateReel(
     }
 
     // The charter bans em dashes, and burned-in text is the most visible place they show up.
-    if (/[—–]/.test(`${scene.narration} ${scene.on_screen} ${scene.lower_third ?? ''}`)) {
-      warnings.push(`${ref}: contains an em or en dash, which the charter rules out`);
+    // En dashes are left alone: they are correct in a numeric range like 2021-2026.
+    if (/—/.test(`${scene.narration} ${scene.on_screen} ${scene.lower_third ?? ''}`)) {
+      warnings.push(`${ref}: contains an em dash, which the charter rules out`);
     }
 
     // Any number the narration or burned-in text asserts is held to the same standard as a chart.
-    for (const n of numbersIn(`${scene.narration} ${scene.on_screen}`)) {
-      if (!tracesToStory(n, known)) {
-        warnings.push(`${ref}: states ${n}, which is not traceable to the story evidence`);
-      }
+    const spoken = [...new Set(numbersIn(`${scene.narration} ${scene.on_screen}`))]
+      .filter((n) => !tracesToStory(n, known));
+    if (spoken.length) {
+      warnings.push(
+        `${ref}: states ${spoken.join(', ')}, which is not traceable to the story evidence`,
+      );
     }
 
     if (!scene.visual_prompt?.trim()) warnings.push(`${ref}: no visual direction`);

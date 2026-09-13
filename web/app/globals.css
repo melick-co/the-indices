@@ -1970,7 +1970,7 @@ table.data tr:hover td { background: transparent; }
 
 .reel-scene-body {
   display: grid;
-  grid-template-columns: 11rem 1fr;
+  grid-template-columns: 9rem 1fr;
   gap: var(--spacing-21);
 }
 

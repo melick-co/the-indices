@@ -75,9 +75,10 @@ Rules that are checked mechanically after you answer, so breaking them wastes th
 - Use ONLY figures that already appear in the story's chart series, evidence table, headline number
   or prose. Do not compute new ratios, growth rates, totals or per-capita figures. Restating a
   number in a different unit is fine; inventing one is not.
+- Do not add precision the story does not have. If it says 8.8, say 8.8 or 9, never 8.83.
 - Every chart frame needs a caption naming the publisher and the period.
-- Narration is a spoken read at about ${WORDS_PER_SECOND} words per second. A scene of N seconds
-  carries about N x ${WORDS_PER_SECOND} words. Do not exceed it.
+- Narration is a spoken read at about ${WORDS_PER_SECOND} words per second, so a scene of N seconds
+  carries roughly N x ${WORDS_PER_SECOND} words. Write to that, not past it.
 - Scenes run ${SCENE_SECONDS.min}-${SCENE_SECONDS.max}s. The whole reel runs ${REEL_SECONDS.min}-${REEL_SECONDS.max}s.
 - on_screen is burned in: at most ${ON_SCREEN_CHARS} characters. lower_third at most ${LOWER_THIRD_CHARS}.
 - Australian English. No em dashes or en dashes anywhere. No hype adjectives.
@@ -85,7 +86,31 @@ Rules that are checked mechanically after you answer, so breaking them wastes th
 }
 
 function reelUserPrompt(story: Story): string {
-  const chartBlocks = (story.body?.blocks ?? []).filter((b) => b.type === 'chart');
+  const blocks = story.body?.blocks ?? [];
+  const chartBlocks = blocks.filter((b) => b.type === 'chart');
+
+  const chartSection = chartBlocks.length
+    ? `<story_charts>
+These are the charts the story already publishes, with their real series. Reuse these series.
+You may split one chart across several scenes to stage the reveal, and you may drop points to
+simplify a frame, but do not change a value.
+${JSON.stringify(chartBlocks, null, 2)}
+</story_charts>`
+    : `<story_charts>
+This story publishes no chart series of its own, so build your chart frames from the evidence table
+below. Take the values straight from its cells: pick the columns that carry the finding, keep the
+rows that make the point, and highlight Australia when it is present. Do not compute new figures
+from them.
+</story_charts>`;
+
+  const proseSection = blocks.length
+    ? `<story_prose>
+${JSON.stringify(blocks.filter((b) => b.type !== 'chart'), null, 2)}
+</story_prose>`
+    : `<story_prose>
+This story's prose is not available in structured form. Work from the title, hook, caveat, headline
+number and the evidence table, and do not invent detail beyond them.
+</story_prose>`;
 
   return `<story>
 ${JSON.stringify({
@@ -99,16 +124,9 @@ ${JSON.stringify({
   }, null, 2)}
 </story>
 
-<story_prose>
-${JSON.stringify(story.body?.blocks?.filter((b) => b.type !== 'chart') ?? [], null, 2)}
-</story_prose>
+${proseSection}
 
-<story_charts>
-These are the charts the story already publishes, with their real series. Reuse these series.
-You may split one chart across several scenes to stage the reveal, and you may drop points to
-simplify a frame, but do not change a value.
-${JSON.stringify(chartBlocks, null, 2)}
-</story_charts>
+${chartSection}
 
 <story_evidence>
 ${JSON.stringify(story.evidence, null, 2)}
@@ -220,9 +238,14 @@ export async function generateReelForStory(
   onProgress('Loading story and evidence');
   const story = await loadStoryBySlug(slug, { allowDraft: true });
   if (!story) throw new Error(`No story found at /stories/${slug}`);
-  if (!story.body?.blocks?.length) {
+
+  // Agent-drafted stories carry structured blocks; the founding stories keep their prose in React
+  // and their figures in the evidence table. Either is enough to cut charts and trace numbers from.
+  const hasBlocks = Boolean(story.body?.blocks?.length);
+  const hasTable = Boolean(story.evidence?.table?.rows?.length);
+  if (!hasBlocks && !hasTable) {
     throw new Error(
-      'This story has no structured body to cut from. Reels need an agent-drafted story.',
+      'This story has neither a structured body nor an evidence table, so there is nothing to chart.',
     );
   }
 
