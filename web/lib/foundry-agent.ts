@@ -8,12 +8,19 @@ import {
   MAX_TURNS,
 } from '@/lib/research-agent';
 import type { FoundryMessage, FoundryScore, FoundryIntent } from '@/lib/research-shared';
+import { cachedSystem, readUsage, withCachedPrefix } from '@/lib/prompt-cache';
 
 export type FoundryEvent =
   // `id` pairs a result with its call. Coarse pipeline steps elsewhere omit it and key on `name`.
   | { type: 'tool_start'; id?: string; name: string; label: string; detail?: string; at: string }
   | { type: 'tool_result'; id?: string; name: string; label: string; detail?: string; at: string; ms?: number }
-  | { type: 'usage'; input_tokens: number; output_tokens: number }
+  | {
+      type: 'usage';
+      input_tokens: number;
+      output_tokens: number;
+      cache_read_tokens?: number;
+      cache_write_tokens?: number;
+    }
   | { type: 'text_delta'; delta: string }
   | { type: 'follow_ups'; items: { id: string; prompt: string; intent?: string }[] }
   | { type: 'score'; score: FoundryScore; verdict?: string; rank_value?: number }
@@ -289,11 +296,15 @@ export async function runFoundryTurn(options: {
     for (const id of [...openTools.keys()]) closeTool(id);
   };
 
+  // Index of the newest message on the previous pass, which is the prefix this pass reads back.
+  let cachedThrough: number | null = null;
+
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     if (options.signal?.aborted) {
       closeAllTools();
       throw new DOMException('Run interrupted', 'AbortError');
     }
+    const cached = withCachedPrefix(messages, cachedThrough);
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -301,9 +312,16 @@ export async function runFoundryTurn(options: {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify({ model: MODEL, max_tokens: 4000, system, tools, messages }),
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 4000,
+        system: cachedSystem(system),
+        tools,
+        messages: cached.messages,
+      }),
       signal: options.signal,
     });
+    cachedThrough = cached.newestIndex;
     if (!res.ok) {
       const detail = (await res.text()).slice(0, 300);
       if (res.status === 401) {
@@ -315,11 +333,7 @@ export async function runFoundryTurn(options: {
     }
     const body = await res.json();
     if (body.usage) {
-      options.onEvent({
-        type: 'usage',
-        input_tokens: Number(body.usage.input_tokens ?? 0),
-        output_tokens: Number(body.usage.output_tokens ?? 0),
-      });
+      options.onEvent({ type: 'usage', ...readUsage(body.usage) });
     }
 
     for (const b of body.content ?? []) {

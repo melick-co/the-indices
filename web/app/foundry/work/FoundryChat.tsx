@@ -280,7 +280,12 @@ export default function FoundryChat({
             ));
             setLiveTools(steps);
           } else if (event === 'usage') {
-            usage = { input_tokens: parsed.input_tokens, output_tokens: parsed.output_tokens };
+            usage = {
+              input_tokens: parsed.input_tokens,
+              output_tokens: parsed.output_tokens,
+              cache_read_tokens: parsed.cache_read_tokens,
+              cache_write_tokens: parsed.cache_write_tokens,
+            };
             setLiveUsage(usage);
           } else if (event === 'text_delta') {
             accumulated += parsed.delta;
@@ -940,6 +945,8 @@ function Turn({
 
   const angles = parseAngles(m.content);
   const totalTokens = m.usage ? m.usage.input_tokens + m.usage.output_tokens : 0;
+  // Anthropic reports cached reads outside input_tokens, so they are shown as their own figure.
+  const cachedTokens = m.usage?.cache_read_tokens ?? 0;
 
   return (
     <div className="cc-turn cc-turn-agent">
@@ -1014,7 +1021,10 @@ function Turn({
       ) : null}
 
       {totalTokens > 0 && (
-        <div className="cc-turn-foot">{formatTokens(totalTokens)} tokens</div>
+        <div className="cc-turn-foot">
+          {formatTokens(totalTokens)} tokens
+          {cachedTokens > 0 && <> · {formatTokens(cachedTokens)} from cache</>}
+        </div>
       )}
     </div>
   );

@@ -69,7 +69,12 @@ export async function POST(
         const userMsg = newMessage('user', followUp || basePrompt, { intent });
         const toolSteps: FoundryMessage['tool_steps'] = [];
         let assistantText = '';
-        const usage = { input_tokens: 0, output_tokens: 0 };
+        const usage = {
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_read_tokens: 0,
+          cache_write_tokens: 0,
+        };
 
         phase('context', 'running');
         phase('context', 'done');
@@ -101,6 +106,8 @@ export async function POST(
             } else if (ev.type === 'usage') {
               usage.input_tokens += ev.input_tokens;
               usage.output_tokens += ev.output_tokens;
+              usage.cache_read_tokens += ev.cache_read_tokens ?? 0;
+              usage.cache_write_tokens += ev.cache_write_tokens ?? 0;
               send('usage', usage);
             } else if (ev.type === 'text_delta') {
               assistantText += ev.delta;

@@ -46,7 +46,13 @@ export type FoundryMessage = {
   score?: FoundryScore & { rank_value?: number };
   verdict?: 'publishable' | 'needs_work' | 'killed';
   branches?: { id: string; label: string; fork_session_id?: string }[];
-  usage?: { input_tokens: number; output_tokens: number };
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+    /** Prefix tokens served from the prompt cache, billed at a tenth of a fresh read. */
+    cache_read_tokens?: number;
+    cache_write_tokens?: number;
+  };
 };
 
 export function normalizeMessages(raw: unknown): FoundryMessage[] {
