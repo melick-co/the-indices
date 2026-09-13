@@ -101,21 +101,6 @@ export async function loadLatestAus(metricId: string): Promise<MetricObservation
   return { period: data.period, value: data.value, status: data.status };
 }
 
-export async function loadLatestBatch(metricIds: string[]): Promise<Map<string, MetricObservation>> {
-  const supabase = createClient();
-  const { data } = await supabase.from('observations')
-    .select('metric_id, period, value, status')
-    .in('metric_id', metricIds)
-    .eq('entity', 'AUS')
-    .order('period', { ascending: false });
-  const out = new Map<string, MetricObservation>();
-  for (const row of data ?? []) {
-    if (row.value == null || out.has(row.metric_id)) continue;
-    out.set(row.metric_id, { period: row.period, value: row.value, status: row.status });
-  }
-  return out;
-}
-
 /**
  * Latest observations plus a short recent history for each metric, oldest first.
  * One bounded query per metric: a single `in` query would share PostgREST's row
@@ -142,7 +127,7 @@ export async function loadRecentSeries(
 }
 
 /** How far behind today's date an observation is, in whole months. */
-export function observationAgeMonths(period: string): number {
+function observationAgeMonths(period: string): number {
   const then = parsePeriod(period);
   if (Number.isNaN(then.getTime())) return 0;
   const now = new Date();
