@@ -12,3 +12,6 @@ node_modules/
 .vercel
 .env*
 !.env.example
+
+# scratch screenshots from local verification
+shots/
