@@ -1641,6 +1641,21 @@ table.data tr:hover td { background: transparent; }
 
 .cc-branch:hover { border-color: var(--color-ink-black); }
 
+.cc-fork-note {
+  font-family: var(--cc-mono);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--color-charcoal);
+  border: 1px solid var(--color-fossil);
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.cc-fork-note b { font-weight: 600; color: var(--color-ink-black); }
+
 /* notes and errors */
 .cc-notes {
   font-size: 0.74rem;

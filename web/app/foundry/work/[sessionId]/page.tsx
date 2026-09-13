@@ -27,7 +27,7 @@ export default async function FoundrySessionPage({ params }: { params: { session
   }
 
   const { data: forks } = await supabase.from('research_sessions')
-    .select('session_id, title')
+    .select('session_id, title, fork_from_message_id, fork_branch_label')
     .eq('parent_session_id', params.sessionId)
     .neq('status', 'archived')
     .order('created_at');

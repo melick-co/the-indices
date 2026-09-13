@@ -4,6 +4,15 @@ import { normalizeMessages } from '@/lib/research-shared';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Fork a session into a new one.
+ *
+ * Two rules, both learned the hard way. The new session gets the whole
+ * transcript, never a slice up to the branch point, so no answer is ever left
+ * behind. And the source session is not written to at all: the fork records
+ * where it came from on itself, and the parent resolves its branch chips by
+ * reading its children.
+ */
 export async function POST(
   req: NextRequest,
   { params }: { params: { sessionId: string } },
@@ -21,12 +30,6 @@ export async function POST(
   }
 
   const messages = normalizeMessages(session.messages);
-  let copyMessages = messages;
-  if (messageId) {
-    const idx = messages.findIndex((m) => m.id === messageId);
-    if (idx >= 0) copyMessages = messages.slice(0, idx + 1);
-  }
-
   const forkTitle = title || label || `${session.title ?? 'Session'} (fork)`;
   const seedPrompt = label
     ? `Explore this branch separately: ${label}`
@@ -38,35 +41,21 @@ export async function POST(
     status: 'draft',
     title: forkTitle,
     question: seedPrompt,
-    answer: null,
+    answer: session.answer ?? null,
     inputs: session.inputs ?? [],
-    messages: copyMessages,
+    messages,
     monitoring: {},
     parent_session_id: params.sessionId,
     fork_from_message_id: messageId,
+    fork_branch_label: label,
   }).select('session_id').single();
 
   if (insertErr || !forked) {
     return NextResponse.json({ error: insertErr?.message ?? 'Fork failed' }, { status: 500 });
   }
 
-  if (messageId && label) {
-    const updated = messages.map((m) => {
-      if (m.id !== messageId) return m;
-      const branches = [...(m.branches ?? [])];
-      const existing = branches.find((b) => b.label === label);
-      if (existing) {
-        existing.fork_session_id = forked.session_id;
-      } else {
-        branches.push({ id: crypto.randomUUID(), label, fork_session_id: forked.session_id });
-      }
-      return { ...m, branches };
-    });
-    await supabase.from('research_sessions').update({
-      messages: updated,
-      updated_at: new Date().toISOString(),
-    }).eq('session_id', params.sessionId);
-  }
-
-  return NextResponse.json({ newSessionId: forked.session_id });
+  return NextResponse.json({
+    newSessionId: forked.session_id,
+    copiedMessages: messages.length,
+  });
 }

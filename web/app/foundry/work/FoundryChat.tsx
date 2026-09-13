@@ -87,6 +87,28 @@ function plural(n: number, word: string) {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
+export type ForkRow = {
+  session_id: string;
+  title: string | null;
+  fork_from_message_id?: string | null;
+  fork_branch_label?: string | null;
+};
+
+/**
+ * Which branch chips already have a fork behind them, keyed by message and
+ * label. Read from the child sessions so the parent transcript is never
+ * rewritten to hold the link. Sessions forked before that change kept the id
+ * inside the message, so those are still honoured when rendering.
+ */
+function forkIndex(forks: ForkRow[]): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const f of forks) {
+    if (!f.fork_from_message_id || !f.fork_branch_label) continue;
+    index.set(`${f.fork_from_message_id}\u0000${f.fork_branch_label}`, f.session_id);
+  }
+  return index;
+}
+
 export default function FoundryChat({
   session,
   dataSources,
@@ -98,7 +120,7 @@ export default function FoundryChat({
   dataSources: DataSource[];
   monitors: MonitorRow[];
   parentSession: { session_id: string; title: string | null } | null;
-  forks: { session_id: string; title: string | null }[];
+  forks: ForkRow[];
 }) {
   const router = useRouter();
   const sessionId = String(session.session_id);
@@ -111,6 +133,7 @@ export default function FoundryChat({
   const [messages, setMessages] = useState<FoundryMessage[]>(
     () => normalizeMessages(session.messages),
   );
+  const forkedBranches = useMemo(() => forkIndex(forks), [forks]);
   const [composer, setComposer] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [showContext, setShowContext] = useState(
@@ -411,7 +434,12 @@ export default function FoundryChat({
         body: JSON.stringify({ messageId, label, title: label ? `${label.slice(0, 60)} (fork)` : undefined }),
       });
       const data = await res.json();
-      if (data.newSessionId) router.push(`/foundry/work/${data.newSessionId}`);
+      if (!data.newSessionId) {
+        setError(data.error ?? 'Fork failed');
+        return;
+      }
+      note(`Forked into a new session with ${plural(data.copiedMessages ?? 0, 'turn')} copied. This session is unchanged.`);
+      router.push(`/foundry/work/${data.newSessionId}`);
     });
   }
 
@@ -640,6 +668,19 @@ export default function FoundryChat({
       )}
 
       <section className="cc-transcript">
+        {parentSession && (
+          <div className="cc-fork-note">
+            <span>
+              Forked from <b>{parentSession.title ?? 'the parent session'}</b>
+              {session.fork_branch_label ? ' to follow one branch' : ''}. The whole transcript
+              was copied and the original is unchanged.
+            </span>
+            <Link className="cc-link" href={`/foundry/work/${parentSession.session_id}`}>
+              open the original →
+            </Link>
+          </div>
+        )}
+
         {messages.length === 0 && !running && (
           <div className="cc-welcome">
             <p>
@@ -660,6 +701,7 @@ export default function FoundryChat({
             onFollowUp={(p, i) => runTurn(p, i ?? 'refine')}
             onFork={(label) => fork(m.id, label)}
             onBank={(h, angle) => bank(h, m.id, angle)}
+            forkedBranches={forkedBranches}
             disabled={running || pending}
           />
         ))}
@@ -874,12 +916,14 @@ function Turn({
   onFollowUp,
   onFork,
   onBank,
+  forkedBranches,
   disabled,
 }: {
   message: FoundryMessage;
   onFollowUp: (prompt: string, intent?: FoundryIntent) => void;
   onFork: (label: string) => void;
   onBank: (headline: string, angle?: string) => void;
+  forkedBranches: Map<string, string>;
   disabled: boolean;
 }) {
   if (m.role === 'user') {
@@ -952,18 +996,20 @@ function Turn({
 
       {m.branches?.length ? (
         <div className="cc-branches">
-          {m.branches.map((b) => (
-            b.fork_session_id ? (
-              <Link key={b.id} href={`/foundry/work/${b.fork_session_id}`} className="cc-branch">
+          {m.branches.map((b) => {
+            const forkId = forkedBranches.get(`${m.id}\u0000${b.label}`) ?? b.fork_session_id;
+            return forkId ? (
+              <Link key={b.id} href={`/foundry/work/${forkId}`} className="cc-branch">
                 branch: {b.label} →
               </Link>
             ) : (
               <button key={b.id} type="button" className="cc-branch" disabled={disabled}
+                title="Copies this whole session into a new one. This session is left as it is."
                 onClick={() => onFork(b.label)}>
-                fork: {b.label}
+                fork into new session: {b.label}
               </button>
-            )
-          ))}
+            );
+          })}
         </div>
       ) : null}
 
