@@ -153,21 +153,16 @@ export async function POST(
           usage,
         });
 
-        const messages: FoundryMessage[] = [
-          ...priorMessages,
-          userMsg,
-          assistantMsg,
-        ];
-
         phase('save', 'running');
-        await supabase.from('research_sessions').update({
-          messages,
-          answer: text,
-          verdict: parseVerdict(text) ?? meta.verdict ?? null,
-          tools_used: [...new Set([...(session.tools_used ?? []), ...toolsUsed])],
-          status: 'complete',
-          updated_at: new Date().toISOString(),
-        }).eq('session_id', params.sessionId);
+        // Append rather than write back the snapshot taken when the run began,
+        // so a concurrent run cannot erase the turn the other one just saved.
+        await supabase.rpc('append_session_messages', {
+          sid: params.sessionId,
+          new_messages: [userMsg, assistantMsg],
+          new_answer: text,
+          new_verdict: parseVerdict(text) ?? meta.verdict ?? null,
+          new_tools: toolsUsed,
+        });
 
         phase('save', 'done');
         send('done', { messageId: assistantMsg.id });
