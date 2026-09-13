@@ -7,6 +7,7 @@ import { describeDerivation } from './derivation';
 import { trendInvestigateUrls } from '@/lib/trend-prompts';
 import SourceSuggestionsPanel, { type SourceSuggestion } from './SourceSuggestionsPanel';
 import StoryPublishControls, { type StoryLink } from '@/components/StoryPublishControls';
+import ReelControls from '@/components/ReelControls';
 interface Pitch {
   id: string; headline: string; hook: string | null; mechanism: string | null;
   caveat: string | null; chart_hint: string | null; detector: string;
@@ -31,10 +32,11 @@ const LABEL: Record<string, string> = {
   watchlist: 'Watchlist', dormant: 'Dormant', rejected: 'Rejected', published: 'Published',
 };
 
-export default function FoundryBoard({ pitches, runs, inbox, feedback, events, metrics, news, trends, sourceSuggestions, storyByPitch = {} }:
+export default function FoundryBoard({ pitches, runs, inbox, feedback, events, metrics, news, trends, sourceSuggestions, storyByPitch = {}, reelStatusBySlug = {} }:
   { pitches: Pitch[]; runs: any[]; inbox: any[]; feedback: any[];
     events: PitchEvent[]; metrics: Metric[]; news: any[]; trends: any[];
-    sourceSuggestions: SourceSuggestion[]; storyByPitch?: Record<string, StoryLink> }) {
+    sourceSuggestions: SourceSuggestion[]; storyByPitch?: Record<string, StoryLink>;
+    reelStatusBySlug?: Record<string, string> }) {
   const metricById = new Map(metrics.map((m) => [m.metric_id, m]));
   const eventsFor = (id: string) => events.filter((e) => e.pitch_id === id);
   const [tab, setTab] = useState('pitched');
@@ -202,6 +204,16 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
                   <StoryPublishControls
                     pitchId={p.id}
                     story={storyByPitch[p.id]}
+                    onDone={() => router.refresh()}
+                    buttonStyle={actBtn('var(--ink)')}
+                  />
+                )}
+                {storyByPitch[p.id] && (
+                  <ReelControls
+                    slug={storyByPitch[p.id].slug}
+                    reel={reelStatusBySlug[storyByPitch[p.id].slug]
+                      ? { status: reelStatusBySlug[storyByPitch[p.id].slug] }
+                      : null}
                     onDone={() => router.refresh()}
                     buttonStyle={actBtn('var(--ink)')}
                   />

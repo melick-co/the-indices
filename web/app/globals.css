@@ -1802,3 +1802,352 @@ table.data tr:hover td { background: transparent; }
     line-height: var(--leading-heading);
   }
 }
+
+/* ── Reel briefs ─────────────────────────────────────────────
+   Storyboard for the vertical news explainer cut from a story.
+   ─────────────────────────────────────────────────────────── */
+
+.reel-page .card-kicker {
+  text-transform: uppercase;
+}
+
+.reel-lede {
+  font-size: var(--text-body);
+  color: var(--color-charcoal);
+  max-width: 34rem;
+}
+
+.reel-h2 {
+  font-family: var(--font-helveticaneue);
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  text-transform: uppercase;
+  border-top: 1px solid var(--color-ink-black);
+  padding-top: var(--spacing-10);
+  margin: var(--spacing-84) 0 var(--spacing-21);
+}
+
+.reel-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--spacing-21);
+  border-top: 1px solid var(--color-ink-black);
+  border-bottom: 1px solid var(--color-ink-black);
+  padding: var(--spacing-21) 0;
+  margin: var(--spacing-42) 0;
+}
+
+.reel-meta dt,
+.reel-style dt {
+  font-family: var(--font-helveticaneue);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-fossil);
+  margin-bottom: var(--spacing-5);
+}
+
+.reel-meta dd {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--color-ink-black);
+  margin: 0;
+}
+
+.reel-warnings {
+  border: 1px solid var(--color-charcoal);
+  padding: var(--spacing-21);
+  margin: var(--spacing-42) 0;
+}
+
+.reel-warnings h3 {
+  font-family: var(--font-helveticaneue);
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  text-transform: uppercase;
+  margin: 0 0 var(--spacing-10);
+}
+
+.reel-warnings p {
+  font-size: 0.86rem;
+  color: var(--color-charcoal);
+  margin: 0 0 var(--spacing-10);
+}
+
+.reel-warnings ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.reel-warnings li {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  line-height: 1.7;
+  color: var(--color-ink-black);
+}
+
+.reel-clear {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.74rem;
+  color: var(--color-slate-iris);
+  border-left: 2px solid var(--color-slate-iris);
+  padding-left: var(--spacing-10);
+  margin: var(--spacing-42) 0;
+}
+
+.reel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-10);
+  margin: var(--spacing-21) 0 var(--spacing-42);
+}
+
+.reel-style {
+  margin: var(--spacing-42) 0;
+}
+
+.reel-style h3 {
+  font-family: var(--font-helveticaneue);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-fossil);
+  margin: 0 0 var(--spacing-10);
+}
+
+.reel-style dl {
+  display: grid;
+  gap: var(--spacing-10);
+  margin: 0;
+}
+
+.reel-style dd {
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: var(--color-charcoal);
+  margin: 0;
+}
+
+.reel-scenes {
+  display: grid;
+  gap: var(--spacing-21);
+}
+
+.reel-scene {
+  border: 1px solid var(--color-ink-black);
+  padding: var(--spacing-21);
+}
+
+.reel-scene-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-10);
+  border-bottom: 1px solid var(--color-ink-black);
+  padding-bottom: var(--spacing-10);
+  margin-bottom: var(--spacing-21);
+}
+
+.reel-scene-n {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.1rem;
+  color: var(--color-ink-black);
+}
+
+.reel-scene-kind {
+  font-family: var(--font-helveticaneue);
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-charcoal);
+}
+
+.reel-scene-secs {
+  margin-left: auto;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.74rem;
+  color: var(--color-fossil);
+}
+
+.reel-scene-body {
+  display: grid;
+  grid-template-columns: 11rem 1fr;
+  gap: var(--spacing-21);
+}
+
+@media (max-width: 640px) {
+  .reel-scene-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Stand-in for the vertical frame, to check burned-in text fits. */
+.reel-frame-inner {
+  aspect-ratio: 9 / 16;
+  border: 1px solid var(--color-fossil);
+  background: color-mix(in srgb, var(--color-ink-black) 3%, transparent);
+  padding: var(--spacing-10);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--spacing-10);
+}
+
+.reel-on-screen {
+  font-family: var(--font-helveticaneue);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: var(--color-ink-black);
+  margin: 0;
+}
+
+.reel-frame-hold {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-fossil);
+  text-align: center;
+  margin: auto 0;
+}
+
+.reel-lower-third {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-paper-white);
+  background: var(--color-ink-black);
+  padding: 0.25rem 0.35rem;
+  margin: 0;
+}
+
+.reel-frame-cap {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-fossil);
+  margin: var(--spacing-5) 0 0;
+}
+
+.reel-scene-text {
+  display: grid;
+  gap: var(--spacing-21);
+  align-content: start;
+}
+
+.reel-field-label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-10);
+  font-family: var(--font-helveticaneue);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-fossil);
+  margin-bottom: var(--spacing-5);
+}
+
+.reel-budget {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  color: var(--color-fossil);
+}
+
+.reel-budget-over {
+  color: var(--color-charcoal);
+  border-bottom: 1px solid var(--color-charcoal);
+}
+
+.reel-vo {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--color-ink-black);
+  margin: 0;
+}
+
+.reel-visual {
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: var(--color-charcoal);
+  margin: 0;
+}
+
+.reel-untraced {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--color-ink-black);
+  border-left: 2px solid var(--color-charcoal);
+  padding-left: var(--spacing-10);
+  margin: var(--spacing-10) 0 0;
+}
+
+.reel-scene-chart {
+  border-top: 1px solid var(--color-fossil);
+  margin-top: var(--spacing-21);
+  padding-top: var(--spacing-21);
+}
+
+.reel-payload {
+  border: 1px solid var(--color-ink-black);
+  margin: var(--spacing-21) 0;
+}
+
+.reel-payload-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-10);
+  border-bottom: 1px solid var(--color-ink-black);
+  padding: var(--spacing-10);
+}
+
+.reel-tabs {
+  display: flex;
+  gap: var(--spacing-5);
+}
+
+.reel-tab,
+.reel-copy {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--color-fossil);
+  background: transparent;
+  color: var(--color-charcoal);
+  cursor: pointer;
+}
+
+.reel-tab-on {
+  border-color: var(--color-ink-black);
+  background: var(--color-ink-black);
+  color: var(--color-paper-white);
+}
+
+.reel-code {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  line-height: 1.6;
+  margin: 0;
+  padding: var(--spacing-21);
+  max-height: 26rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--color-ink-black);
+}
+
+.reel-back {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+  margin-top: var(--spacing-42);
+}
+
+.reel-back a {
+  border-bottom: 1px solid var(--color-charcoal);
+}
