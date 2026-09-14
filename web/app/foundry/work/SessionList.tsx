@@ -135,4 +135,7 @@ const search: React.CSSProperties = {
   fontSize: '.82rem',
   letterSpacing: '.04em',
   color: 'inherit',
+  outline: 'none',
+  boxShadow: 'none',
+  borderRadius: 0,
 };
