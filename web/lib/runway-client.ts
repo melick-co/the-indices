@@ -67,10 +67,20 @@ export class RunwayApiError extends Error {
   }
 }
 
-/** Official docs use RUNWAYML_API_SECRET; RUNWAY_API_KEY is accepted as an alias. */
+/**
+ * Official docs use RUNWAYML_API_SECRET; RUNWAY_API_KEY is accepted as an alias.
+ * Bracket access keeps this a runtime read on Vercel (dot access can be inlined
+ * to undefined at build if the var was missing that deploy).
+ */
+function readServerEnv(name: string): string | null {
+  const value = process.env[name];
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
 export function getRunwayApiKey(): string | null {
-  const key = process.env.RUNWAYML_API_SECRET?.trim() || process.env.RUNWAY_API_KEY?.trim();
-  return key || null;
+  return readServerEnv('RUNWAYML_API_SECRET') || readServerEnv('RUNWAY_API_KEY');
 }
 
 export function isRunwayConfigured(): boolean {
