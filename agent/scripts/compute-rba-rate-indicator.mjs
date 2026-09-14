@@ -89,7 +89,7 @@ export async function computeRbaIndicator(db = createDb()) {
     [FUND_METRICS, fundamentals, fundBasis, {
       org: 'Caveat',
       dataset: 'RBA rate indicator fundamentals model',
-      url: 'https://the-indices.vercel.app/indicators/rba-rate-rise',
+      url: 'https://the-indices.vercel.app/markets/rba-rate-rise',
       tier: 2,
     }],
   ]) {

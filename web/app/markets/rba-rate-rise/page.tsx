@@ -5,7 +5,7 @@ import StartSessionForm from '@/components/StartSessionForm';
 import { loadRbaRateIndicator } from '@/lib/rba-rate-indicator';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'RBA rate rise indicator — Caveat' };
+export const metadata = { title: 'RBA rate rise — Caveat Markets' };
 
 export default async function RbaRateIndicatorPage() {
   const ind = await loadRbaRateIndicator();
@@ -14,7 +14,7 @@ export default async function RbaRateIndicatorPage() {
   return (
     <>
       <main className="article">
-        <div className="card-kicker">Indicator · next RBA Board meeting</div>
+        <div className="card-kicker">Markets · next RBA Board meeting</div>
         <h1>Likelihood of a rate rise at the next RBA meeting</h1>
         <p className="measure">
           Two estimates for a <b>25 basis point</b> increase to the cash rate target at the
@@ -125,7 +125,7 @@ export default async function RbaRateIndicatorPage() {
         )}
 
         <p style={{ marginTop: '2rem' }}>
-          <Link href="/indicators">← All indicators</Link>
+          <Link href="/markets">← Markets desk</Link>
           {' · '}
           <StartSessionForm
             intent="investigate"

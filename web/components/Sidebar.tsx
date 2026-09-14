@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 const LINKS = [
   { href: '/', label: 'Stories' },
   { href: '/indices', label: 'Indices' },
-  { href: '/indicators', label: 'Indicators' },
+  { href: '/markets', label: 'Markets' },
   { href: '/trending', label: 'Trending' },
   { href: '/methodology', label: 'Method' },
   { href: '/foundry', label: 'Foundry' },

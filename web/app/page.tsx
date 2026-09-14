@@ -3,7 +3,7 @@ import Capture from '@/components/Capture';
 import SiteFooter from '@/components/SiteFooter';
 import Ticker from '@/components/Ticker';
 import IndexDash from '@/components/IndexDash';
-import IndicatorDash from '@/components/IndicatorDash';
+import MarketsDash from '@/components/MarketsDash';
 import StoryCard from '@/components/StoryCard';
 import { loadAllStories } from '@/lib/stories-loader';
 import { loadTrendingPage } from '@/lib/trending-topics';
@@ -72,7 +72,7 @@ export default async function Home() {
         )}
 
         <IndexDash />
-        <IndicatorDash />
+        <MarketsDash />
         <Capture />
       </main>
       <SiteFooter />

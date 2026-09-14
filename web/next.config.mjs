@@ -19,6 +19,8 @@ const nextConfig = {
       { source: '/studio/brainstorm', destination: '/foundry/work', permanent: true },
       { source: '/studio/brainstorm/:id', destination: '/foundry/work/:id', permanent: true },
       { source: '/studio/:path*', destination: '/foundry/:path*', permanent: true },
+      { source: '/indicators', destination: '/markets', permanent: true },
+      { source: '/indicators/rba-rate-rise', destination: '/markets/rba-rate-rise', permanent: true },
     ];
   },
 };

@@ -5,7 +5,7 @@ import { AUTH_ENABLED } from '@/lib/auth-flags';
  * Auth temporarily disabled — see lib/auth-flags.ts.
  * Re-enable gating here when IAM comes back.
  */
-const GATED = ['/foundry', '/studio', '/account'];
+const GATED = ['/foundry', '/studio', '/account', '/markets'];
 
 export async function middleware(request: NextRequest) {
   if (!AUTH_ENABLED) return NextResponse.next();

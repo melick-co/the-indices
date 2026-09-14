@@ -222,6 +222,6 @@ export const INDICATOR_LIST = [
     id: 'rba-rate-rise',
     name: 'RBA rate rise at next meeting',
     concept: 'Market-implied and fundamentals-based probability of a 25bp hike',
-    href: '/indicators/rba-rate-rise',
+    href: '/markets/rba-rate-rise',
   },
 ] as const;

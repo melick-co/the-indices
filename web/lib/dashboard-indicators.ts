@@ -353,7 +353,7 @@ export async function loadDashboard(): Promise<{
       dialFor(RATE_DIALS[0]),
       {
         id: 'rba-market',
-        href: '/indicators/rba-rate-rise',
+        href: '/markets/rba-rate-rise',
         label: 'RBA hike · market-implied',
         subtitle: rba?.meetingLabel ?? 'Next RBA Board meeting',
         kicker: 'Indicator · ASX futures',
@@ -363,7 +363,7 @@ export async function loadDashboard(): Promise<{
       },
       {
         id: 'rba-model',
-        href: '/indicators/rba-rate-rise',
+        href: '/markets/rba-rate-rise',
         label: 'RBA hike · fundamentals',
         subtitle: rba?.meetingLabel ?? 'Next RBA Board meeting',
         kicker: 'Indicator · derived model',
