@@ -35,7 +35,7 @@ export default function ReelControls({
 }) {
   const href = videoHref(slug, preview);
   const style = buttonStyle ?? {
-    fontFamily: 'IBM Plex Mono, monospace',
+    fontFamily: 'var(--font-ui)',
     fontSize: '.7rem',
     letterSpacing: '.06em',
     textTransform: 'uppercase' as const,

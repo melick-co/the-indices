@@ -21,13 +21,21 @@ function isActive(pathname: string, href: string) {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const today = new Date().toLocaleDateString('en-AU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 
   return (
-    <aside className="site-sidebar">
-      <div>
-        <Link href="/" className="wordmark">caveat</Link>
-        <div className="lector">Caveat lector</div>
+    <header className="site-sidebar">
+      <div className="mast-meta">
+        <span>{today}</span>
+        <span>Australia</span>
       </div>
+      <Link href="/" className="wordmark">Caveat</Link>
+      <p className="lector">Caveat lector · The detail that changes the story</p>
       <nav className="nav" aria-label="Primary">
         {LINKS.map((l) => (
           <Link
@@ -39,6 +47,6 @@ export default function Sidebar() {
           </Link>
         ))}
       </nav>
-    </aside>
+    </header>
   );
 }
