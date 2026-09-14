@@ -1,4 +1,4 @@
-/** Build Foundry work entry URLs from a trend hypothesis pitch. */
+/** Build Foundry session prompts from a trend hypothesis pitch. */
 
 type TrendTrigger = {
   cluster_label?: string;
@@ -29,13 +29,10 @@ export function buildTrendBrainstormPrompt(headline: string, trigger: TrendTrigg
   return parts.join('');
 }
 
-export function trendInvestigateUrls(headline: string, trigger: TrendTrigger) {
-  const title = headline.slice(0, 80);
-  const askQ = buildTrendAskPrompt(headline, trigger);
-  const brainstormQ = buildTrendBrainstormPrompt(headline, trigger);
+export function trendInvestigatePrompts(headline: string, trigger: TrendTrigger) {
   return {
-    ask: `/foundry/work/start?intent=investigate&prompt=${encodeURIComponent(askQ)}`,
-    work: `/foundry/work/start?intent=brainstorm&title=${encodeURIComponent(title)}&prompt=${encodeURIComponent(brainstormQ)}`,
-    brainstorm: `/foundry/work/start?intent=brainstorm&title=${encodeURIComponent(title)}&prompt=${encodeURIComponent(brainstormQ)}`,
+    title: headline.slice(0, 80),
+    ask: buildTrendAskPrompt(headline, trigger),
+    brainstorm: buildTrendBrainstormPrompt(headline, trigger),
   };
 }

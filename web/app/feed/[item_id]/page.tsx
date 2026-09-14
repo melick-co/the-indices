@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import SiteFooter from '@/components/SiteFooter';
+import StartSessionForm from '@/components/StartSessionForm';
 import { createClient } from '@/lib/supabase-server';
 import { buildAskPrompt, buildBrainstormPrompt, feedSessionTitle } from '@/lib/feed-prompts';
 
@@ -40,8 +41,6 @@ export default async function FeedItemPage({ params }: Props) {
   const askPrompt = buildAskPrompt(item);
   const brainstormPrompt = buildBrainstormPrompt(item);
   const sessionTitle = feedSessionTitle(item);
-  const askHref = `/foundry/work/start?intent=investigate&prompt=${encodeURIComponent(askPrompt)}`;
-  const brainstormHref = `/foundry/work/start?intent=brainstorm&title=${encodeURIComponent(sessionTitle)}&prompt=${encodeURIComponent(brainstormPrompt)}`;
 
   const published = item.published_at
     ? new Date(item.published_at).toLocaleDateString('en-AU', {
@@ -84,8 +83,12 @@ export default async function FeedItemPage({ params }: Props) {
         ) : null}
 
         <div className="feed-actions">
-          <Link href={askHref} className="btn-accent">Ask about this</Link>
-          <Link href={brainstormHref} className="studio-btn-outline">Brainstorm angles</Link>
+          <StartSessionForm intent="investigate" prompt={askPrompt} className="btn-accent">
+            Ask about this
+          </StartSessionForm>
+          <StartSessionForm intent="brainstorm" title={sessionTitle} prompt={brainstormPrompt} className="studio-btn-outline">
+            Brainstorm angles
+          </StartSessionForm>
         </div>
 
         <div className="caveat-box">

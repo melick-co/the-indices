@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { act, addToInbox, curate } from './actions';
 import { describeDerivation } from './derivation';
-import { trendInvestigateUrls } from '@/lib/trend-prompts';
+import { trendInvestigatePrompts } from '@/lib/trend-prompts';
 import SourceSuggestionsPanel, { type SourceSuggestion } from './SourceSuggestionsPanel';
 import StoryPublishControls, { type StoryLink } from '@/components/StoryPublishControls';
 import ReelControls from '@/components/ReelControls';
+import StartSessionForm from '@/components/StartSessionForm';
 interface Pitch {
   id: string; headline: string; hook: string | null; mechanism: string | null;
   caveat: string | null; chart_hint: string | null; detector: string;
@@ -102,8 +103,8 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
 
         {shown.map((p) => {
           const isOpen = open === p.id;
-          const trendUrls = p.detector === 'trend_hypothesis'
-            ? trendInvestigateUrls(p.headline, p.trigger_rows ?? {})
+          const trendPrompts = p.detector === 'trend_hypothesis'
+            ? trendInvestigatePrompts(p.headline, p.trigger_rows ?? {})
             : null;
           return (
             <article key={p.id} style={card}>
@@ -211,14 +212,16 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
 
               <div style={{ display: 'flex', gap: '.4rem', marginTop: '1rem',
                 flexWrap: 'wrap', alignItems: 'center' }}>
-                {trendUrls && (
+                {trendPrompts && (
                   <>
-                    <Link href={trendUrls.ask} className="btn-accent" style={{ fontSize: '.7rem', padding: '.4rem .75rem' }}>
+                    <StartSessionForm intent="investigate" prompt={trendPrompts.ask}
+                      className="btn-accent" style={{ fontSize: '.7rem', padding: '.4rem .75rem' }}>
                       Ask
-                    </Link>
-                    <Link href={trendUrls.work} className="studio-btn-outline" style={{ fontSize: '.7rem', padding: '.4rem .75rem' }}>
+                    </StartSessionForm>
+                    <StartSessionForm intent="brainstorm" title={trendPrompts.title} prompt={trendPrompts.brainstorm}
+                      className="studio-btn-outline" style={{ fontSize: '.7rem', padding: '.4rem .75rem' }}>
                       Work
-                    </Link>
+                    </StartSessionForm>
                   </>
                 )}
                 <button style={actBtn('var(--verify)')} disabled={pending}
@@ -291,20 +294,23 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
                     <span style={{ ...meta, textTransform: 'none' }}>Hypothesis in bank</span>
                   ) : (
                     <>
-                      <Link
-                        href={`/foundry/work/start?intent=investigate&prompt=${encodeURIComponent(`What's driving coverage of "${t.label}" and does our data support the narrative?`)}`}
+                      <StartSessionForm
+                        intent="investigate"
+                        prompt={`What's driving coverage of "${t.label}" and does our data support the narrative?`}
                         className="btn-accent"
                         style={{ fontSize: '.68rem', padding: '.35rem .6rem' }}
                       >
                         Ask
-                      </Link>
-                      <Link
-                        href={`/foundry/work/start?intent=brainstorm&title=${encodeURIComponent(t.label.slice(0, 80))}&prompt=${encodeURIComponent(`Brainstorm Caveat angles on this feed trend: ${t.label}\nKeywords: ${(t.keywords ?? []).join(', ')}`)}`}
+                      </StartSessionForm>
+                      <StartSessionForm
+                        intent="brainstorm"
+                        title={t.label.slice(0, 80)}
+                        prompt={`Brainstorm Caveat angles on this feed trend: ${t.label}\nKeywords: ${(t.keywords ?? []).join(', ')}`}
                         className="studio-btn-outline"
                         style={{ fontSize: '.68rem', padding: '.35rem .6rem' }}
                       >
                         Brainstorm
-                      </Link>
+                      </StartSessionForm>
                     </>
                   )}
                 </div>

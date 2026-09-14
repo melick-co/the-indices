@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import SiteFooter from '@/components/SiteFooter';
 import InputSeriesChart from '@/components/InputSeriesChart';
+import StartSessionForm from '@/components/StartSessionForm';
 import { loadRbaRateIndicator } from '@/lib/rba-rate-indicator';
 
 export const dynamic = 'force-dynamic';
@@ -126,9 +127,12 @@ export default async function RbaRateIndicatorPage() {
         <p style={{ marginTop: '2rem' }}>
           <Link href="/indicators">← All indicators</Link>
           {' · '}
-          <Link href="/foundry/work/start?intent=investigate&prompt=Investigate%20the%20gap%20between%20market-implied%20and%20fundamentals-based%20RBA%20rate%20expectations">
+          <StartSessionForm
+            intent="investigate"
+            prompt="Investigate the gap between market-implied and fundamentals-based RBA rate expectations"
+          >
             Investigate in Foundry →
-          </Link>
+          </StartSessionForm>
         </p>
       </main>
       <SiteFooter />

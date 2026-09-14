@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import SiteFooter from '@/components/SiteFooter';
+import StartSessionForm from '@/components/StartSessionForm';
 import { formatPeriodEnd, loadTrendingPage, type TrendSnapshot, type TrendTopic } from '@/lib/trending-topics';
 
 export const dynamic = 'force-dynamic';
@@ -108,9 +109,12 @@ export default async function TrendingPage() {
         <p style={{ marginTop: '2rem' }}>
           <Link href="/">← Home</Link>
           {' · '}
-          <Link href="/foundry/work/start?intent=investigate&prompt=Investigate%20the%20strongest%20trending%20topic%20from%20today%27s%20RSS%20feeds">
+          <StartSessionForm
+            intent="investigate"
+            prompt="Investigate the strongest trending topic from today's RSS feeds"
+          >
             Investigate in Foundry →
-          </Link>
+          </StartSessionForm>
         </p>
       </main>
       <SiteFooter />
