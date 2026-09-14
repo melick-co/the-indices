@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { formatChange, formatWatchValue, loadMarketWatches } from '@/lib/markets-loader';
+import { formatChange, formatWatchValue } from '@/lib/market-types';
+import { loadMarketWatches } from '@/lib/markets-loader';
 
 /** Compact markets desk teaser for the home page. Uses last stored prints, no live refresh. */
 export default async function MarketsDash() {

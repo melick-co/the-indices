@@ -9,7 +9,7 @@ import {
   formatWatchValue,
   type MarketKind,
   type MarketWatch,
-} from '@/lib/markets-loader';
+} from '@/lib/market-types';
 import {
   addMarketWatch,
   dropMarketWatch,
@@ -221,7 +221,7 @@ function SourceIntake() {
       <h2>Source a series</h2>
       <p className="measure markets-blurb">
         Paste a publisher URL, a CSV endpoint, or a statistical table. Inspect it here,
-        watch the print, then propose it onto Foundry. Approval is what creates a
+        watch the print, then propose it onto Foundry. Approval is what creates a{' '}
         <code>data_sources</code> row. Watching does not.
       </p>
       <div className="markets-form">
