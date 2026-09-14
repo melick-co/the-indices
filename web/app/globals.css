@@ -2598,7 +2598,7 @@ textarea.markets-input { resize: vertical; }
 }
 
 .desk-count {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   color: var(--color-fossil);
   font-weight: 400;
@@ -2607,13 +2607,13 @@ textarea.markets-input { resize: vertical; }
 .desk-empty,
 .desk-pending,
 .desk-ok {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.78rem;
   color: var(--color-fossil);
   margin-bottom: var(--spacing-21);
 }
 
-.desk-error { color: #8a2a2a; font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; }
+.desk-error { color: #8a2a2a; font-family: var(--font-mono); font-size: 0.78rem; }
 
 .desk-row {
   display: grid;
@@ -2635,7 +2635,7 @@ textarea.markets-input { resize: vertical; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2643,7 +2643,7 @@ textarea.markets-input { resize: vertical; }
 }
 
 .desk-row-meta {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.66rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
