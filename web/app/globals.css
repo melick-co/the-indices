@@ -374,7 +374,8 @@ a.studio-tab.is-active { color: var(--color-paper-white); }
   font-size: clamp(32px, 5.4vw, var(--text-display));
   line-height: var(--leading-display);
   letter-spacing: var(--tracking-display);
-  max-width: 22ch;
+  max-width: 28ch;
+  margin-bottom: var(--spacing-10);
 }
 
 .mark {
@@ -414,7 +415,7 @@ a.studio-tab.is-active { color: var(--color-paper-white); }
 }
 
 .hero-one {
-  margin: calc(var(--spacing-21) * -1) 0 var(--spacing-21);
+  margin: 0 0 var(--spacing-21);
   display: flex;
   align-items: baseline;
   gap: var(--spacing-10);
@@ -422,9 +423,10 @@ a.studio-tab.is-active { color: var(--color-paper-white); }
 }
 
 .hero-one-label {
-  font-family: var(--font-helveticaneue);
+  font-family: var(--font-ui);
   font-size: var(--text-caption);
-  color: var(--color-fossil);
+  color: var(--color-charcoal);
+  max-width: 42rem;
 }
 
 .hero-story-link {
