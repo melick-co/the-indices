@@ -65,6 +65,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
         <h1 className="section-head" style={{ borderBottom: 'none', marginBottom: 'var(--spacing-21)' }}>Foundry</h1>
         {showInbox && <InboxForm onDone={() => setShowInbox(false)} />}
         <p style={{ marginBottom: 'var(--spacing-21)', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <Link href="/foundry/desk" className="studio-link">Desk</Link>
           <button type="button" className="studio-link" onClick={() => setShowInbox((v) => !v)}>+ Inbox</button>
           <RefreshDataButton onDone={() => router.refresh()} />
         </p>

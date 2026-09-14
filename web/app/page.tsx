@@ -5,9 +5,10 @@ import Ticker from '@/components/Ticker';
 import IndexDash from '@/components/IndexDash';
 import MarketsDash from '@/components/MarketsDash';
 import StoryCard from '@/components/StoryCard';
+import { buildHomeLayout } from '@/lib/home-layout';
 import { loadAllStories } from '@/lib/stories-loader';
 import { loadTrendingPage } from '@/lib/trending-topics';
-import { buildTrendIndex, sortStoriesByTrend } from '@/lib/trend-weight';
+import { buildTrendIndex } from '@/lib/trend-weight';
 
 export const revalidate = 900;   // ticker refreshes every 15 minutes
 
@@ -17,22 +18,13 @@ export default async function Home() {
     loadTrendingPage(),
   ]);
   const trendIndex = buildTrendIndex(trendingData);
-  const stories = sortStoriesByTrend(allStories, trendIndex);
-  const frameChecks = sortStoriesByTrend(
-    stories.filter((s) => s.frameCheck),
-    trendIndex,
-  );
-  const otherStories = sortStoriesByTrend(
-    stories.filter((s) => !s.frameCheck),
-    trendIndex,
-  );
-  const heroStory = frameChecks[0] ?? null;
+  const { hero, frameChecks, stories } = buildHomeLayout(allStories, trendIndex);
 
   return (
     <>
       <main>
         <Ticker />
-        <HeroFlip story={heroStory} />
+        <HeroFlip story={hero} />
 
         {frameChecks.length > 0 && (
           <section className="home-section">
@@ -49,18 +41,7 @@ export default async function Home() {
           </section>
         )}
 
-        {otherStories.length > 0 && (
-          <section className="home-section">
-            <h2 className="section-head">Stories</h2>
-            <div className="cards">
-              {otherStories.map((s) => (
-                <StoryCard key={s.slug} story={s} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {!frameChecks.length && !otherStories.length && (
+        {stories.length > 0 && (
           <section className="home-section">
             <h2 className="section-head">Stories</h2>
             <div className="cards">
@@ -68,6 +49,13 @@ export default async function Home() {
                 <StoryCard key={s.slug} story={s} />
               ))}
             </div>
+          </section>
+        )}
+
+        {!frameChecks.length && !stories.length && (
+          <section className="home-section">
+            <h2 className="section-head">Stories</h2>
+            <p className="section-lede">Nothing on the home page yet.</p>
           </section>
         )}
 

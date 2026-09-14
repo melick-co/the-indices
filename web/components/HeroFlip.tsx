@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Story } from '@/lib/story-types';
 import { storyReceipt } from '@/lib/story-types';
+import { resolveHeroImage } from '@/lib/story-art';
 
 /** Hero claim driven by the latest Frame check story, with a static fallback. */
 export default function HeroFlip({ story }: { story?: Story | null }) {
@@ -31,10 +32,15 @@ export default function HeroFlip({ story }: { story?: Story | null }) {
 
   const receipt = storyReceipt(story);
   const tierClass = receipt.tier === 1 ? 't1' : receipt.tier === 2 ? 't2' : 't3';
+  const art = resolveHeroImage(story);
 
   return (
     <section className="hero">
-      <div className="eyebrow">Frame check · {story.kicker}</div>
+      {art && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="hero-art" src={art.url} alt={art.alt} />
+      )}
+      <div className="eyebrow">{story.frameCheck ? `Frame check · ${story.kicker}` : story.kicker}</div>
       <h1 className="hero-claim">{story.title}</h1>
       <p className="hero-one">
         <span className="mark">{story.oneNumber.value}</span>

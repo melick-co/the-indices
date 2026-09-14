@@ -8,6 +8,7 @@ import SpiralTimeline from '@/components/SpiralTimeline';
 import ReelControls from '@/components/ReelControls';
 import { STORIES } from '@/content/stories';
 import { loadStoryBySlug } from '@/lib/stories-loader';
+import { resolveHeroImage } from '@/lib/story-art';
 import Migration from './bodies/migration';
 import WageSpiral from './bodies/wage-spiral';
 
@@ -40,17 +41,22 @@ export default async function StoryPage({
   const story = await loadStoryBySlug(params.slug, { allowDraft: preview });
   if (!story) notFound();
   if (story.status === 'draft' && !preview) notFound();
+  const art = resolveHeroImage(story);
 
   return (
     <>
       <main className="article">
         {story.status === 'draft' && (
           <div className="draft-banner">
-            Draft preview — not on the home page yet. Go live from Foundry or Studio when ready.
+            Draft preview — not on the home page yet. Go live from the News Desk or Foundry when ready.
           </div>
         )}
         <div className="card-kicker">{story.kicker}</div>
         <h1>{story.title}</h1>
+        {art && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="story-hero-art" src={art.url} alt={art.alt} />
+        )}
         <div className="byline">
           {new Date(story.published).toLocaleDateString('en-AU',
             { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -68,7 +74,7 @@ export default async function StoryPage({
           />
         </div>
 
-        {story.body ? (
+        {story.body?.blocks?.length ? (
           <StoryBody body={story.body} />
         ) : (
           <>

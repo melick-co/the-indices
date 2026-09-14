@@ -10,12 +10,18 @@ const LINKS = [
   { href: '/trending', label: 'Trending' },
   { href: '/methodology', label: 'Method' },
   { href: '/foundry', label: 'Foundry' },
+  { href: '/foundry/desk', label: 'Desk' },
   { href: '/foundry/work', label: 'Work' },
   { href: '/account', label: 'Account' },
 ] as const;
 
 function isActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/';
+  if (href === '/foundry') {
+    return pathname === '/foundry' || (pathname.startsWith('/foundry/')
+      && !pathname.startsWith('/foundry/desk')
+      && !pathname.startsWith('/foundry/work'));
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
