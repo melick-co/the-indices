@@ -2312,6 +2312,127 @@ table.data tr:hover td { background: transparent; }
   color: var(--color-fossil);
 }
 
+.runway-block {
+  margin: var(--spacing-42) 0;
+}
+
+.runway-missing {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.74rem;
+  line-height: 1.6;
+  border-left: 2px solid var(--color-charcoal);
+  padding-left: var(--spacing-10);
+  margin: 0 0 var(--spacing-21);
+  color: var(--color-ink-black);
+}
+
+.runway-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-10);
+  margin: var(--spacing-21) 0;
+}
+
+.runway-scenes {
+  display: grid;
+  gap: var(--spacing-21);
+}
+
+.runway-scene {
+  border: 1px solid var(--color-ink-black);
+  padding: var(--spacing-21);
+}
+
+.runway-scene-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-10);
+  margin-bottom: var(--spacing-10);
+}
+
+.runway-chart-flag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-slate-iris);
+}
+
+.runway-series {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  line-height: 1.6;
+  color: var(--color-charcoal);
+  margin: 0 0 var(--spacing-10);
+}
+
+.runway-scene-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-10);
+}
+
+.runway-status {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-fossil);
+}
+
+.runway-status-running,
+.runway-status-queued {
+  color: var(--color-charcoal);
+}
+
+.runway-status-succeeded {
+  color: var(--color-slate-iris);
+}
+
+.runway-status-failed {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--color-ink-black);
+}
+
+.runway-previews {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--spacing-21);
+  margin-top: var(--spacing-21);
+}
+
+.runway-preview,
+.runway-playlist {
+  display: grid;
+  gap: var(--spacing-10);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.runway-preview img,
+.runway-preview video,
+.runway-playlist video {
+  width: 100%;
+  max-width: 18rem;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  border: 1px solid var(--color-ink-black);
+  background: color-mix(in srgb, var(--color-ink-black) 4%, transparent);
+}
+
+.runway-preview a,
+.runway-playlist a {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-charcoal);
+}
+
 @media (max-width: 640px) {
   .video-steps {
     grid-template-columns: 1fr;

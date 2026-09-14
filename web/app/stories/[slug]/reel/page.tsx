@@ -6,6 +6,7 @@ import VideoStepper from '@/components/VideoStepper';
 import { loadReel } from '@/lib/generate-reel';
 import { loadStoryBySlug } from '@/lib/stories-loader';
 import { VIDEO_STAGE_LABEL } from '@/lib/reel-types';
+import ReelRenderer from '@/components/ReelRenderer';
 import ReelActions from './ReelActions';
 import ReelPayload from './ReelPayload';
 
@@ -65,7 +66,7 @@ export default async function ReelPage({
                 <p className="reel-lede">
                   Scene prompts are one shot each, with the locked script quoted so a generator
                   cannot rewrite the read. The shot list is the same brief flattened. Scene JSON
-                  drives anything with an API.
+                  drives anything with an API. Runway consumes this pack next.
                 </p>
                 <ReelPayload
                   json={JSON.stringify(
@@ -77,6 +78,10 @@ export default async function ReelPage({
                   promptPack={reel.spec.prompt_pack}
                 />
               </>
+            )}
+
+            {(reel.stage === 'storyboard' || reel.stage === 'prompts') && (
+              <ReelRenderer slug={story.slug} scenes={reel.spec.scenes} />
             )}
           </>
         ) : (
