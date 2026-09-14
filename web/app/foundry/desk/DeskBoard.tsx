@@ -70,8 +70,8 @@ export default function DeskBoard({
           <DeskRow
             story={hero}
             pending={pending}
-            onPin={() => run(() => unpinHero(hero.slug))}
-            pinLabel="Unpin"
+            onPin={() => run(() => (hero.pinnedHero ? unpinHero(hero.slug) : pinHero(hero.slug)))}
+            pinLabel={hero.pinnedHero ? 'Unpin' : 'Pin hero'}
             onSection={(section) => run(() => setHomeSection(hero.slug, section))}
             onStatus={(status) => run(() => setStoryStatus(hero.slug, status))}
           />
