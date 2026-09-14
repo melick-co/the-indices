@@ -95,11 +95,19 @@ export async function unpinHero(slug: string) {
 export async function setHomeSection(slug: string, section: HomeSection | null) {
   const supabase = createClient();
   const now = new Date().toISOString();
+  if (section === 'hero') await unpinAll(supabase);
+  const patch: Record<string, unknown> = {
+    home_section: section,
+    updated_at: now,
+  };
+  if (section === 'hero') patch.pinned_hero = true;
   if (usesDeskOverlay(slug)) {
-    await upsertDesk(slug, { home_section: section });
+    await upsertDesk(slug, {
+      home_section: section,
+      ...(section === 'hero' ? { pinned_hero: true } : {}),
+    });
   } else {
-    const { error } = await supabase.from('stories')
-      .update({ home_section: section, updated_at: now }).eq('slug', slug);
+    const { error } = await supabase.from('stories').update(patch).eq('slug', slug);
     if (error) throw new Error(error.message);
   }
   revalidateStory(slug);

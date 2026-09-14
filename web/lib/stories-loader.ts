@@ -140,7 +140,11 @@ export async function loadPublishedDbStories(): Promise<Story[]> {
   return (data as unknown as DbStoryRow[]).map(rowToStory);
 }
 
-/** Static registry plus DB-published stories; DB wins on slug collision. */
+/**
+ * Static registry plus DB-published stories.
+ * Founding slugs keep their React bodies even if a stories row exists;
+ * other collisions prefer the DB row.
+ */
 export async function loadAllStories(): Promise<Story[]> {
   const [dbStories, overlays] = await Promise.all([
     loadPublishedDbStories(),
@@ -150,7 +154,10 @@ export async function loadAllStories(): Promise<Story[]> {
   for (const s of STATIC_STORIES) {
     bySlug.set(s.slug, applyOverlay(staticToStory(s), overlays.get(s.slug)));
   }
-  for (const s of dbStories) bySlug.set(s.slug, s);
+  for (const s of dbStories) {
+    if (isStaticStorySlug(s.slug)) continue;
+    bySlug.set(s.slug, s);
+  }
   return [...bySlug.values()].sort((a, b) => b.published.localeCompare(a.published));
 }
 
@@ -163,7 +170,7 @@ export async function loadStoryBySlug(
     supabase.from('stories').select(STORY_COLS).eq('slug', slug).maybeSingle(),
     loadDeskOverlays(),
   ]);
-  if (data) {
+  if (data && !isStaticStorySlug(slug)) {
     const row = data as unknown as DbStoryRow;
     if (row.status === 'published' || opts?.allowDraft) return rowToStory(row);
   }
@@ -194,7 +201,10 @@ export async function loadDeskStories(): Promise<Story[]> {
   for (const s of STATIC_STORIES) {
     bySlug.set(s.slug, applyOverlay(staticToStory(s), overlays.get(s.slug)));
   }
-  for (const s of dbStories) bySlug.set(s.slug, s);
+  for (const s of dbStories) {
+    if (isStaticStorySlug(s.slug)) continue;
+    bySlug.set(s.slug, s);
+  }
   return [...bySlug.values()];
 }
 
@@ -228,10 +238,26 @@ export async function attachGeneratedArtToStory(
 
   if (isStaticStorySlug(slug)) {
     const { data } = await supabase.from('story_desk')
-      .select('art').eq('slug', slug).maybeSingle();
-    const art = attachGeneratedArt(data?.art, piece);
+      .select('slug, home_section, home_rank, pinned_hero, hero_image_url, hero_image_alt, art')
+      .eq('slug', slug)
+      .maybeSingle();
+    const current = data as {
+      home_section?: HomeSection | null;
+      home_rank?: number | null;
+      pinned_hero?: boolean | null;
+      hero_image_url?: string | null;
+      hero_image_alt?: string | null;
+      art?: unknown;
+    } | null;
+    const art = attachGeneratedArt(current?.art, piece);
+    const asHero = piece.kind === 'hero' || piece.kind === 'still';
     const { error } = await supabase.from('story_desk').upsert({
       slug,
+      home_section: current?.home_section ?? null,
+      home_rank: current?.home_rank ?? null,
+      pinned_hero: current?.pinned_hero ?? false,
+      hero_image_url: asHero ? piece.url : (current?.hero_image_url ?? null),
+      hero_image_alt: asHero ? (piece.alt ?? current?.hero_image_alt ?? null) : (current?.hero_image_alt ?? null),
       art,
       updated_at: now,
     }, { onConflict: 'slug' });
@@ -244,8 +270,12 @@ export async function attachGeneratedArtToStory(
   if (readErr) throw new Error(readErr.message);
   if (!data) throw new Error(`No story row for ${slug}`);
   const art = attachGeneratedArt(data.art, piece);
-  const { error } = await supabase.from('stories')
-    .update({ art, updated_at: now }).eq('slug', slug);
+  const patch: Record<string, unknown> = { art, updated_at: now };
+  if (piece.kind === 'hero' || piece.kind === 'still') {
+    patch.hero_image_url = piece.url;
+    if (piece.alt) patch.hero_image_alt = piece.alt;
+  }
+  const { error } = await supabase.from('stories').update(patch).eq('slug', slug);
   if (error) throw new Error(error.message);
   return art;
 }
