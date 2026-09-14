@@ -9,8 +9,17 @@ import type { SourceSuggestion } from './SourceSuggestionsPanel';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Foundry — Caveat' };
 
-export default async function FoundryPage() {
+const BOARD_TABS = ['pitched', 'candidate', 'approved', 'watchlist', 'dormant', 'rejected', 'published'];
+
+export default async function FoundryPage({
+  searchParams,
+}: {
+  searchParams?: { tab?: string };
+}) {
   const supabase = createClient();
+  const initialTab = BOARD_TABS.includes(searchParams?.tab ?? '')
+    ? searchParams!.tab!
+    : 'pitched';
 
   const [{ data: pitches }, { data: runs }, { data: inbox }, { data: feedback },
     { data: events }, { data: metrics }, { data: news }, { data: trends },
@@ -65,6 +74,7 @@ export default async function FoundryPage() {
 
   return (
     <FoundryBoard
+      initialTab={initialTab}
       pitches={orderedPitches} runs={runs ?? []}
       inbox={inbox ?? []} feedback={feedback ?? []}
       events={events ?? []} metrics={metrics ?? []} news={news ?? []}

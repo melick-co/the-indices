@@ -32,14 +32,14 @@ const LABEL: Record<string, string> = {
   watchlist: 'Watchlist', dormant: 'Dormant', rejected: 'Rejected', published: 'Published',
 };
 
-export default function FoundryBoard({ pitches, runs, inbox, feedback, events, metrics, news, trends, sourceSuggestions, storyByPitch = {}, reelStatusBySlug = {} }:
+export default function FoundryBoard({ pitches, runs, inbox, feedback, events, metrics, news, trends, sourceSuggestions, storyByPitch = {}, reelStatusBySlug = {}, initialTab = 'pitched' }:
   { pitches: Pitch[]; runs: any[]; inbox: any[]; feedback: any[];
     events: PitchEvent[]; metrics: Metric[]; news: any[]; trends: any[];
     sourceSuggestions: SourceSuggestion[]; storyByPitch?: Record<string, StoryLink>;
-    reelStatusBySlug?: Record<string, string> }) {
+    reelStatusBySlug?: Record<string, string>; initialTab?: string }) {
   const metricById = new Map(metrics.map((m) => [m.metric_id, m]));
   const eventsFor = (id: string) => events.filter((e) => e.pitch_id === id);
-  const [tab, setTab] = useState('pitched');
+  const [tab, setTab] = useState(ORDER.includes(initialTab) ? initialTab : 'pitched');
   const [open, setOpen] = useState<string | null>(null);
   const [note, setNote] = useState<Record<string, string>>({});
   const [pending, start] = useTransition();
@@ -48,6 +48,12 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
 
   const byState = (s: string) => pitches.filter((p) => p.state === s);
   const shown = byState(tab);
+  const candidateCount = byState('candidate').length;
+
+  function selectTab(next: string) {
+    setTab(next);
+    router.replace(next === 'pitched' ? '/foundry' : `/foundry?tab=${next}`, { scroll: false });
+  }
 
   const run = (id: string, action: any) =>
     start(() => { act(id, action, note[id] || undefined).then(() => setNote((n) => ({ ...n, [id]: '' }))); });
@@ -64,16 +70,33 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
 
         <div style={{ display: 'flex', gap: 'var(--spacing-10)', flexWrap: 'wrap', marginBottom: 'var(--spacing-42)' }}>
           {ORDER.map((s) => (
-            <button key={s} onClick={() => setTab(s)} style={tabBtn(s === tab)}>
+            <button key={s} onClick={() => selectTab(s)} style={tabBtn(s === tab)}>
               {LABEL[s]} <span style={{ opacity: .6 }}>{byState(s).length}</span>
             </button>
           ))}
         </div>
 
+        {tab === 'pitched' && candidateCount > 0 && (
+          <p style={notice}>
+            {candidateCount} pitch{candidateCount === 1 ? '' : 'es'} waiting to be ranked.
+            Work you bank from a session lands under Awaiting ranking, not on this list.
+            {' '}
+            <button type="button" className="studio-link" onClick={() => selectTab('candidate')}>
+              Open Awaiting ranking
+            </button>
+          </p>
+        )}
+
         {shown.length === 0 && (
           <p style={{ color: 'var(--ink-faint)', fontFamily: 'IBM Plex Mono, monospace',
             fontSize: '.82rem', padding: '2rem 0' }}>
-            Nothing here. {tab === 'pitched' && 'A quiet day is honest output.'}
+            {tab === 'pitched' && candidateCount > 0
+              ? 'Nothing ranked for today. Banked sessions are under Awaiting ranking until they are scored onto this list.'
+              : tab === 'pitched'
+                ? 'Nothing here. A quiet day is honest output.'
+                : tab === 'candidate'
+                  ? 'Nothing awaiting ranking. Bank a Foundry session to put it here.'
+                  : 'Nothing here.'}
           </p>
         )}
 
@@ -545,6 +568,11 @@ const card: React.CSSProperties = {
 const meta: React.CSSProperties = {
   fontFamily: 'IBM Plex Mono, monospace', fontSize: '.68rem', letterSpacing: '.08em',
   textTransform: 'uppercase', color: 'var(--ink-faint)',
+};
+const notice: React.CSSProperties = {
+  fontFamily: 'IBM Plex Mono, monospace', fontSize: '.78rem', letterSpacing: '.03em',
+  color: 'var(--ink-soft)', margin: '0 0 var(--spacing-21)', padding: '0.7rem 0',
+  borderTop: '1px solid var(--rule)', borderBottom: '1px solid var(--rule)',
 };
 const inp: React.CSSProperties = {
   width: '100%', padding: '.5rem .6rem', border: '1px solid var(--rule)', background: 'var(--paper)',

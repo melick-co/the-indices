@@ -61,7 +61,7 @@ const COMMANDS: Command[] = [
   { name: '/refine', arg: '[note]', blurb: 'Run a refine turn on the thread' },
   { name: '/precedents', arg: '[topic]', blurb: 'Research cross-market precedents' },
   { name: '/context', blurb: 'Show or hide session context, links and files' },
-  { name: '/bank', arg: '[headline]', blurb: 'Bank the last turn as a candidate pitch' },
+  { name: '/bank', arg: '[headline]', blurb: 'Send the last turn to Foundry → Awaiting ranking' },
   { name: '/track', blurb: 'Track this session in the news watch' },
   { name: '/monitor', blurb: 'Set up monitoring for suggested sources' },
   { name: '/fork', arg: '[label]', blurb: 'Branch the session from the last turn' },
@@ -150,6 +150,9 @@ export default function FoundryChat({
   const [notes, setNotes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showMonitor, setShowMonitor] = useState(false);
+  const [linkedPitch, setLinkedPitch] = useState<string | null>(
+    (session.linked_pitch as string | null) ?? null,
+  );
   const [pending, start] = useTransition();
   const abortRef = useRef<AbortController | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -455,7 +458,9 @@ export default function FoundryChat({
         setError(r.error);
         return;
       }
-      note('Banked as a candidate pitch. Foundry board → Awaiting ranking.');
+      setLinkedPitch(r.pitchId);
+      note('Banked as a candidate pitch. Open Foundry → Awaiting ranking to find it.');
+      router.refresh();
     });
   }
 
@@ -602,13 +607,17 @@ export default function FoundryChat({
           <button type="button" className="cc-link" onClick={() => setShowContext((v) => !v)}>
             {showContext ? 'hide context' : `context${inputs.length ? ` (${inputs.length})` : ''}`}
           </button>
-          {lastAssistant && (
+          {lastAssistant && !linkedPitch && (
             <button type="button" className="cc-link" disabled={running || pending}
+              title="Create a candidate pitch on Foundry → Awaiting ranking"
               onClick={() => bank(title.slice(0, 120), lastAssistant.id)}>
-              bank
+              bank as pitch
             </button>
           )}
-          <button type="button" className="cc-link" onClick={saveDraft} disabled={pending}>save</button>
+          <button type="button" className="cc-link" onClick={saveDraft} disabled={pending}
+            title="Keep this session on Work. Does not create a pitch.">
+            save
+          </button>
           <button type="button" className="cc-link" onClick={archive} disabled={pending}>archive</button>
         </div>
         {(parentSession || forks.length > 0) && (
@@ -695,6 +704,7 @@ export default function FoundryChat({
             </p>
             <p className="cc-dim">
               Type a message and press Enter. Type <span className="cc-kbd">/</span> for commands.
+              Save keeps the session. Bank puts it on Foundry → Awaiting ranking.
             </p>
           </div>
         )}
@@ -743,6 +753,12 @@ export default function FoundryChat({
           </div>
         ) : (
           <>
+            {lastAssistant && !linkedPitch && (
+              <p className="cc-dim" style={{ margin: '0 0 0.6rem', fontSize: '.72rem' }}>
+                This session is a draft. Save keeps it on Work.
+                Bank as pitch sends the last turn to Foundry → Awaiting ranking.
+              </p>
+            )}
             {slashMatches.length > 0 && (
               <div className="cc-palette">
                 {slashMatches.map((c) => (
@@ -794,9 +810,10 @@ export default function FoundryChat({
         />
       )}
 
-      {Boolean(session.linked_pitch) && (
+      {Boolean(linkedPitch) && (
         <p className="cc-dim" style={{ marginTop: '1rem', fontSize: '.72rem' }}>
-          Banked · <Link className="cc-link" href="/foundry">open the Foundry board</Link>
+          Banked as a candidate pitch ·{' '}
+          <Link className="cc-link" href="/foundry?tab=candidate">open Awaiting ranking</Link>
         </p>
       )}
     </main>
@@ -979,8 +996,9 @@ function Turn({
             <div key={a.index} className="cc-angle">
               <span>{a.headline}</span>
               <button type="button" className="cc-link" disabled={disabled}
+                title="Send this angle to Foundry → Awaiting ranking"
                 onClick={() => onBank(a.headline.slice(0, 120), a.headline)}>
-                bank
+                bank as pitch
               </button>
             </div>
           ))}
