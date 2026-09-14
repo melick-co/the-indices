@@ -37,7 +37,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
   { pitches: Pitch[]; runs: any[]; inbox: any[]; feedback: any[];
     events: PitchEvent[]; metrics: Metric[]; news: any[]; trends: any[];
     sourceSuggestions: SourceSuggestion[]; storyByPitch?: Record<string, StoryLink>;
-    reelStatusBySlug?: Record<string, string>; initialTab?: string }) {
+    reelStatusBySlug?: Record<string, { status: string; stage: string }>; initialTab?: string }) {
   const metricById = new Map(metrics.map((m) => [m.metric_id, m]));
   const eventsFor = (id: string) => events.filter((e) => e.pitch_id === id);
   const [tab, setTab] = useState(ORDER.includes(initialTab) ? initialTab : 'pitched');
@@ -237,10 +237,8 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
                 {storyByPitch[p.id] && (
                   <ReelControls
                     slug={storyByPitch[p.id].slug}
-                    reel={reelStatusBySlug[storyByPitch[p.id].slug]
-                      ? { status: reelStatusBySlug[storyByPitch[p.id].slug] }
-                      : null}
-                    onDone={() => router.refresh()}
+                    reel={reelStatusBySlug[storyByPitch[p.id].slug] ?? null}
+                    preview={storyByPitch[p.id].status === 'draft'}
                     buttonStyle={actBtn('var(--ink)')}
                   />
                 )}

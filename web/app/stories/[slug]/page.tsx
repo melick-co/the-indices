@@ -5,6 +5,7 @@ import SiteFooter from '@/components/SiteFooter';
 import StoryBody from '@/components/StoryBody';
 import RankSwap from '@/components/RankSwap';
 import SpiralTimeline from '@/components/SpiralTimeline';
+import ReelControls from '@/components/ReelControls';
 import { STORIES } from '@/content/stories';
 import { loadStoryBySlug } from '@/lib/stories-loader';
 import Migration from './bodies/migration';
@@ -58,6 +59,13 @@ export default async function StoryPage({
             style={{ borderBottom: '1px solid var(--pen)' }}>
             Evidence and sources
           </Link>
+        </div>
+
+        <div className="story-video-row">
+          <ReelControls
+            slug={story.slug}
+            preview={preview || story.status === 'draft'}
+          />
         </div>
 
         {story.body ? (

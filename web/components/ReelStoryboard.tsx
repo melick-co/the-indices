@@ -9,7 +9,15 @@ function asStoryChart(scene: ReelScene): StoryChartBlock | null {
   return { type: 'chart', ...chart };
 }
 
-function SceneCard({ scene, index }: { scene: ReelScene; index: number }) {
+function SceneCard({
+  scene,
+  index,
+  showVisuals,
+}: {
+  scene: ReelScene;
+  index: number;
+  showVisuals: boolean;
+}) {
   const words = wordCount(scene.narration);
   const budget = wordBudget(scene.seconds);
   const over = words > budget;
@@ -27,7 +35,7 @@ function SceneCard({ scene, index }: { scene: ReelScene; index: number }) {
         <div className="reel-frame">
           <div className="reel-frame-inner">
             <p className="reel-on-screen">{scene.on_screen}</p>
-            {chart && <p className="reel-frame-hold">chart holds this frame</p>}
+            {showVisuals && chart && <p className="reel-frame-hold">chart holds this frame</p>}
             {scene.lower_third && <p className="reel-lower-third">{scene.lower_third}</p>}
           </div>
           <p className="reel-frame-cap">burned in · {REEL_FORMAT.aspect} safe area</p>
@@ -44,14 +52,16 @@ function SceneCard({ scene, index }: { scene: ReelScene; index: number }) {
             <p className="reel-vo">{scene.narration}</p>
           </div>
 
-          <div className="reel-field">
-            <span className="reel-field-label">Visual direction</span>
-            <p className="reel-visual">{scene.visual_prompt}</p>
-          </div>
+          {showVisuals && (
+            <div className="reel-field">
+              <span className="reel-field-label">Visual direction</span>
+              <p className="reel-visual">{scene.visual_prompt}</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {chart && (
+      {showVisuals && chart && (
         <div className="reel-scene-chart">
           <span className="reel-field-label">
             Chart
@@ -73,9 +83,11 @@ function SceneCard({ scene, index }: { scene: ReelScene; index: number }) {
 export default function ReelStoryboard({
   spec,
   warnings,
+  stage = 'storyboard',
 }: {
   spec: ReelSpec;
   warnings: string[];
+  stage?: 'script' | 'storyboard' | 'prompts';
 }) {
   return (
     <>
@@ -96,15 +108,19 @@ export default function ReelStoryboard({
           <dt>Figures</dt>
           <dd>{warnings.length ? `${warnings.length} to check` : 'all traced'}</dd>
         </div>
+        <div>
+          <dt>Pass</dt>
+          <dd>{stage}</dd>
+        </div>
       </dl>
 
       {warnings.length > 0 ? (
         <section className="reel-warnings">
           <h3>Checks outstanding</h3>
           <p>
-            These have to clear before the brief goes to the generator. Regenerating usually fixes
-            wording and budget breaches; an untraceable figure means the reel asserted something the
-            story does not carry.
+            These have to clear before the next pass. Regenerating usually fixes wording and
+            budget breaches; an untraceable figure means the brief asserted something the story
+            does not carry.
           </p>
           <ul>
             {warnings.map((w) => <li key={w}>{w}</li>)}
@@ -112,7 +128,9 @@ export default function ReelStoryboard({
         </section>
       ) : (
         <p className="reel-clear">
-          Every figure on screen traces back to the story evidence, and every scene fits its read.
+          {stage === 'script'
+            ? 'Every spoken figure traces back to the story evidence, and every scene fits its read.'
+            : 'Every figure on screen traces back to the story evidence, and every scene fits its read.'}
         </p>
       )}
 
@@ -126,10 +144,15 @@ export default function ReelStoryboard({
         </dl>
       </section>
 
-      <h2 className="reel-h2">Storyboard</h2>
+      <h2 className="reel-h2">{stage === 'script' ? 'Script' : 'Storyboard'}</h2>
       <div className="reel-scenes">
         {spec.scenes.map((scene, i) => (
-          <SceneCard key={scene.id} scene={scene} index={i} />
+          <SceneCard
+            key={scene.id}
+            scene={scene}
+            index={i}
+            showVisuals={stage !== 'script'}
+          />
         ))}
       </div>
     </>

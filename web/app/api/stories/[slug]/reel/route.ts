@@ -1,4 +1,5 @@
-import { generateReelForStory } from '@/lib/generate-reel';
+import { generateVideoStage } from '@/lib/generate-reel';
+import { isVideoStage, type VideoStage } from '@/lib/reel-types';
 import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
@@ -8,11 +9,28 @@ function sse(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-/** Generate or regenerate a draft reel brief from a story. Streams progress. */
+async function requestedStage(req: Request): Promise<VideoStage> {
+  try {
+    const body = await req.json();
+    if (body && isVideoStage(body.stage)) return body.stage;
+  } catch {
+    // Body-less POST still starts the pipeline at the script.
+  }
+  return 'script';
+}
+
+const STATUS: Record<VideoStage, string> = {
+  script: 'Writing the script…',
+  storyboard: 'Drawing the storyboard…',
+  prompts: 'Building the prompt pack…',
+};
+
+/** Generate one stage of the video pipeline: script, then storyboard, then prompt pack. */
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: { slug: string } },
 ) {
+  const stage = await requestedStage(req);
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -21,11 +39,12 @@ export async function POST(
       };
 
       try {
-        send('status', { message: 'Cutting reel…' });
-        const result = await generateReelForStory(params.slug, (message) => {
-          send('log', { message });
+        send('status', { message: STATUS[stage], stage });
+        const result = await generateVideoStage(params.slug, stage, (message) => {
+          send('log', { message, stage });
         });
         revalidatePath(`/stories/${params.slug}/reel`);
+        revalidatePath(`/stories/${params.slug}`);
         revalidatePath('/foundry');
         revalidatePath('/studio');
         send('done', result);

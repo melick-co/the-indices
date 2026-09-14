@@ -37,7 +37,7 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
   { pitches: Pitch[]; runs: any[]; inbox: any[]; feedback: any[];
     events: PitchEvent[]; metrics: Metric[]; news: any[]; trends: any[];
     suggestions: TopicSuggestion[]; storyByPitch?: Record<string, StoryLink>;
-    reelStatusBySlug?: Record<string, string> }) {
+    reelStatusBySlug?: Record<string, { status: string; stage: string }>; }) {
   const metricById = new Map(metrics.map((m) => [m.metric_id, m]));
   const eventsFor = (id: string) => events.filter((e) => e.pitch_id === id);
   const [tab, setTab] = useState('pitched');
@@ -213,10 +213,8 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
                 {storyByPitch[p.id] && (
                   <ReelControls
                     slug={storyByPitch[p.id].slug}
-                    reel={reelStatusBySlug[storyByPitch[p.id].slug]
-                      ? { status: reelStatusBySlug[storyByPitch[p.id].slug] }
-                      : null}
-                    onDone={() => router.refresh()}
+                    reel={reelStatusBySlug[storyByPitch[p.id].slug] ?? null}
+                    preview={storyByPitch[p.id].status === 'draft'}
                     buttonStyle={actBtn('var(--ink)')}
                   />
                 )}

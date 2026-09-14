@@ -2152,6 +2152,120 @@ table.data tr:hover td { background: transparent; }
   border-bottom: 1px solid var(--color-charcoal);
 }
 
+.story-video-row {
+  margin: var(--spacing-10) 0 var(--spacing-21);
+}
+
+.video-steps {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  border: 1px solid var(--color-ink-black);
+  margin: var(--spacing-42) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.video-step {
+  display: grid;
+  gap: var(--spacing-5);
+  padding: var(--spacing-21);
+  border-right: 1px solid var(--color-ink-black);
+}
+
+.video-step:last-child {
+  border-right: 0;
+}
+
+.video-step-n {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--color-fossil);
+}
+
+.video-step-label {
+  font-family: var(--font-helveticaneue);
+  font-size: 0.84rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.video-step-state {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-fossil);
+}
+
+.video-step-current,
+.video-step-next {
+  background: color-mix(in srgb, var(--color-ink-black) 4%, transparent);
+}
+
+.video-step-locked {
+  opacity: 0.45;
+}
+
+.video-step-done .video-step-state {
+  color: var(--color-slate-iris);
+}
+
+.reel-actions-inner {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-10);
+}
+
+.reel-action-primary,
+.reel-action-quiet {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  border-radius: 0;
+  background: transparent;
+}
+
+.reel-action-primary {
+  border: 1px solid var(--color-ink-black);
+  color: var(--color-ink-black);
+}
+
+.reel-action-quiet {
+  border: 1px solid var(--color-fossil);
+  color: var(--color-charcoal);
+}
+
+.reel-action-primary:disabled,
+.reel-action-quiet:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.reel-action-note {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--color-fossil);
+}
+
+@media (max-width: 640px) {
+  .video-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .video-step {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-ink-black);
+  }
+
+  .video-step:last-child {
+    border-bottom: 0;
+  }
+}
+
 /* Markets desk */
 .markets-desk h2 {
   margin-top: var(--spacing-42);

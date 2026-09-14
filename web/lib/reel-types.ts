@@ -49,6 +49,24 @@ export const SCENE_KINDS: ReelSceneKind[] = [
   'cold_open', 'frame', 'layer', 'turn', 'one_number', 'caveat', 'sources',
 ];
 
+/**
+ * Video is cut in three locked passes: the read, then the pictures, then the
+ * generator prompts. Later passes may not rewrite an earlier one.
+ */
+export type VideoStage = 'script' | 'storyboard' | 'prompts';
+
+export const VIDEO_STAGES: VideoStage[] = ['script', 'storyboard', 'prompts'];
+
+export const VIDEO_STAGE_LABEL: Record<VideoStage, string> = {
+  script: 'Script',
+  storyboard: 'Storyboard',
+  prompts: 'Prompt output',
+};
+
+export function isVideoStage(value: unknown): value is VideoStage {
+  return value === 'script' || value === 'storyboard' || value === 'prompts';
+}
+
 /** How the chart should animate on, so the reveal matches the narration beat. */
 export type ReelReveal = 'all_at_once' | 'sequential' | 'swap';
 
@@ -93,6 +111,20 @@ export type ReelStyle = {
   audio: string;
 };
 
+export type ReelScenePrompt = {
+  id: string;
+  kind: ReelSceneKind;
+  seconds: number;
+  /** One shot, copyable into a generator that takes a single prompt per clip. */
+  prompt: string;
+};
+
+export type ReelPromptPack = {
+  /** The same brief as shot_list, kept here so the pack is self-contained. */
+  master: string;
+  scenes: ReelScenePrompt[];
+};
+
 export type ReelSpec = {
   format: typeof REEL_FORMAT;
   style: ReelStyle;
@@ -100,11 +132,14 @@ export type ReelSpec = {
   total_seconds: number;
   /** One flat brief, for generators that take a single prompt rather than a scene list. */
   shot_list: string;
+  /** Per-scene prompts plus the master brief. Present once the prompt stage has run. */
+  prompt_pack?: ReelPromptPack;
 };
 
 export type StoryReel = {
   storySlug: string;
   status: 'draft' | 'ready' | 'archived';
+  stage: VideoStage;
   spec: ReelSpec;
   warnings: string[];
   totalSeconds: number;
@@ -221,16 +256,20 @@ function checkChart(
 /**
  * Checks a generated reel against the story it came from and against the format's limits.
  *
- * Returns the scenes with untraceable charts marked, plus every problem found. Warnings are
- * reported rather than thrown so the editor sees the whole brief and what is wrong with it; the
- * ready gate is what stops a flawed reel from shipping.
+ * Script stage checks the read only: timing, spoken figures, burned-in text. Storyboard and
+ * prompt stages also require visual direction and at least one chart. Warnings are reported
+ * rather than thrown so the editor sees the whole brief and what is wrong with it; the ready
+ * gate is what stops a flawed reel from shipping.
  */
 export function validateReel(
   scenes: ReelScene[],
   story: Story,
+  opts?: { stage?: VideoStage },
 ): { scenes: ReelScene[]; warnings: string[] } {
   const warnings: string[] = [];
   const known = collectStoryNumbers(story);
+  const stage = opts?.stage ?? 'storyboard';
+  const visualsRequired = stage !== 'script';
 
   if (!scenes.length) return { scenes, warnings: ['Reel has no scenes'] };
 
@@ -278,7 +317,9 @@ export function validateReel(
       );
     }
 
-    if (!scene.visual_prompt?.trim()) warnings.push(`${ref}: no visual direction`);
+    if (visualsRequired && !scene.visual_prompt?.trim()) {
+      warnings.push(`${ref}: no visual direction`);
+    }
 
     return scene.chart
       ? { ...scene, chart: checkChart(scene.chart, known, ref, warnings) }
@@ -301,7 +342,7 @@ export function validateReel(
   if (caveatAt >= 0 && sourcesAt >= 0 && caveatAt > sourcesAt) {
     warnings.push('The caveat should land before the sources card');
   }
-  if (!checked.some((s) => s.chart)) {
+  if (visualsRequired && !checked.some((s) => s.chart)) {
     warnings.push('No scene carries a chart, so nothing on screen validates the finding');
   }
 
@@ -367,4 +408,98 @@ export function buildShotList(scenes: ReelScene[], style: ReelStyle, story: Stor
   });
 
   return lines.join('\n');
+}
+
+/** Voiceover and burned-in text only. Used while the pictures are still unlocked. */
+export function buildScriptList(scenes: ReelScene[], story: Story): string {
+  const lines: string[] = [
+    `VIDEO SCRIPT — ${story.title}`,
+    `Runtime: ${scenes.reduce((s, x) => s + x.seconds, 0)}s across ${scenes.length} scenes`,
+    `Pace: about ${WORDS_PER_SECOND} words per second, Australian English, no em dashes`,
+    '',
+    'SCENES',
+  ];
+
+  scenes.forEach((scene, i) => {
+    lines.push('', `${i + 1}. [${scene.kind.toUpperCase()}] ${scene.seconds}s`);
+    lines.push(`   VO: ${scene.narration}`);
+    lines.push(`   ON SCREEN: ${scene.on_screen}`);
+    if (scene.lower_third) lines.push(`   LOWER THIRD: ${scene.lower_third}`);
+  });
+
+  return lines.join('\n');
+}
+
+function chartPromptLines(scene: ReelScene): string[] {
+  if (!scene.chart) return [];
+  const c = scene.chart;
+  const lines = [
+    '',
+    'CHART TO RENDER EXACTLY — do not alter, round, or compute new values',
+    `kind: ${c.kind}`,
+    `reveal: ${c.reveal}${c.title ? ` · titled "${c.title}"` : ''}`,
+    `caption: ${c.caption}`,
+    `series: ${c.series.map((p) => `${p.label} ${p.value}${p.highlight ? ' (highlight)' : ''}`).join('; ')}`,
+  ];
+  if (c.alt_series?.length) {
+    lines.push(
+      `alt series (${c.alt_label ?? 'alternate'}): ${c.alt_series.map((p) => `${p.label} ${p.value}${p.highlight ? ' (highlight)' : ''}`).join('; ')}`,
+    );
+  }
+  return lines;
+}
+
+/** One generator prompt per scene, with the locked script quoted so a later pass cannot rewrite it. */
+export function buildScenePrompt(
+  scene: ReelScene,
+  style: ReelStyle,
+  story: Story,
+  index: number,
+  total: number,
+): string {
+  const lines: string[] = [
+    `VERTICAL NEWS EXPLAINER — ${REEL_FORMAT.width}x${REEL_FORMAT.height} (${REEL_FORMAT.aspect}), ${REEL_FORMAT.fps}fps`,
+    `Story: ${story.title}`,
+    `Shot ${index + 1} of ${total} · ${scene.kind.replace('_', ' ').toUpperCase()} · ${scene.seconds}s`,
+    '',
+    'LOCKED SCRIPT — do not rewrite',
+    `VO: ${scene.narration}`,
+    `ON SCREEN: ${scene.on_screen}`,
+  ];
+  if (scene.lower_third) lines.push(`LOWER THIRD: ${scene.lower_third}`);
+  lines.push(
+    '',
+    'HOUSE LOOK',
+    `PRESENTER: ${style.presenter}`,
+    `LOOK: ${style.look}`,
+    `VOICE: ${style.voice}`,
+    `AUDIO: ${style.audio}`,
+    '',
+    'RENDER THIS SHOT',
+    scene.visual_prompt,
+    ...chartPromptLines(scene),
+    '',
+    'Do not invent, round up, or compute new figures. Use every value exactly as given.',
+  );
+  return lines.join('\n');
+}
+
+/**
+ * Prompt pack for the external generator. Built here from the locked storyboard so the
+ * prompts cannot drift from the scenes that were validated.
+ */
+export function buildPromptPack(
+  scenes: ReelScene[],
+  style: ReelStyle,
+  story: Story,
+): ReelPromptPack {
+  return {
+    master: buildShotList(scenes, style, story),
+    scenes: scenes.map((scene, i) => ({
+      id: scene.id,
+      kind: scene.kind,
+      seconds: scene.seconds,
+      prompt: buildScenePrompt(scene, style, story, i, scenes.length),
+    })),
+  };
 }
