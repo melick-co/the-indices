@@ -29,31 +29,33 @@ function isActive(pathname: string, href: string) {
 export default function Sidebar() {
   const pathname = usePathname();
   const today = new Date().toLocaleDateString('en-AU', {
-    weekday: 'long',
+    weekday: 'short',
     day: 'numeric',
-    month: 'long',
+    month: 'short',
     year: 'numeric',
   });
 
   return (
     <header className="site-sidebar">
-      <div className="mast-meta">
-        <span>{today}</span>
-        <span>Australia</span>
+      <div className="mast-bar">
+        <Link href="/" className="wordmark">Caveat</Link>
+        <nav className="nav" aria-label="Primary">
+          {LINKS.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              aria-current={isActive(pathname, l.href) ? 'page' : undefined}
+            >
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="mast-meta">
+          <span>{today}</span>
+          <span>Australia</span>
+        </div>
       </div>
-      <Link href="/" className="wordmark">Caveat</Link>
       <p className="lector">Caveat lector · The detail that changes the story</p>
-      <nav className="nav" aria-label="Primary">
-        {LINKS.map((l) => (
-          <Link
-            key={l.href}
-            href={l.href}
-            aria-current={isActive(pathname, l.href) ? 'page' : undefined}
-          >
-            {l.label}
-          </Link>
-        ))}
-      </nav>
     </header>
   );
 }
