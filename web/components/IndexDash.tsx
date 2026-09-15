@@ -40,8 +40,9 @@ export default function IndexDash() {
         <div className="dash-card dash-soon">
           <div className="dash-name">More coming</div>
           <p className="dash-meta">
-            Wealth Concentration, Sovereign Position and Tax Load are specified in the
-            construction standard and awaiting their first vintage.
+          Wealth Concentration, Sovereign Position and Tax Load are specified in the
+          construction standard and awaiting their first vintage. Live prints now sit on
+          the Instruments rail.
           </p>
           <Link href="/methodology" className="dash-meta" style={{ borderBottom: '1px solid var(--rule)' }}>
             How they are built →

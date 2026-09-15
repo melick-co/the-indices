@@ -2786,3 +2786,75 @@ textarea.markets-input { resize: vertical; }
   .desk-row { grid-template-columns: 1fr; }
 }
 
+/* ---------- instruments tape ---------- */
+.instrument-grid {
+  display: grid;
+  gap: var(--spacing-21);
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.instrument-grid-page { margin-top: var(--spacing-42); }
+
+.instrument-card {
+  display: block;
+  border: 1px solid var(--color-ink-black);
+  padding: var(--card-padding);
+  background: var(--color-paper-white);
+}
+
+.instrument-card:hover { border-color: var(--color-charcoal); }
+
+.instrument-card-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  line-height: 1.2;
+  margin: 0.2rem 0 0.6rem;
+}
+
+.instrument-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: var(--spacing-10);
+}
+
+.instrument-hero-chart {
+  max-width: 36rem;
+  margin: var(--spacing-28) 0;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: var(--spacing-21);
+}
+
+.instrument-derived {
+  font-family: var(--font-helveticaneue);
+  font-size: var(--text-caption);
+  color: var(--color-fossil);
+  margin-top: var(--spacing-10);
+}
+
+.instrument-hook {
+  font-size: 0.95rem;
+  color: var(--color-charcoal);
+  margin-top: var(--spacing-10);
+}
+
+.instrument-print { margin-top: var(--spacing-10); }
+
+.instrument-print-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-10);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.instrument-card h2.instrument-card-title {
+  border: none;
+  padding: 0;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  font-size: 1.2rem;
+}
+

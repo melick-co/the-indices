@@ -3,6 +3,7 @@ import Capture from '@/components/Capture';
 import SiteFooter from '@/components/SiteFooter';
 import Ticker from '@/components/Ticker';
 import IndexDash from '@/components/IndexDash';
+import InstrumentsDash from '@/components/InstrumentsDash';
 import MarketsDash from '@/components/MarketsDash';
 import StoryCard from '@/components/StoryCard';
 import { buildHomeLayout } from '@/lib/home-layout';
@@ -60,6 +61,7 @@ export default async function Home() {
         )}
 
         <IndexDash />
+        <InstrumentsDash />
         <MarketsDash />
         <Capture />
       </main>
