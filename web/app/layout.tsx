@@ -1,26 +1,21 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { IBM_Plex_Mono, Newsreader, Source_Sans_3, Source_Serif_4 } from 'next/font/google';
+import { IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Sans_Condensed } from 'next/font/google';
 import { SiteShell } from '@/components/SiteShell';
 
-const newsreader = Newsreader({
+const plexSans = IBM_Plex_Sans({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-newsreader',
-  style: ['normal', 'italic'],
+  weight: ['400', '500', '600'],
+  variable: '--font-plex-sans',
 });
 
-const sourceSerif = Source_Serif_4({
+const plexCondensed = IBM_Plex_Sans_Condensed({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-source-serif',
+  weight: ['500', '600', '700'],
   style: ['normal', 'italic'],
-});
-
-const sourceSans = Source_Sans_3({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-source-sans',
+  variable: '--font-plex-condensed',
 });
 
 const plexMono = IBM_Plex_Mono({
@@ -40,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en-AU"
-      className={`${newsreader.variable} ${sourceSerif.variable} ${sourceSans.variable} ${plexMono.variable}`}
+      className={`${plexSans.variable} ${plexCondensed.variable} ${plexMono.variable}`}
     >
       <body>
         <SiteShell>{children}</SiteShell>
