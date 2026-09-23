@@ -18,8 +18,11 @@ condition and wakes when new data or a calendar peg arrives.
 | `supabase/06_rss_schema.sql` | RSS watch list + item lifecycle (fetched -> prefiltered -> evaluated -> linked/converted/discarded). |
 | `scripts/run-rss.mjs` | WORKING RSS watcher: fetch, dedup, keyword prefilter, Claude evaluation, bank linking. Schedule every 6-24h. |
 | `scripts/run-trends.mjs` | Feed trend watcher: cluster recent items, detect keyword spikes, Claude hypotheses → `pitches` with `detector: trend_hypothesis`. Runs after RSS. |
+| `scripts/run-trending-topics.mjs` | Daily RSS + X topic snapshots for the public `/trending` page. |
+| `scripts/run-trending-review.mjs` | After the snapshot: match topics to the pitch bank, attach validated findings, or open a new `trending_topic` candidate. |
 | `taste/rss-prompt.md` | News-lead evaluation prompt: link to banked idea, convert to new idea, or discard. |
 | `taste/trends-prompt.md` | Trend cluster prompt: generate investigation hypotheses from multi-outlet / spike clusters. |
+| `taste/trending-review-prompt.md` | Daily trends-versus-pitches review: attach, new pitch, or ignore. |
 
 ## Design decisions (the ones you asked for)
 
@@ -71,6 +74,28 @@ After each RSS sweep, `run-trends.mjs` looks for patterns in the last 72 hours:
 
 Clusters are stored in `trend_clusters` (migration `12_trend_clusters.sql`).
 Hypotheses feed the same daily taste pipeline as detector and RSS candidates.
+
+## Daily trending review (topics → Foundry)
+
+After the midnight-Sydney trending snapshot (`0 14 * * *`),
+`run-trending-review.mjs` reads the latest RSS and X topic lists and the
+current pitch bank:
+
+1. **Match** — is the topic actually about a banked finding (mechanism, series,
+   denominator, or a live why-now peg), not just shared theme words?
+2. **Validate and attach** — if yes, write a finding onto that pitch
+   (`trigger_rows.findings` + `pitch_events.trending_finding`). Dormant pitches
+   that are supported, updated, or contradicted wake as candidates.
+3. **New pitch** — if the topic is a charter-shaped insight that is not already
+   banked, insert a `candidate` with `detector: trending_topic` (max 3 per run).
+   The daily taste layer ranks it like any other candidate.
+
+News stays a lead. The review does not invent numbers. Re-runs on the same
+`period_end` + topic are no-ops. Foundry has a **Review trending topics**
+button; GitHub Actions task `trending-review` runs the review without
+re-snapshotting.
+
+Schedule: same job as `run-trending-topics.mjs` at `0 14 * * *`.
 
 ## Editorial email (suggest-and-approve)
 

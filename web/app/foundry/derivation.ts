@@ -30,6 +30,10 @@ export function describeDerivation(detector: string, t: any): string {
       return r.cluster_label && r.spike_score != null
         ? `Feed trend: ${r.cluster_label} (${r.item_ids?.length ?? '?'} items, spike ${Number(r.spike_score).toFixed(1)}×)`
         : 'Feed trend cluster — hypothesis for investigation';
+    case 'trending_topic':
+      return r.topic
+        ? `Daily trends: ${r.topic} — investigation from the trending review`
+        : 'From the daily trending-topics review';
     case 'email_lead':
       return 'From editorial email review — approved story suggestion';
     case 'foundry_session':

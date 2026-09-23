@@ -68,6 +68,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
           <Link href="/foundry/desk" className="studio-link">Desk</Link>
           <button type="button" className="studio-link" onClick={() => setShowInbox((v) => !v)}>+ Inbox</button>
           <RefreshDataButton onDone={() => router.refresh()} />
+          <ReviewTrendingButton onDone={() => router.refresh()} />
         </p>
 
         <div style={{ display: 'flex', gap: 'var(--spacing-10)', flexWrap: 'wrap', marginBottom: 'var(--spacing-42)' }}>
@@ -104,6 +105,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
 
         {shown.map((p) => {
           const isOpen = open === p.id;
+          const latestFinding = findingsOf(p).at(-1);
           const trendPrompts = p.detector === 'trend_hypothesis'
             ? trendInvestigatePrompts(p.headline, p.trigger_rows ?? {})
             : null;
@@ -125,6 +127,12 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
                     borderLeft: '2px solid var(--rule)', color: 'var(--ink-soft)' }}>
                     {describeDerivation(p.detector, p.trigger_rows)}
                   </p>
+                  {latestFinding?.topic && (
+                    <p style={{ ...meta, textTransform: 'none', letterSpacing: 0,
+                      fontSize: '.72rem', marginTop: '.4rem', color: 'var(--ink-faint)' }}>
+                      Latest trend · {latestFinding.verdict ?? 'finding'} · {latestFinding.topic}
+                    </p>
+                  )}
                 </div>
                 {p.score && (
                   <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.68rem',
@@ -141,6 +149,22 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
                   {p.mechanism && <Field label="Mechanism" value={p.mechanism} />}
                   {p.caveat && <Field label="Caveat" value={p.caveat} pen />}
                   {p.chart_hint && <Field label="Chart" value={p.chart_hint} />}
+                  {findingsOf(p).length ? (
+                    <div style={{ marginTop: '1rem' }}>
+                      <div style={meta}>Trending findings</div>
+                      <ul style={{ listStyle: 'none', marginTop: '.4rem' }}>
+                        {findingsOf(p).slice().reverse().slice(0, 6).map((f) => (
+                          <li key={f.key ?? `${f.period_end}-${f.topic}`}
+                            style={{ marginBottom: '.7rem', fontSize: '.88rem' }}>
+                            <div style={{ ...meta, textTransform: 'none', letterSpacing: 0, marginBottom: '.2rem' }}>
+                              {f.period_end} · {f.source}/{f.region} · {f.verdict} · {f.topic}
+                            </div>
+                            <div style={{ color: 'var(--ink-soft)' }}>{f.finding}</div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                   {p.resurface_on && <Field label="Resurfaces" value={
                     `${p.resurface_on}${p.resurface_after ? ` (after ${p.resurface_after})` : ''}`} />}
                   {p.metric_ids?.length ? <Field label="Metrics" value={p.metric_ids.join(', ')} /> : null}
@@ -394,7 +418,25 @@ function describeEvent(e: PitchEvent): string {
     const keys = Object.keys(e.changes ?? {});
     return `edited: ${keys.join(', ')}`;
   }
+  if (e.event === 'trending_finding') {
+    const topic = e.changes?.topic ? ` · ${e.changes.topic}` : '';
+    const verdict = e.changes?.verdict ? `${e.changes.verdict}` : 'finding';
+    return `trending ${verdict}${topic}${e.note ? ` — ${e.note}` : ''}`;
+  }
   return e.event;
+}
+
+function findingsOf(p: Pitch): Array<{
+  key?: string;
+  period_end?: string;
+  source?: string;
+  region?: string;
+  verdict?: string;
+  topic?: string;
+  finding?: string;
+}> {
+  const raw = p.trigger_rows?.findings;
+  return Array.isArray(raw) ? raw : [];
 }
 const fmtDate = (s?: string | null) => s
   ? new Date(s).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' })
@@ -469,6 +511,72 @@ function StrengthenPitchButton({ pitchId, onDone }: { pitchId: string; onDone: (
         <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.62rem',
           color: 'var(--ink-faint)', marginTop: '.25rem', maxWidth: '16rem' }}>
           {note}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function ReviewTrendingButton({ onDone }: { onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [log, setLog] = useState<string[]>([]);
+  const [result, setResult] = useState<string | null>(null);
+
+  async function review() {
+    setBusy(true);
+    setLog([]);
+    setResult(null);
+    try {
+      const res = await fetch('/api/foundry/trending-review', { method: 'POST' });
+      if (!res.ok || !res.body) throw new Error(`Review failed (${res.status})`);
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() ?? '';
+        for (const chunk of parts) {
+          const ev = chunk.match(/^event: (\w+)\ndata: ([\s\S]+)/);
+          if (!ev) continue;
+          const [, event, raw] = ev;
+          const data = JSON.parse(raw);
+          if (event === 'log') setLog((l) => [...l, data.message]);
+          if (event === 'done') {
+            setResult(`${data.attached} attached · ${data.created} new · ${data.ignored} ignored`);
+            onDone();
+          }
+          if (event === 'error') throw new Error(data.message);
+        }
+      }
+    } catch (e) {
+      setResult(e instanceof Error ? e.message : 'Review failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: '.35rem' }}>
+      <button
+        type="button"
+        className="studio-link"
+        disabled={busy}
+        onClick={review}
+        title="Match today's trending topics to pitches, attach validated findings, or open a new candidate"
+      >
+        {busy ? 'Reviewing trends…' : '↗ Review trending topics'}
+      </button>
+      {result && (
+        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.68rem', color: 'var(--ink-soft)' }}>
+          {result}
+        </span>
+      )}
+      {busy && log.length > 0 && (
+        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.62rem', color: 'var(--ink-faint)', maxWidth: '28rem' }}>
+          {log[log.length - 1]}
         </span>
       )}
     </span>

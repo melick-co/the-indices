@@ -16,7 +16,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, email, daily, sources, refresh, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, refresh, both]
         default: both
 
 permissions:
@@ -75,10 +75,10 @@ jobs:
   trending-topics:
     if: >-
       github.event_name == 'workflow_dispatch' &&
-      (inputs.task == 'trending' || inputs.task == 'both') ||
+      (inputs.task == 'trending' || inputs.task == 'trending-review' || inputs.task == 'both') ||
       github.event_name == 'schedule' && github.event.schedule == '0 14 * * *'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run: { working-directory: agent }
     steps:
@@ -87,6 +87,7 @@ jobs:
         with: { node-version: 22 }
       - run: npm install @supabase/supabase-js --no-save --silent
       - name: Daily trending topics (RSS + X)
+        if: github.event_name != 'workflow_dispatch' || inputs.task != 'trending-review'
         run: node scripts/run-trending-topics.mjs
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -96,6 +97,13 @@ jobs:
           TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
           TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
           TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+      - name: Review trending topics against Foundry pitches
+        run: node scripts/run-trending-review.mjs --json
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
 
   email:
     if: >-
