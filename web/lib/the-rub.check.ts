@@ -37,6 +37,12 @@ assert.equal(rotated.matched, false);
 assert.ok(rotated.rub.slug);
 
 assert.ok(rubBySlug('gdp-grew-so-what'));
+for (const slug of ['cash-rate-theatre', 'migration-headcount', 'house-price-cheer']) {
+  const piece = rubBySlug(slug);
+  assert.ok(piece);
+  assert.equal(piece.paragraphs.at(-1), 'Which, if we are being precise, is the rub.');
+  assert.doesNotMatch(piece.paragraphs.join(' '), /ladies and gentlemen|Now look/i);
+}
 assert.ok(explainerBySlug('bonds'));
 assert.ok(pickExplainer(new Date('2026-01-01T00:00:00Z')).slug);
 

@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { publishArticleFromPitch, writeArticleFromPitch } from '@/lib/write-article';
 
 export type StoryLink = { slug: string; status: string };
 
 /**
- * Draft → preview → go live controls for an approved pitch.
- * Shared by Foundry and Studio boards.
+ * Edit / save lives on the News Desk. This is the one-click write and publish
+ * strip for an approved pitch on Foundry and Studio.
  */
 export default function StoryPublishControls({
   pitchId,
@@ -20,55 +22,34 @@ export default function StoryPublishControls({
   onDone: () => void;
   buttonStyle?: React.CSSProperties;
 }) {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
-  async function draft() {
+  async function write() {
     setBusy(true);
     setNote(null);
     try {
-      const res = await fetch(`/api/foundry/pitch/${pitchId}/publish`, { method: 'POST' });
-      if (!res.ok || !res.body) throw new Error(`Draft failed (${res.status})`);
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let buf = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const parts = buf.split('\n\n');
-        buf = parts.pop() ?? '';
-        for (const chunk of parts) {
-          const ev = chunk.match(/^event: (\w+)\ndata: ([\s\S]+)/);
-          if (!ev) continue;
-          const [, event, raw] = ev;
-          const data = JSON.parse(raw);
-          if (event === 'log') setNote(data.message);
-          if (event === 'done') {
-            setNote(`Draft ready · preview`);
-            onDone();
-          }
-          if (event === 'error') throw new Error(data.message);
-        }
-      }
+      const article = await writeArticleFromPitch(pitchId, setNote);
+      setNote('Article ready');
+      onDone();
+      router.push(`/foundry/desk/${article.slug}`);
     } catch (e) {
-      setNote(e instanceof Error ? e.message : 'Draft failed');
+      setNote(e instanceof Error ? e.message : 'Write failed');
     } finally {
       setBusy(false);
     }
   }
 
-  async function goLive() {
+  async function publish() {
     setBusy(true);
     setNote(null);
     try {
-      const res = await fetch(`/api/foundry/pitch/${pitchId}/go-live`, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || `Go live failed (${res.status})`);
-      setNote(`Live · ${data.storyUrl}`);
+      const data = await publishArticleFromPitch(pitchId);
+      setNote(`Published · ${data.storyUrl}`);
       onDone();
     } catch (e) {
-      setNote(e instanceof Error ? e.message : 'Go live failed');
+      setNote(e instanceof Error ? e.message : 'Publish failed');
     } finally {
       setBusy(false);
     }
@@ -89,33 +70,41 @@ export default function StoryPublishControls({
 
   if (story?.status === 'published') {
     return (
-      <Link href={`/stories/${story.slug}`} className="studio-link" style={{ fontSize: '.7rem' }}>
-        View story →
-      </Link>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', flexWrap: 'wrap' }}>
+        <Link href={`/foundry/desk/${story.slug}`} className="studio-link" style={{ fontSize: '.7rem' }}>
+          Edit article
+        </Link>
+        <Link href={`/stories/${story.slug}`} className="studio-link" style={{ fontSize: '.7rem' }}>
+          View story →
+        </Link>
+      </span>
     );
   }
 
   if (story?.status === 'draft') {
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', flexWrap: 'wrap' }}>
+        <Link href={`/foundry/desk/${story.slug}`} className="studio-link" style={{ fontSize: '.7rem' }}>
+          Edit article
+        </Link>
         <Link
           href={`/stories/${story.slug}?preview=1`}
           className="studio-link"
           style={{ fontSize: '.7rem' }}
         >
-          Preview draft →
+          Preview
         </Link>
-        <button type="button" style={style} disabled={busy} onClick={goLive} title="Publish draft to the home page">
-          {busy ? 'Going live…' : 'Go live'}
+        <button type="button" style={style} disabled={busy} onClick={publish} title="Publish the article">
+          {busy ? 'Publishing…' : 'Publish'}
         </button>
         <button
           type="button"
           style={{ ...style, borderColor: 'var(--ink-soft)', color: 'var(--ink-soft)' }}
           disabled={busy}
-          onClick={draft}
-          title="Regenerate the draft from the pitch"
+          onClick={write}
+          title="Rewrite the article from the pitch"
         >
-          {busy ? 'Redrafting…' : 'Redraft'}
+          {busy ? 'Rewriting…' : 'Rewrite'}
         </button>
         {note && (
           <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.62rem', color: 'var(--ink-soft)' }}>
@@ -132,10 +121,10 @@ export default function StoryPublishControls({
         type="button"
         style={style}
         disabled={busy}
-        onClick={draft}
-        title="Research and draft a story for preview"
+        onClick={write}
+        title="Write the approved pitch up as an article"
       >
-        {busy ? 'Drafting…' : 'Draft story'}
+        {busy ? 'Writing…' : 'Write article'}
       </button>
       {note && (
         <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.62rem', color: 'var(--ink-soft)' }}>

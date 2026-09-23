@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server';
 import { runFoundryTurn, type FoundryEvent } from '@/lib/foundry-agent';
 import { CHARTER, MODEL } from '@/lib/research-agent';
-import type { StoryBody, StoryEvidence, StoryOneNumber } from '@/lib/story-types';
+import { articleFromApprovedPitch, type StructuredStory } from '@/lib/article-from-pitch';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -54,6 +54,8 @@ function loadEditorialCharter() {
   }
   return '';
 }
+
+export { articleFromApprovedPitch };
 
 function slugify(text: string): string {
   return text
@@ -113,19 +115,6 @@ Research task:
 
 Write up findings in prose with explicit source citations. Be specific with numbers.`;
 }
-
-type StructuredStory = {
-  kicker: string;
-  title: string;
-  hook: string;
-  caveat: string;
-  one_number: StoryOneNumber;
-  evidence: StoryEvidence;
-  body: StoryBody;
-  slug_hint: string;
-  generation_note: string;
-  frame_check: boolean;
-};
 
 async function structureStory(
   pitch: Record<string, unknown>,
@@ -254,21 +243,44 @@ export async function publishStoryFromPitch(
     ...new Set([...(pitch.metric_ids ?? []), ...(pitch.resurface_metrics ?? [])]),
   ] as string[];
   const metrics = await loadMetricContext(metricIds);
-  const charter = loadEditorialCharter();
-  const researchPrompt = buildResearchPrompt(pitch, metrics, charter);
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  let story: StructuredStory;
 
-  onEvent({ type: 'tool_start', name: 'research', label: 'Researching story data', at: new Date().toISOString() });
+  if (!apiKey) {
+    onEvent({
+      type: 'tool_start',
+      name: 'structure',
+      label: 'Writing article from the approved brief',
+      at: new Date().toISOString(),
+    });
+    story = articleFromApprovedPitch(pitch);
+  } else {
+    const charter = loadEditorialCharter();
+    const researchPrompt = buildResearchPrompt(pitch, metrics, charter);
 
-  const { text: researchText } = await runFoundryTurn({
-    intent: 'investigate',
-    userPrompt: researchPrompt,
-    priorMessages: [],
-    onEvent,
-  });
+    onEvent({ type: 'tool_start', name: 'research', label: 'Researching story data', at: new Date().toISOString() });
 
-  onEvent({ type: 'tool_start', name: 'structure', label: 'Drafting story', at: new Date().toISOString() });
+    try {
+      const { text: researchText } = await runFoundryTurn({
+        intent: 'investigate',
+        userPrompt: researchPrompt,
+        priorMessages: [],
+        onEvent,
+      });
 
-  const story = await structureStory(pitch, researchText);
+      onEvent({ type: 'tool_start', name: 'structure', label: 'Writing the article', at: new Date().toISOString() });
+      story = await structureStory(pitch, researchText);
+    } catch (err) {
+      onEvent({
+        type: 'tool_start',
+        name: 'structure',
+        label: 'Research write-up failed; writing article from the approved brief',
+        at: new Date().toISOString(),
+      });
+      story = articleFromApprovedPitch(pitch);
+      story.generation_note = `${story.generation_note} (${err instanceof Error ? err.message : 'research failed'})`;
+    }
+  }
   const slug = existing?.slug ?? await uniqueSlug(story.slug_hint || story.title);
   const now = new Date().toISOString();
   const today = now.slice(0, 10);
@@ -311,13 +323,13 @@ export async function publishStoryFromPitch(
   await supabase.from('pitch_feedback').insert({
     pitch_id: pitchId,
     action: 'comment',
-    comment: `Draft story ready for preview: /stories/${slug}?preview=1 — ${story.generation_note}`,
+    comment: `Article ready to edit: /foundry/desk/${slug} — ${story.generation_note}`,
   });
 
   onEvent({
     type: 'tool_result',
     name: 'done',
-    label: 'Draft ready for preview',
+    label: 'Article ready to edit',
     detail: story.generation_note,
     at: now,
   });

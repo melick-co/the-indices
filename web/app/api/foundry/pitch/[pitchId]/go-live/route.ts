@@ -13,6 +13,8 @@ export async function POST(
     revalidatePath('/');
     revalidatePath(`/stories/${result.slug}`);
     revalidatePath(`/evidence/${result.slug}`);
+    revalidatePath(`/foundry/desk/${result.slug}`);
+    revalidatePath('/foundry/desk');
     revalidatePath('/foundry');
     revalidatePath('/studio');
     return Response.json(result);

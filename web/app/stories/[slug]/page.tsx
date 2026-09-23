@@ -48,7 +48,7 @@ export default async function StoryPage({
       <main className="article">
         {story.status === 'draft' && (
           <div className="draft-banner">
-            Draft preview — not on the home page yet. Go live from the News Desk or Foundry when ready.
+            Draft preview — not on the home page yet. Edit and publish from the News Desk when ready.
           </div>
         )}
         <div className="card-kicker">{story.kicker}</div>

@@ -32,9 +32,11 @@ export async function POST(
       };
 
       try {
-        send('status', { phase: 'start', message: 'Drafting story…' });
+        send('status', { phase: 'start', message: 'Writing article…' });
         const result = await publishStoryFromPitch(params.pitchId, onEvent);
         revalidatePath(`/stories/${result.slug}`);
+        revalidatePath(`/foundry/desk/${result.slug}`);
+        revalidatePath('/foundry/desk');
         revalidatePath('/foundry');
         revalidatePath('/studio');
         send('done', result);

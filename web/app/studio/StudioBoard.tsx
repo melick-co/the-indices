@@ -5,6 +5,7 @@ import { act, addToInbox, curate } from './actions';
 import { describeDerivation } from './derivation';
 import { trendInvestigatePrompts } from '@/lib/trend-prompts';
 import SuggestionPanel, { type TopicSuggestion } from './SuggestionPanel';
+import ApproveAndWrite from '@/components/ApproveAndWrite';
 import StoryPublishControls, { type StoryLink } from '@/components/StoryPublishControls';
 import ReelControls from '@/components/ReelControls';
 import StartSessionForm from '@/components/StartSessionForm';
@@ -200,8 +201,15 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
                     </StartSessionForm>
                   </>
                 )}
-                <button style={actBtn('var(--verify)')} disabled={pending}
-                  onClick={() => run(p.id, 'approve')}>Approve</button>
+                {p.state !== 'approved' && p.state !== 'published' && !storyByPitch[p.id] && (
+                  <ApproveAndWrite
+                    pitchId={p.id}
+                    comment={note[p.id]}
+                    onCommentUsed={() => setNote((n) => ({ ...n, [p.id]: '' }))}
+                    disabled={pending}
+                    style={actBtn('var(--verify)')}
+                  />
+                )}
                 {(p.state === 'approved' || p.state === 'published' || storyByPitch[p.id]) && (
                   <StoryPublishControls
                     pitchId={p.id}

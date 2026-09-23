@@ -194,25 +194,15 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   font-family: var(--font-display);
   font-style: italic;
   font-weight: 700;
-  font-size: clamp(42px, 7vw, 72px);
-  line-height: 0.9;
+  font-size: clamp(28px, 6.2vw, 64px);
+  line-height: 1;
   letter-spacing: -0.02em;
   text-transform: none;
   color: var(--color-ink-black);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0 8px;
-}
-
-.wordmark-the {
   display: block;
-  font-size: 0.28em;
-  font-style: italic;
-  font-weight: 500;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  margin-bottom: 0.15em;
+  white-space: nowrap;
+  text-align: center;
+  padding: 0 8px;
 }
 
 .wordmark::after { content: none; }
@@ -2315,8 +2305,9 @@ table.data tr:hover td { background: transparent; }
   }
 
   .wordmark {
-    font-size: 48px;
+    font-size: clamp(28px, 9vw, 44px);
     letter-spacing: -0.02em;
+    white-space: nowrap;
   }
 
   .mast-meta {

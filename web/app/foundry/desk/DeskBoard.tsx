@@ -250,7 +250,7 @@ function DeskRow({
           )}
           {!story.staticBody && status === 'draft' && (
             <button type="button" className="studio-btn-outline" disabled={pending}
-              onClick={() => onStatus('published')}>Go live</button>
+              onClick={() => onStatus('published')}>Publish</button>
           )}
           {!story.staticBody && status !== 'archived' && (
             <button type="button" className="studio-btn-ghost" disabled={pending}

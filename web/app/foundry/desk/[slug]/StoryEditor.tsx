@@ -14,7 +14,7 @@ import type {
   StoryChartBlock,
 } from '@/lib/story-types';
 import { clipsOf, resolveHeroImage } from '@/lib/story-art';
-import { saveStoryCopy, attachRenderToStory, type DeskRender, type StoryCopyPayload } from '../actions';
+import { saveStoryCopy, setStoryStatus, attachRenderToStory, type DeskRender, type StoryCopyPayload } from '../actions';
 
 const BLOCK_TYPES: Array<StoryBlock['type']> = ['paragraph', 'layers', 'heading', 'pull', 'chart'];
 const CHART_KINDS: ChartKind[] = ['bars', 'rank_swap', 'timeline'];
@@ -114,6 +114,21 @@ export default function StoryEditor({ story, renders = [] }: { story: Story; ren
     });
   }
 
+  function publish() {
+    setErr(null);
+    setOk(null);
+    start(async () => {
+      try {
+        if (!readOnlyCopy) await saveStoryCopy(story.slug, payload);
+        await setStoryStatus(story.slug, 'published');
+        setOk('Published.');
+        router.refresh();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : 'Publish failed');
+      }
+    });
+  }
+
   async function uploadFile(file: File) {
     setUploading(true);
     setErr(null);
@@ -152,6 +167,14 @@ export default function StoryEditor({ story, renders = [] }: { story: Story; ren
           <button type="button" className="studio-btn-outline" disabled={pending} onClick={save}>
             {pending ? 'Saving…' : 'Save'}
           </button>
+          {story.status === 'draft' && !readOnlyCopy && (
+            <button type="button" className="studio-btn-accent" disabled={pending} onClick={publish}>
+              {pending ? 'Publishing…' : 'Publish'}
+            </button>
+          )}
+          {story.status === 'published' && (
+            <span className="desk-row-meta">Published</span>
+          )}
         </div>
       </div>
       {err && <p className="desk-error">{err}</p>}
@@ -439,6 +462,11 @@ export default function StoryEditor({ story, renders = [] }: { story: Story; ren
         <button type="button" className="studio-btn-outline" disabled={pending} onClick={save}>
           {pending ? 'Saving…' : 'Save'}
         </button>
+        {story.status === 'draft' && !readOnlyCopy && (
+          <button type="button" className="studio-btn-accent" disabled={pending} onClick={publish}>
+            {pending ? 'Publishing…' : 'Publish'}
+          </button>
+        )}
         <Link href="/foundry/desk" className="studio-link">Back to desk</Link>
       </div>
     </div>

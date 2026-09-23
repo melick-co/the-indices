@@ -15,7 +15,7 @@ export default function TheRubIndex() {
         <h1>The Rub</h1>
         <p className="section-lede">
           A regular column on the thing everyone is talking about, and the
-          detail they left out. Satirical. Checkable.
+          definition they used too loosely. Pedantic. Checkable.
         </p>
         <ul className="archive-list">
           {RUBS.map((rub) => (

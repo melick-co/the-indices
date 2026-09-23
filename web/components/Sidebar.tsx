@@ -44,10 +44,7 @@ export default function Sidebar() {
           <span>{today}</span>
           <span>Australia</span>
         </div>
-        <Link href="/" className="wordmark">
-          <span className="wordmark-the">The</span>
-          Caveat
-        </Link>
+        <Link href="/" className="wordmark">The Caveat</Link>
         <div className="mast-meta mast-meta-right">
           <span>Data journalism</span>
           <span>Checkable claims</span>
