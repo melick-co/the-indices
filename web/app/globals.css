@@ -829,7 +829,7 @@ a.studio-tab.is-active { color: #111; }
 .the-rub-name {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.55rem;
+  font-size: 1.35rem;
   line-height: 1;
   margin: 0 0 8px;
   border-bottom: 1px solid var(--color-ink-black);
@@ -870,8 +870,8 @@ a.studio-tab.is-active { color: #111; }
 .the-rub-more a { border-bottom: 1px solid currentColor; font-size: 0.9rem; }
 
 .agate {
-  margin: 16px 0 22px;
-  padding: 8px 0 10px;
+  margin: 0 0 14px;
+  padding: 4px 0 8px;
   border-bottom: 1px solid var(--color-ink-black);
 }
 
@@ -1007,6 +1007,7 @@ a.studio-tab.is-active { color: #111; }
 }
 
 @media (max-width: 720px) {
+  .sheet-row,
   .sheet-row-lead,
   .sheet-row-below { grid-template-columns: 1fr; }
   .lead, .sheet-secondaries, .the-rub, .sheet-more, .explainer-box {

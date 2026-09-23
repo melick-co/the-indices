@@ -34,6 +34,7 @@ export default async function Home() {
     <>
       <main className="broadsheet">
         <Ticker />
+        <IndexAgate />
 
         <div className="sheet-row sheet-row-lead">
           {hero ? (
@@ -51,8 +52,6 @@ export default async function Home() {
           <HomeSecondaries stories={secondaries} />
           <TheRub selection={rub} />
         </div>
-
-        <IndexAgate />
 
         <div className="sheet-row sheet-row-below">
           <div className="sheet-more">
