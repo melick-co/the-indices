@@ -10,6 +10,8 @@ export type HomeLayout<T extends HomeStory> = {
   hero: T | null;
   frameChecks: T[];
   stories: T[];
+  /** Published pieces other than the lead, desk-then-trend order. */
+  rest: T[];
 };
 
 /** Grid section a story belongs in. Desk placement wins; otherwise frameCheck. */
@@ -53,7 +55,8 @@ export function buildHomeLayout<T extends HomeStory>(
   const stories = published.filter((s) => visualHomeSection(s) === 'stories').sort(cmp);
 
   const pinned = published.filter((s) => s.pinnedHero).sort(cmp);
-  const hero = pinned[0] ?? frameChecks[0] ?? null;
+  const hero = pinned[0] ?? frameChecks[0] ?? stories[0] ?? null;
+  const rest = published.filter((s) => s.slug !== hero?.slug).sort(cmp);
 
-  return { hero, frameChecks, stories };
+  return { hero, frameChecks, stories, rest };
 }

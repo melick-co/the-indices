@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const LINKS = [
-  { href: '/', label: 'Stories' },
+  { href: '/', label: 'Today' },
+  { href: '/explainers', label: 'Explainers' },
+  { href: '/the-rub', label: 'The Rub' },
   { href: '/indices', label: 'Indices' },
   { href: '/instruments', label: 'Instruments' },
   { href: '/markets', label: 'Markets' },
@@ -29,33 +31,40 @@ function isActive(pathname: string, href: string) {
 export default function Sidebar() {
   const pathname = usePathname();
   const today = new Date().toLocaleDateString('en-AU', {
-    weekday: 'short',
+    weekday: 'long',
     day: 'numeric',
-    month: 'short',
+    month: 'long',
     year: 'numeric',
   });
 
   return (
     <header className="site-sidebar">
-      <div className="mast-bar">
-        <Link href="/" className="wordmark">Caveat</Link>
-        <nav className="nav" aria-label="Primary">
-          {LINKS.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              aria-current={isActive(pathname, l.href) ? 'page' : undefined}
-            >
-              {l.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="mast-meta">
+      <div className="mast-top">
+        <div className="mast-meta mast-meta-left">
           <span>{today}</span>
           <span>Australia</span>
         </div>
+        <Link href="/" className="wordmark">
+          <span className="wordmark-the">The</span>
+          Caveat
+        </Link>
+        <div className="mast-meta mast-meta-right">
+          <span>Data journalism</span>
+          <span>Checkable claims</span>
+        </div>
       </div>
-      <p className="lector">Caveat lector · The detail that changes the story</p>
+      <p className="lector">Caveat lector. The detail that changes the story.</p>
+      <nav className="nav" aria-label="Primary">
+        {LINKS.map((l) => (
+          <Link
+            key={l.href}
+            href={l.href}
+            aria-current={isActive(pathname, l.href) ? 'page' : undefined}
+          >
+            {l.label}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 }

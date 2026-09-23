@@ -1,22 +1,28 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Sans_Condensed } from 'next/font/google';
+import { IBM_Plex_Mono, Newsreader, Source_Sans_3, Source_Serif_4 } from 'next/font/google';
 import { SiteShell } from '@/components/SiteShell';
 
-const plexSans = IBM_Plex_Sans({
+const newsreader = Newsreader({
   subsets: ['latin'],
   display: 'swap',
-  weight: ['400', '500', '600'],
+  weight: ['400', '500', '600', '700'],
   style: ['normal', 'italic'],
-  variable: '--font-plex-sans',
+  variable: '--font-newsreader',
 });
 
-const plexCondensed = IBM_Plex_Sans_Condensed({
+const sourceSerif = Source_Serif_4({
   subsets: ['latin'],
   display: 'swap',
-  weight: ['500', '600', '700'],
-  style: ['normal', 'italic'],
-  variable: '--font-plex-condensed',
+  weight: ['400', '600'],
+  variable: '--font-source-serif',
+});
+
+const sourceSans = Source_Sans_3({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '600'],
+  variable: '--font-source-sans',
 });
 
 const plexMono = IBM_Plex_Mono({
@@ -27,16 +33,16 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Caveat — the detail that changes the story',
+  title: 'The Caveat — the detail that changes the story',
   description:
-    'Caveat reads the same data as everyone else and finds the detail that changes the story. Every claim resolves to a named source you can check.',
+    'The Caveat reads the same data as everyone else and finds the detail that changes the story. Every claim resolves to a named source you can check.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en-AU"
-      className={`${plexSans.variable} ${plexCondensed.variable} ${plexMono.variable}`}
+      className={`${newsreader.variable} ${sourceSerif.variable} ${sourceSans.variable} ${plexMono.variable}`}
     >
       <body>
         <SiteShell>{children}</SiteShell>

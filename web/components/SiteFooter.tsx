@@ -4,7 +4,7 @@ export default function SiteFooter() {
   return (
     <footer className="site-foot">
       <div style={{ marginBottom: 'var(--spacing-10)' }}>
-        <strong>Caveat</strong> · Caveat lector. Just saying.
+        <strong>The Caveat</strong> · Caveat lector. Just saying.
       </div>
         <div>
           Every figure resolves to a named source with its tier, basis and publication date.
