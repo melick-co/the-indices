@@ -130,30 +130,29 @@ export default async function MetricPage({ params }: { params: { id: string } })
         )}
 
         <h2>Source</h2>
-        <table className="data">
-          <tbody>
-            <tr><th style={{ width: '30%' }}>Publisher</th><td>{meta.source_org ?? '—'}</td></tr>
-            <tr><th>Dataset</th><td>{meta.source_dataset ?? '—'}</td></tr>
-            <tr><th>Direction</th><td>{directionLabel(meta.direction)}</td></tr>
-            <tr><th>Category</th><td>{meta.category ?? '—'}</td></tr>
-            <tr>
-              <th>Link</th>
-              <td>
-                {meta.source_url ? (
-                  <a href={meta.source_url} target="_blank" rel="noreferrer"
-                    style={{ borderBottom: '1px solid var(--rule)' }}>
-                    {meta.source_org ?? 'Source'} ↗
-                  </a>
-                ) : '—'}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="ops-card ops-table-card">
+          <table className="data">
+            <tbody>
+              <tr><th style={{ width: '30%' }}>Publisher</th><td>{meta.source_org ?? '—'}</td></tr>
+              <tr><th>Dataset</th><td>{meta.source_dataset ?? '—'}</td></tr>
+              <tr><th>Direction</th><td>{directionLabel(meta.direction)}</td></tr>
+              <tr><th>Category</th><td>{meta.category ?? '—'}</td></tr>
+              <tr>
+                <th>Link</th>
+                <td>
+                  {meta.source_url ? (
+                    <a href={meta.source_url} target="_blank" rel="noreferrer" className="studio-link">
+                      {meta.source_org ?? 'Source'}
+                    </a>
+                  ) : '—'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-        <p style={{ marginTop: '2rem', fontFamily: 'IBM Plex Mono, monospace', fontSize: '.78rem' }}>
-          <Link href="/indices" style={{ borderBottom: '1px solid var(--pen)' }}>
-            ← Indices &amp; indicators
-          </Link>
+        <p className="ops-actions">
+          <Link href="/indices" className="studio-btn-ghost">Indices &amp; indicators</Link>
         </p>
       </main>
     </>

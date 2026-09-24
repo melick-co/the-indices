@@ -23,6 +23,10 @@ function isActive(pathname: string, href: string) {
       && !pathname.startsWith('/foundry/desk')
       && !pathname.startsWith('/foundry/work'));
   }
+  if (href === '/indices') {
+    return pathname === '/indices' || pathname.startsWith('/indices/')
+      || pathname === '/metrics' || pathname.startsWith('/metrics/');
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

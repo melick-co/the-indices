@@ -70,43 +70,43 @@ export default async function IndicesDashboard() {
           The same numbers as a table, so a figure can be checked without opening a dial.
           Change is measured on the previous observation in the series.
         </p>
-        <table className="data readings-table">
-          <thead>
-            <tr>
-              <th>Series</th>
-              <th className="num">Latest</th>
-              <th>As at</th>
-              <th>Change</th>
-              <th>Publisher</th>
-              <th>Tier</th>
-            </tr>
-          </thead>
-          <tbody>
-            {readings.map((r) => (
-              <tr key={r.id}>
-                <td>
-                  {r.href
-                    ? <Link href={r.href} className="readings-link">{r.label}</Link>
-                    : r.label}
-                </td>
-                <td className="num">
-                  {r.value}
-                  <span className="readings-unit"> {r.unit}</span>
-                </td>
-                <td className="readings-period">{r.period}</td>
-                <td className="readings-change">{r.change}</td>
-                <td>{r.source}</td>
-                <td>{r.tier ? <span className={`tier t${r.tier}`}>Tier {r.tier}</span> : '—'}</td>
+        <div className="ops-card ops-table-card">
+          <table className="data readings-table">
+            <thead>
+              <tr>
+                <th>Series</th>
+                <th className="num">Latest</th>
+                <th>As at</th>
+                <th>Change</th>
+                <th>Publisher</th>
+                <th>Tier</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {readings.map((r) => (
+                <tr key={r.id}>
+                  <td>
+                    {r.href
+                      ? <Link href={r.href} className="readings-link">{r.label}</Link>
+                      : r.label}
+                  </td>
+                  <td className="num">
+                    {r.value}
+                    <span className="readings-unit"> {r.unit}</span>
+                  </td>
+                  <td className="readings-period">{r.period}</td>
+                  <td className="readings-change">{r.change}</td>
+                  <td>{r.source}</td>
+                  <td>{r.tier ? <span className={`tier t${r.tier}`}>Tier {r.tier}</span> : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-        <p style={{ marginTop: '2rem', fontSize: '.9rem', color: 'var(--ink-soft)' }}>
+        <p className="ops-quiet-note">
           More indices are specified in the{' '}
-          <Link href="/methodology" style={{ borderBottom: '1px solid var(--rule)' }}>
-            construction standard
-          </Link>
+          <Link href="/methodology" className="studio-link">construction standard</Link>
           {' '}and will appear here as vintages publish.
         </p>
       </main>

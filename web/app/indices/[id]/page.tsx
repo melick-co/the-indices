@@ -38,37 +38,45 @@ export default function IndexPage({ params }: { params: { id: string } }) {
         </div>
 
         {aus?.score != null && (
-          <div className="pull" style={{ display: 'flex', alignItems: 'baseline', gap: '1rem' }}>
-            <span className="dash-score">
-              <span className="mark on">{aus.score}</span>
-            </span>
-            <span>Australia, on 100 % coverage. Rank {scored.findIndex((r) => r.entity === 'AUS') + 1} of {scored.length}.</span>
+          <div className="ops-stat">
+            <p className="ops-stat-label">Australia</p>
+            <p className="ops-stat-value">
+              {aus.score}
+              <span className="ops-stat-unit">/100</span>
+            </p>
+            <p className="ops-stat-note">
+              On 100 % coverage. Rank {scored.findIndex((r) => r.entity === 'AUS') + 1} of {scored.length}.
+            </p>
           </div>
         )}
 
         <h2>Scores</h2>
-        <table className="data">
-          <thead>
-            <tr><th>#</th><th>Country</th><th className="num">Score</th>
-              <th></th><th className="num">Coverage</th></tr>
-          </thead>
-          <tbody>
-            {scored.map((r, i) => (
-              <tr key={r.entity} style={r.entity === 'AUS'
-                ? { background: 'var(--paper-deep)', fontWeight: 600 } : undefined}>
-                <td>{i + 1}</td>
-                <td>{r.name}</td>
-                <td className="num">{fmt(r.score)}</td>
-                <td style={{ width: '30%' }}>
-                  <span style={{ display: 'block', height: 8,
-                    width: `${((r.score ?? 0) / max) * 100}%`,
-                    background: r.entity === 'AUS' ? 'var(--pen)' : 'var(--ink)' }} />
-                </td>
-                <td className="num">{r.coverage}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="ops-card ops-table-card">
+          <table className="data">
+            <thead>
+              <tr><th>#</th><th>Country</th><th className="num">Score</th>
+                <th></th><th className="num">Coverage</th></tr>
+            </thead>
+            <tbody>
+              {scored.map((r, i) => (
+                <tr key={r.entity} className={r.entity === 'AUS' ? 'is-home' : undefined}>
+                  <td>{i + 1}</td>
+                  <td>{r.name}</td>
+                  <td className="num">{fmt(r.score)}</td>
+                  <td style={{ width: '30%' }}>
+                    <span className="ops-bar-track">
+                      <span
+                        className={r.entity === 'AUS' ? 'ops-bar-fill' : 'ops-bar-fill is-peer'}
+                        style={{ width: `${((r.score ?? 0) / max) * 100}%` }}
+                      />
+                    </span>
+                  </td>
+                  <td className="num">{r.coverage}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <div className="caveat-box">
           <h3>Not scored — and not estimated</h3>
@@ -76,7 +84,7 @@ export default function IndexPage({ params }: { params: { id: string } }) {
             {unscored.length} countries lack enough observed data to score. Under the standard
             they are reported, never imputed or quietly dropped:
           </p>
-          <p style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.78rem', marginBottom: 0 }}>
+          <p className="ops-quiet-note" style={{ marginBottom: 0 }}>
             {unscored.map((r) => `${r.name} (${r.coverage}%)`).join(' · ')}
           </p>
         </div>
@@ -88,47 +96,51 @@ export default function IndexPage({ params }: { params: { id: string } }) {
           the sample, so a change in score over time is a real change rather than a
           shift in the peer group.
         </p>
-        <table className="data">
-          <thead>
-            <tr><th>Component</th><th>Bounds</th><th className="num">Weight</th></tr>
-          </thead>
-          <tbody>
-            {p.methodology.components.map((c) => (
-              <tr key={c.metric_id}>
-                <td>{c.label}</td>
-                <td>{c.bounds[0]} to {c.bounds[1]}</td>
-                <td className="num">{(c.weight / p.methodology.components
-                  .reduce((s, x) => s + x.weight, 0)).toFixed(3)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="ops-card ops-table-card">
+          <table className="data">
+            <thead>
+              <tr><th>Component</th><th>Bounds</th><th className="num">Weight</th></tr>
+            </thead>
+            <tbody>
+              {p.methodology.components.map((c) => (
+                <tr key={c.metric_id}>
+                  <td>{c.label}</td>
+                  <td>{c.bounds[0]} to {c.bounds[1]}</td>
+                  <td className="num">{(c.weight / p.methodology.components
+                    .reduce((s, x) => s + x.weight, 0)).toFixed(3)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         {aus && (
           <>
             <h2>Worked example: Australia</h2>
-            <table className="data">
-              <thead>
-                <tr><th>Component</th><th className="num">Raw</th>
-                  <th className="num">Normalised</th><th className="num">Weight</th><th>Status</th></tr>
-              </thead>
-              <tbody>
-                {aus.components.map((c) => (
-                  <tr key={c.metric_id}>
-                    <td>{c.label}</td>
-                    <td className="num">{c.raw ?? '—'}</td>
-                    <td className="num">{fmt(c.normalised)}</td>
-                    <td className="num">{c.weight.toFixed(3)}</td>
-                    <td>{c.status}{c.winsorised ? ' · winsorised' : ''}</td>
+            <div className="ops-card ops-table-card">
+              <table className="data">
+                <thead>
+                  <tr><th>Component</th><th className="num">Raw</th>
+                    <th className="num">Normalised</th><th className="num">Weight</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  {aus.components.map((c) => (
+                    <tr key={c.metric_id}>
+                      <td>{c.label}</td>
+                      <td className="num">{c.raw ?? '—'}</td>
+                      <td className="num">{fmt(c.normalised)}</td>
+                      <td className="num">{c.weight.toFixed(3)}</td>
+                      <td>{c.status}{c.winsorised ? ' · winsorised' : ''}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td colSpan={2}><b>Score</b></td>
+                    <td className="num"><b>{fmt(aus.score)}</b></td>
+                    <td className="num">1.000</td><td>{aus.coverage}% coverage</td>
                   </tr>
-                ))}
-                <tr>
-                  <td colSpan={2}><b>Score</b></td>
-                  <td className="num"><b>{fmt(aus.score)}</b></td>
-                  <td className="num">1.000</td><td>{aus.coverage}% coverage</td>
-                </tr>
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </>
         )}
 
@@ -138,9 +150,10 @@ export default function IndexPage({ params }: { params: { id: string } }) {
           component&rsquo;s weight moved 25 % either way, and with each component removed
           in turn, and publish what happens.
         </p>
-        <table className="data">
-          <thead><tr><th>Test</th><th>Result</th><th>Reading</th></tr></thead>
-          <tbody>
+        <div className="ops-card ops-table-card">
+          <table className="data">
+            <thead><tr><th>Test</th><th>Result</th><th>Reading</th></tr></thead>
+            <tbody>
             <tr>
               <td>Weight perturbation, rank correlation</td>
               <td className="num">{sens.weightPerturbation.rankCorrelation.toFixed(3)}</td>
@@ -163,8 +176,9 @@ export default function IndexPage({ params }: { params: { id: string } }) {
               </td>
               <td>Well under 0.90. Components measure different things.</td>
             </tr>
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
 
         <div className="caveat-box">
           <h3>Caveat</h3>
@@ -195,35 +209,30 @@ export default function IndexPage({ params }: { params: { id: string } }) {
         </div>
 
         <h2>Sources</h2>
-        <table className="data">
-          <thead><tr><th>Component</th><th>Publisher</th><th>Tier</th><th>Period</th><th>Basis</th></tr></thead>
-          <tbody>
-            {p.sources.filter((s) => p.methodology.components
-              .some((c) => c.metric_id === s.metric_id)).map((s) => (
-              <tr key={s.metric_id}>
-                <td><a href={s.source.url} target="_blank" rel="noreferrer"
-                  style={{ borderBottom: '1px solid var(--rule)' }}>{s.definition} ↗</a></td>
-                <td>{s.source.org}</td>
-                <td><span className={`tier ${TIER[s.source.tier]}`}>Tier {s.source.tier}</span></td>
-                <td>{s.source.period}</td>
-                <td style={{ fontSize: '.72rem' }}>{s.basis}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="ops-card ops-table-card">
+          <table className="data">
+            <thead><tr><th>Component</th><th>Publisher</th><th>Tier</th><th>Period</th><th>Basis</th></tr></thead>
+            <tbody>
+              {p.sources.filter((s) => p.methodology.components
+                .some((c) => c.metric_id === s.metric_id)).map((s) => (
+                <tr key={s.metric_id}>
+                  <td><a href={s.source.url} target="_blank" rel="noreferrer" className="studio-link">{s.definition}</a></td>
+                  <td>{s.source.org}</td>
+                  <td><span className={`tier ${TIER[s.source.tier]}`}>Tier {s.source.tier}</span></td>
+                  <td>{s.source.period}</td>
+                  <td className="ops-quiet-note">{s.basis}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <h2>Download and cite</h2>
-        <p style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.8rem' }}>
-          <a href={`/data/${p.index.id}-${p.index.vintage}.json`} download
-            style={{ borderBottom: '1px solid var(--pen)' }}>JSON (full payload)</a>
-          {'  ·  '}
-          <a href={`/data/${p.index.id}-${p.index.vintage}.csv`} download
-            style={{ borderBottom: '1px solid var(--pen)' }}>CSV (scores)</a>
+        <p className="ops-actions">
+          <a href={`/data/${p.index.id}-${p.index.vintage}.json`} download className="studio-btn-ghost">JSON</a>
+          <a href={`/data/${p.index.id}-${p.index.vintage}.csv`} download className="studio-btn-ghost">CSV</a>
         </p>
-        <p style={{ background: 'var(--paper-deep)', padding: '.9rem',
-          fontFamily: 'IBM Plex Mono, monospace', fontSize: '.76rem', maxWidth: '100%' }}>
-          {cite}
-        </p>
+        <p className="ops-cite">{cite}</p>
 
         <h2>Vintage and revisions</h2>
         <p className="measure">
@@ -234,10 +243,8 @@ export default function IndexPage({ params }: { params: { id: string } }) {
           retrospectively here. If a restatement moves any score by more than 2.0 points we
           say so in the release note.
         </p>
-        <p style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.78rem' }}>
-          <Link href="/methodology" style={{ borderBottom: '1px solid var(--pen)' }}>
-            How Caveat works →
-          </Link>
+        <p>
+          <Link href="/methodology" className="studio-link">How Caveat works</Link>
         </p>
       </main>
     </>

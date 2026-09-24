@@ -28,7 +28,7 @@ export default function DialCard({
       )}
       {age && <div className="dial-age">{age}</div>}
       {tier && <div className="dial-card-tier">{tier}</div>}
-      <div className="dial-card-cta">How this is built →</div>
+      <div className="dial-card-cta">How this is built</div>
     </Link>
   );
 }
