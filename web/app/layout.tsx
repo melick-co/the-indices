@@ -1,6 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { IBM_Plex_Mono, Newsreader, Source_Sans_3, Source_Serif_4 } from 'next/font/google';
+import { IBM_Plex_Mono, Inter, Newsreader, Source_Sans_3, Source_Serif_4 } from 'next/font/google';
 import { SiteShell } from '@/components/SiteShell';
 
 const newsreader = Newsreader({
@@ -32,6 +32,13 @@ const plexMono = IBM_Plex_Mono({
   variable: '--font-plex',
 });
 
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '500', '600'],
+  variable: '--font-geist',
+});
+
 export const metadata: Metadata = {
   title: 'The Caveat — the detail that changes the story',
   description:
@@ -42,7 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en-AU"
-      className={`${newsreader.variable} ${sourceSerif.variable} ${sourceSans.variable} ${plexMono.variable}`}
+      className={`${newsreader.variable} ${sourceSerif.variable} ${sourceSans.variable} ${plexMono.variable} ${inter.variable}`}
     >
       <body>
         <SiteShell>{children}</SiteShell>

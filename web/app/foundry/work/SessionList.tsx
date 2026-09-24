@@ -47,11 +47,12 @@ export default function SessionList({ sessions }: { sessions: SessionListRow[] }
         </button>
       </div>
       <input
+        className="studio-field"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Find a session by title or question"
         aria-label="Find a session"
-        style={search}
+        style={{ maxWidth: '28rem', marginBottom: '1.4rem' }}
       />
       {working.map((s) => <SessionLink key={s.session_id} session={s} />)}
       {!working.length && (
@@ -76,8 +77,8 @@ export default function SessionList({ sessions }: { sessions: SessionListRow[] }
 function SessionLink({ session: s }: { session: SessionListRow }) {
   return (
     <Link href={`/foundry/work/${s.session_id}`}
-      style={{ display: 'block', padding: '.85rem 0', borderBottom: '1px solid var(--rule)',
-        textDecoration: 'none', color: 'inherit' }}>
+      className="ops-card"
+      style={{ display: 'block', marginBottom: 12, textDecoration: 'none', color: 'inherit' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
         <div>
           <b style={{ fontSize: '.95rem' }}>
@@ -117,25 +118,9 @@ function statusLabel(status: string) {
 }
 
 const meta: React.CSSProperties = {
-  fontFamily: 'IBM Plex Mono, monospace', fontSize: '.68rem', letterSpacing: '.08em',
+  fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: 12, letterSpacing: '0.05em',
   textTransform: 'uppercase', color: 'var(--ink-faint)', marginTop: '.25rem',
 };
 const forkBadge: React.CSSProperties = {
-  fontFamily: 'IBM Plex Mono, monospace', fontSize: '.75rem', color: 'var(--ink-soft)',
-};
-const search: React.CSSProperties = {
-  width: '100%',
-  maxWidth: '28rem',
-  marginBottom: '1.4rem',
-  padding: '0.55rem 0',
-  border: 0,
-  borderBottom: '1px solid var(--rule)',
-  background: 'transparent',
-  fontFamily: 'IBM Plex Mono, monospace',
-  fontSize: '.82rem',
-  letterSpacing: '.04em',
-  color: 'inherit',
-  outline: 'none',
-  boxShadow: 'none',
-  borderRadius: 0,
+  fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: 13, color: 'var(--ink-soft)',
 };

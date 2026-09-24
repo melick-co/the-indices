@@ -293,9 +293,9 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
                 <input placeholder="Direction or note — travels with the pitch into the next run"
                   value={note[p.id] ?? ''}
                   onChange={(e) => setNote((n) => ({ ...n, [p.id]: e.target.value }))}
-                  style={{ flex: 1, padding: '.45rem .6rem', border: '1px solid var(--rule)',
-                    background: 'var(--paper)', fontFamily: 'IBM Plex Mono, monospace',
-                    fontSize: '.75rem' }} />
+                  style={{ flex: 1, padding: '8px 10px',
+                    background: '#f5f5f5', fontFamily: 'var(--font-ops, Inter, sans-serif)',
+                    fontSize: 14, borderRadius: 18, border: 'none' }} />
                 <button style={actBtn('var(--ink)')} disabled={pending || !note[p.id]}
                   onClick={() => run(p.id, 'comment')}>Save note</button>
               </div>
@@ -684,35 +684,46 @@ function InboxForm({ onDone }: { onDone: () => void }) {
 }
 
 const card: React.CSSProperties = {
-  border: '1px solid var(--rule)', padding: '1.2rem', marginBottom: '1rem', background: 'var(--card, #fff)',
+  border: '1px solid var(--rule)', padding: 20, marginBottom: 12,
+  background: 'var(--card, #fff)', borderRadius: 24,
+  boxShadow: '0 0 0 1px rgba(23,23,23,0.05), 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1)',
 };
 const meta: React.CSSProperties = {
-  fontFamily: 'IBM Plex Mono, monospace', fontSize: '.68rem', letterSpacing: '.08em',
+  fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: 12, letterSpacing: '0.05em',
   textTransform: 'uppercase', color: 'var(--ink-faint)',
 };
 const notice: React.CSSProperties = {
-  fontFamily: 'IBM Plex Mono, monospace', fontSize: '.78rem', letterSpacing: '.03em',
-  color: 'var(--ink-soft)', margin: '0 0 var(--spacing-21)', padding: '0.7rem 0',
-  borderTop: '1px solid var(--rule)', borderBottom: '1px solid var(--rule)',
+  fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: 14, letterSpacing: 0,
+  color: 'var(--ink-soft)', margin: '0 0 16px', padding: '12px 16px',
+  background: 'var(--paper-deep)', borderRadius: 18, border: '1px solid var(--rule)',
 };
 const inp: React.CSSProperties = {
-  width: '100%', padding: '.5rem .6rem', border: '1px solid var(--rule)', background: 'var(--paper)',
-  fontFamily: 'IBM Plex Mono, monospace', fontSize: '.78rem', marginBottom: '.5rem',
+  width: '100%', padding: '8px 10px', border: 'none', background: '#f5f5f5',
+  fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: 14, marginBottom: 8,
+  borderRadius: 18, color: 'var(--ink)',
 };
 const linkBtn: React.CSSProperties = {
   background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-soft)',
-  fontFamily: 'IBM Plex Mono, monospace', fontSize: '.72rem', letterSpacing: '.09em',
-  textTransform: 'uppercase', padding: 0,
+  fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: 13, fontWeight: 500,
+  letterSpacing: 0, textTransform: 'none', padding: '8px 12px',
 };
 const tabBtn = (active: boolean): React.CSSProperties => ({
-  fontFamily: 'IBM Plex Mono, monospace', fontSize: '.68rem', letterSpacing: '.06em',
-  textTransform: 'uppercase', padding: '.35rem .6rem', cursor: 'pointer', borderRadius: 0,
-  border: `1px solid ${active ? 'var(--ink)' : 'var(--rule)'}`,
-  background: active ? 'var(--ink)' : 'transparent',
-  color: active ? 'var(--paper)' : 'var(--ink-soft)',
+  fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: 13, fontWeight: 500,
+  letterSpacing: 0, textTransform: 'none', padding: '8px 12px', cursor: 'pointer',
+  borderRadius: 18,
+  border: `1px solid ${active ? '#0a0a0a' : '#e5e5e5'}`,
+  background: active ? '#0a0a0a' : 'transparent',
+  color: active ? '#fafafa' : '#0a0a0a',
 });
-const actBtn = (colour: string): React.CSSProperties => ({
-  fontFamily: 'IBM Plex Mono, monospace', fontSize: '.7rem', letterSpacing: '.06em',
-  textTransform: 'uppercase', padding: '.4rem .75rem', cursor: 'pointer', borderRadius: 0,
-  border: `1px solid ${colour}`, background: 'transparent', color: colour,
-});
+const actBtn = (colour: string): React.CSSProperties => {
+  const danger = colour.includes('pen');
+  const primary = colour.includes('verify') || colour === 'var(--ink)';
+  return {
+    fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: 14, fontWeight: 500,
+    letterSpacing: 0, textTransform: 'none', padding: '8px 16px', cursor: 'pointer',
+    borderRadius: 18, minHeight: 36,
+    border: primary ? 'none' : `1px solid ${danger ? '#e7000b' : '#e5e5e5'}`,
+    background: primary ? '#0a0a0a' : danger ? 'transparent' : '#f5f5f5',
+    color: primary ? '#fafafa' : danger ? '#e7000b' : '#0a0a0a',
+  };
+};
