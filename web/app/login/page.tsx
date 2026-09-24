@@ -8,9 +8,9 @@ export default function LoginPage() {
 
   return (
     <Suspense fallback={
-      <main className="wrap" style={{ maxWidth: '26rem', paddingTop: '5rem' }}>
-        <div className="wordmark" style={{ fontSize: '2rem' }}>Caveat</div>
-      </main>
+      <div className="ops-card" style={{ maxWidth: '26rem' }}>
+        <h1 className="section-head">Caveat</h1>
+      </div>
     }>
       <LoginForm />
     </Suspense>

@@ -56,10 +56,10 @@ export default function LoginForm() {
   }
 
   return (
-    <main className="wrap" style={{ maxWidth: '26rem', paddingTop: '5rem' }}>
-      <div className="wordmark" style={{ fontSize: '2rem' }}>Caveat</div>
-      <div className="lector" style={{ marginBottom: '1.2rem' }}>Sign in or register</div>
-      <p className="note" style={{ marginBottom: '1.5rem' }}>
+    <div className="ops-card" style={{ maxWidth: '26rem' }}>
+      <h1 className="section-head" style={{ marginBottom: 8 }}>Caveat</h1>
+      <p className="measure" style={{ marginBottom: 16 }}>Sign in or register</p>
+      <p className="measure" style={{ marginBottom: 20 }}>
         One link, no password. New here? The same link registers you and sets up alerts.
         Stories, indices and sources stay public either way.
       </p>
@@ -67,38 +67,41 @@ export default function LoginForm() {
       {!sent ? (
         <>
           <input type="email" value={email} placeholder="you@example.com"
+            className="studio-field"
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && send()}
-            style={fieldStyle} />
-          <button onClick={send} disabled={busy || !email.includes('@')} style={btnStyle}>
+            style={{ marginBottom: 8 }} />
+          <button type="button" onClick={send} disabled={busy || !email.includes('@')}
+            className="studio-btn-accent" style={{ width: '100%' }}>
             {busy ? 'Sending…' : 'Send magic link'}
           </button>
         </>
       ) : (
         <>
-          <p className="note" style={{ marginBottom: '1rem' }}>
+          <p className="measure" style={{ marginBottom: 16 }}>
             Check your email. Prefer the 6-digit code if the link opens in another app —
             that avoids a browser mismatch.
           </p>
-          <input type="email" value={email} readOnly style={{ ...fieldStyle, opacity: .7 }} />
+          <input type="email" value={email} readOnly className="studio-field"
+            style={{ marginBottom: 8, opacity: 0.7 }} />
           <input type="text" inputMode="numeric" autoComplete="one-time-code"
-            value={code} placeholder="6-digit code"
+            value={code} placeholder="6-digit code" className="studio-field"
             onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
             onKeyDown={(e) => e.key === 'Enter' && verify()}
-            style={fieldStyle} />
-          <button onClick={verify} disabled={busy || code.length < 6} style={btnStyle}>
+            style={{ marginBottom: 8 }} />
+          <button type="button" onClick={verify} disabled={busy || code.length < 6}
+            className="studio-btn-accent" style={{ width: '100%' }}>
             {busy ? 'Verifying…' : 'Verify code'}
           </button>
-          <button onClick={send} disabled={busy}
-            style={{ ...btnStyle, background: 'transparent', color: 'var(--ink)',
-              border: '1px solid var(--ink)', marginTop: '.6rem' }}>
+          <button type="button" onClick={send} disabled={busy}
+            className="studio-btn-ghost" style={{ width: '100%', marginTop: 8 }}>
             Resend
           </button>
         </>
       )}
 
-      {err && <p style={{ color: 'var(--pen)', fontSize: '.85rem', marginTop: '.8rem' }}>{err}</p>}
-    </main>
+      {err && <p style={{ color: 'var(--color-ember, #e7000b)', fontSize: 14, marginTop: 12 }}>{err}</p>}
+    </div>
   );
 }
 
@@ -109,15 +112,3 @@ function friendlyError(raw: string | null): string | null {
   }
   return raw;
 }
-
-const fieldStyle: Record<string, string | number> = {
-  width: '100%', padding: '.7rem .9rem', border: '1px solid var(--ink)',
-  background: 'var(--paper)', fontFamily: 'IBM Plex Mono, monospace',
-  fontSize: '.85rem', marginBottom: '.8rem',
-};
-
-const btnStyle: Record<string, string | number> = {
-  width: '100%', padding: '.7rem', background: 'var(--ink)', color: 'var(--paper)',
-  border: 'none', fontFamily: 'IBM Plex Mono, monospace', fontSize: '.78rem',
-  letterSpacing: '.1em', textTransform: 'uppercase', cursor: 'pointer',
-};

@@ -16,15 +16,15 @@ export default function AccountPanel({ profile, topics }:
     setAlertTopics((a) => a.includes(t) ? a.filter((x) => x !== t) : [...a, t]);
 
   return (
-    <div className="acct">
-      <h2>What you get</h2>
+    <div className="acct ops-card">
+      <h2 className="section-head">What you get</h2>
       <p className="measure">
         Stories, indices, methodology and every source are public and always will be.
         Registering adds alerts: a note when an index publishes a new vintage, when a
         story goes out, or when we cover a topic you follow. No daily digest.
       </p>
 
-      <h2>Alerts</h2>
+      <h2 className="section-head">Alerts</h2>
       <div className="acct-row">
         <span>New index vintages</span>
         <input type="checkbox" checked={indices} onChange={(e) => setIndices(e.target.checked)} />
@@ -34,40 +34,32 @@ export default function AccountPanel({ profile, topics }:
         <input type="checkbox" checked={stories} onChange={(e) => setStories(e.target.checked)} />
       </div>
 
-      <h2>Topics you follow</h2>
-      <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', margin: '.6rem 0 1rem' }}>
+      <h2 className="section-head">Topics you follow</h2>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0 16px' }}>
         {topics.map((t) => (
-          <button key={t} onClick={() => toggle(t)} style={{
-            fontFamily: 'IBM Plex Mono, monospace', fontSize: '.7rem', padding: '.35rem .7rem',
-            cursor: 'pointer', borderRadius: 0,
-            border: `1px solid ${alertTopics.includes(t) ? 'var(--ink)' : 'var(--rule)'}`,
-            background: alertTopics.includes(t) ? 'var(--ink)' : 'transparent',
-            color: alertTopics.includes(t) ? 'var(--paper)' : 'var(--ink-soft)',
-          }}>{t}</button>
+          <button key={t} type="button" onClick={() => toggle(t)} className={alertTopics.includes(t) ? 'studio-tab is-active' : 'studio-tab'}>
+            {t}
+          </button>
         ))}
-        {!topics.length && <span className="note">No topics published yet.</span>}
+        {!topics.length && <span className="measure">No topics published yet.</span>}
       </div>
 
-      <h2>Display name</h2>
+      <h2 className="section-head">Display name</h2>
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional"
-        style={{ width: '100%', padding: '.6rem', border: '1px solid var(--rule)',
-          background: 'var(--paper)', fontFamily: 'IBM Plex Mono, monospace', fontSize: '.85rem' }} />
+        className="studio-field" />
 
-      <div style={{ display: 'flex', gap: '.6rem', marginTop: '1.2rem', alignItems: 'center' }}>
-        <button disabled={pending} onClick={() => start(async () => {
+      <div style={{ display: 'flex', gap: 8, marginTop: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button type="button" className="studio-btn-accent" disabled={pending} onClick={() => start(async () => {
           await updatePreferences({ display_name: name, alert_topics: alertTopics,
             alert_indices: indices, alert_stories: stories });
           setSaved(true);
-        })} style={{ padding: '.6rem 1.2rem', background: 'var(--ink)', color: 'var(--paper)',
-          border: 'none', fontFamily: 'IBM Plex Mono, monospace', fontSize: '.75rem',
-          letterSpacing: '.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+        })}>
           {pending ? 'Saving…' : 'Save'}
         </button>
-        {saved && <span className="note" style={{ color: 'var(--verify)' }}>Saved.</span>}
-        <button onClick={() => start(async () => { await signOut(); })} style={{
-          background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-soft)',
-          fontFamily: 'IBM Plex Mono, monospace', fontSize: '.72rem',
-          letterSpacing: '.08em', textTransform: 'uppercase' }}>Sign out</button>
+        {saved && <span className="measure">Saved.</span>}
+        <button type="button" className="studio-link" onClick={() => start(async () => { await signOut(); })}>
+          Sign out
+        </button>
       </div>
     </div>
   );

@@ -45,7 +45,7 @@ export default function ApproveAndWrite({
         {busy ? 'Writing…' : 'Approve'}
       </button>
       {note && (
-        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.62rem', color: 'var(--ink-soft)' }}>
+        <span style={{ fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: 12, color: 'var(--ink-soft)' }}>
           {note}
         </span>
       )}

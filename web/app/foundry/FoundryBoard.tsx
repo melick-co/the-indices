@@ -92,7 +92,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
         )}
 
         {shown.length === 0 && (
-          <p style={{ color: 'var(--ink-faint)', fontFamily: 'IBM Plex Mono, monospace',
+          <p style={{ color: 'var(--ink-faint)', fontFamily: 'var(--font-ops, Inter, sans-serif)',
             fontSize: '.82rem', padding: '2rem 0' }}>
             {tab === 'pitched' && candidateCount > 0
               ? 'Nothing ranked for today. Banked sessions are under Awaiting ranking until they are scored onto this list.'
@@ -136,7 +136,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
                   )}
                 </div>
                 {p.score && (
-                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.68rem',
+                  <div style={{ fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: '.68rem',
                     color: 'var(--ink-faint)', textAlign: 'right', lineHeight: 1.7 }}>
                     {Object.entries(p.score).map(([k, v]) => (
                       <div key={k}>{k.slice(0, 5)} <b style={{ color: 'var(--ink)' }}>{String(v)}</b></div>
@@ -229,7 +229,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
 
                   <details style={{ marginTop: '.7rem' }}>
                     <summary style={{ ...meta, cursor: 'pointer' }}>Trigger rows</summary>
-                    <pre style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.7rem',
+                    <pre style={{ fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: '.7rem',
                       background: 'var(--paper-deep)', padding: '.7rem', overflowX: 'auto',
                       marginTop: '.4rem' }}>{JSON.stringify(p.trigger_rows, null, 2)}</pre>
                   </details>
@@ -378,9 +378,9 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
           {!news.length && <p style={meta}>No news items yet. Run the RSS sweep.</p>}
         </section>
 
-        <section style={{ marginTop: '3rem', display: 'grid', gap: '2rem',
+        <section style={{ marginTop: '3rem', display: 'grid', gap: '1rem',
           gridTemplateColumns: 'repeat(auto-fit,minmax(17rem,1fr))' }}>
-          <div>
+          <div className="ops-card">
             <h3 className="section-head">Recent agent runs</h3>
             {runs.map((r) => (
               <div key={r.id} style={{ ...meta, marginBottom: '.5rem' }}>
@@ -392,7 +392,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
             ))}
             {!runs.length && <p style={meta}>No runs recorded yet.</p>}
           </div>
-          <div>
+          <div className="ops-card">
             <h3 className="section-head">Inbox</h3>
             {inbox.map((i) => (
               <div key={i.id} style={{ ...meta, marginBottom: '.5rem' }}>
@@ -402,7 +402,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
             ))}
             {!inbox.length && <p style={meta}>Empty.</p>}
           </div>
-          <div>
+          <div className="ops-card">
             <h3 className="section-head">Your last decisions</h3>
             {feedback.map((f) => (
               <div key={f.id} style={{ ...meta, marginBottom: '.5rem' }}>
@@ -508,7 +508,7 @@ function StrengthenPitchButton({ pitchId, onDone }: { pitchId: string; onDone: (
     <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start' }}>
       <button
         type="button"
-        style={actBtn('var(--color-slate-iris, #495472)')}
+        style={actBtn('var(--ink)')}
         disabled={busy}
         onClick={strengthen}
         title="Search for additional tier 1/2 data and strengthen this pitch"
@@ -516,7 +516,7 @@ function StrengthenPitchButton({ pitchId, onDone }: { pitchId: string; onDone: (
         {busy ? 'Strengthening…' : '⚡ Strengthen'}
       </button>
       {note && (
-        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.62rem',
+        <span style={{ fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: '.62rem',
           color: 'var(--ink-faint)', marginTop: '.25rem', maxWidth: '16rem' }}>
           {note}
         </span>
@@ -578,12 +578,12 @@ function ReviewTrendingButton({ onDone }: { onDone: () => void }) {
         {busy ? 'Reviewing trends…' : '↗ Review trending topics'}
       </button>
       {result && (
-        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.68rem', color: 'var(--ink-soft)' }}>
+        <span style={{ fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: '.68rem', color: 'var(--ink-soft)' }}>
           {result}
         </span>
       )}
       {busy && log.length > 0 && (
-        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.62rem', color: 'var(--ink-faint)', maxWidth: '28rem' }}>
+        <span style={{ fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: '.62rem', color: 'var(--ink-faint)', maxWidth: '28rem' }}>
           {log[log.length - 1]}
         </span>
       )}
@@ -644,12 +644,12 @@ function RefreshDataButton({ onDone }: { onDone: () => void }) {
         {busy ? 'Refreshing…' : '↻ Refresh data & revise pitches'}
       </button>
       {result && (
-        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.68rem', color: 'var(--ink-soft)' }}>
+        <span style={{ fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: '.68rem', color: 'var(--ink-soft)' }}>
           {result}
         </span>
       )}
       {busy && log.length > 0 && (
-        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.62rem', color: 'var(--ink-faint)', maxWidth: '28rem' }}>
+        <span style={{ fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: '.62rem', color: 'var(--ink-faint)', maxWidth: '28rem' }}>
           {log[log.length - 1]}
         </span>
       )}

@@ -35,16 +35,17 @@ export default function ReelControls({
 }) {
   const href = videoHref(slug, preview);
   const style = buttonStyle ?? {
-    fontFamily: 'var(--font-ui)',
-    fontSize: '.7rem',
-    letterSpacing: '.06em',
-    textTransform: 'uppercase' as const,
-    padding: '.4rem .75rem',
+    fontFamily: 'var(--font-ops, Inter, sans-serif)',
+    fontSize: 14,
+    fontWeight: 500,
+    letterSpacing: 0,
+    textTransform: 'none' as const,
+    padding: '8px 16px',
     cursor: 'pointer',
-    borderRadius: 0,
-    border: '1px solid var(--ink)',
-    background: 'transparent',
-    color: 'var(--ink)',
+    borderRadius: 18,
+    border: 'none',
+    background: '#f5f5f5',
+    color: '#0a0a0a',
     textDecoration: 'none',
     display: 'inline-block',
   };

@@ -72,7 +72,7 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
         </div>
 
         {shown.length === 0 && (
-          <p style={{ color: 'var(--ink-faint)', fontFamily: 'IBM Plex Mono, monospace',
+          <p style={{ color: 'var(--ink-faint)', fontFamily: 'var(--font-ops, Inter, sans-serif)',
             fontSize: '.82rem', padding: '2rem 0' }}>
             Nothing here. {tab === 'pitched' && 'A quiet day is honest output.'}
           </p>
@@ -103,7 +103,7 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
                   </p>
                 </div>
                 {p.score && (
-                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.68rem',
+                  <div style={{ fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: '.68rem',
                     color: 'var(--ink-faint)', textAlign: 'right', lineHeight: 1.7 }}>
                     {Object.entries(p.score).map(([k, v]) => (
                       <div key={k}>{k.slice(0, 5)} <b style={{ color: 'var(--ink)' }}>{String(v)}</b></div>
@@ -180,7 +180,7 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
 
                   <details style={{ marginTop: '.7rem' }}>
                     <summary style={{ ...meta, cursor: 'pointer' }}>Trigger rows</summary>
-                    <pre style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.7rem',
+                    <pre style={{ fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: '.7rem',
                       background: 'var(--paper-deep)', padding: '.7rem', overflowX: 'auto',
                       marginTop: '.4rem' }}>{JSON.stringify(p.trigger_rows, null, 2)}</pre>
                   </details>
@@ -328,9 +328,9 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
           {!news.length && <p style={meta}>No news items yet. Run the RSS sweep.</p>}
         </section>
 
-        <section style={{ marginTop: '3rem', display: 'grid', gap: '2rem',
+        <section style={{ marginTop: '3rem', display: 'grid', gap: '1rem',
           gridTemplateColumns: 'repeat(auto-fit,minmax(17rem,1fr))' }}>
-          <div>
+          <div className="ops-card">
             <h3 className="section-head">Recent agent runs</h3>
             {runs.map((r) => (
               <div key={r.id} style={{ ...meta, marginBottom: '.5rem' }}>
@@ -342,7 +342,7 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
             ))}
             {!runs.length && <p style={meta}>No runs recorded yet.</p>}
           </div>
-          <div>
+          <div className="ops-card">
             <h3 className="section-head">Inbox</h3>
             {inbox.map((i) => (
               <div key={i.id} style={{ ...meta, marginBottom: '.5rem' }}>
@@ -352,7 +352,7 @@ export default function StudioBoard({ pitches, runs, inbox, feedback, events, me
             ))}
             {!inbox.length && <p style={meta}>Empty.</p>}
           </div>
-          <div>
+          <div className="ops-card">
             <h3 className="section-head">Your last decisions</h3>
             {feedback.map((f) => (
               <div key={f.id} style={{ ...meta, marginBottom: '.5rem' }}>

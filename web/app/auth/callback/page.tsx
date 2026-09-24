@@ -71,10 +71,10 @@ function CallbackInner() {
   }, [search]);
 
   return (
-    <main className="wrap" style={{ maxWidth: '26rem', paddingTop: '5rem' }}>
-      <div className="wordmark" style={{ fontSize: '2rem' }}>Caveat</div>
-      <p className="note" style={{ marginTop: '1.2rem' }}>{message}</p>
-    </main>
+    <div className="ops-card" style={{ maxWidth: '26rem' }}>
+      <h1 className="section-head">Caveat</h1>
+      <p className="measure" style={{ marginTop: 12 }}>{message}</p>
+    </div>
   );
 }
 
@@ -97,10 +97,10 @@ function safeNext(raw: string | null): string {
 export default function AuthCallbackPage() {
   return (
     <Suspense fallback={
-      <main className="wrap" style={{ maxWidth: '26rem', paddingTop: '5rem' }}>
-        <div className="wordmark" style={{ fontSize: '2rem' }}>Caveat</div>
-        <p className="note" style={{ marginTop: '1.2rem' }}>Signing you in…</p>
-      </main>
+      <div className="ops-card" style={{ maxWidth: '26rem' }}>
+        <h1 className="section-head">Caveat</h1>
+        <p className="measure" style={{ marginTop: 12 }}>Signing you in…</p>
+      </div>
     }>
       <CallbackInner />
     </Suspense>

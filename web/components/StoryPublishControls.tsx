@@ -56,16 +56,17 @@ export default function StoryPublishControls({
   }
 
   const style = buttonStyle ?? {
-    fontFamily: 'IBM Plex Mono, monospace',
-    fontSize: '.7rem',
-    letterSpacing: '.06em',
-    textTransform: 'uppercase' as const,
-    padding: '.4rem .75rem',
+    fontFamily: 'var(--font-ops, Inter, sans-serif)',
+    fontSize: 14,
+    fontWeight: 500,
+    letterSpacing: 0,
+    textTransform: 'none' as const,
+    padding: '8px 16px',
     cursor: 'pointer',
-    borderRadius: 0,
-    border: '1px solid var(--ink)',
-    background: 'transparent',
-    color: 'var(--ink)',
+    borderRadius: 18,
+    border: 'none',
+    background: '#f5f5f5',
+    color: '#0a0a0a',
   };
 
   if (story?.status === 'published') {
@@ -107,7 +108,7 @@ export default function StoryPublishControls({
           {busy ? 'Rewriting…' : 'Rewrite'}
         </button>
         {note && (
-          <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.62rem', color: 'var(--ink-soft)' }}>
+          <span style={{ fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: 12, color: 'var(--ink-soft)' }}>
             {note}
           </span>
         )}
@@ -127,7 +128,7 @@ export default function StoryPublishControls({
         {busy ? 'Writing…' : 'Write article'}
       </button>
       {note && (
-        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.62rem', color: 'var(--ink-soft)' }}>
+        <span style={{ fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: 12, color: 'var(--ink-soft)' }}>
           {note}
         </span>
       )}

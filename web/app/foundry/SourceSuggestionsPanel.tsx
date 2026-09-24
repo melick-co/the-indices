@@ -89,12 +89,13 @@ const fmtDate = (s: string) =>
   new Date(s).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 const meta: React.CSSProperties = {
-  fontFamily: 'IBM Plex Mono, monospace', fontSize: '.68rem', letterSpacing: '.08em',
+  fontFamily: 'var(--font-ops, Inter, sans-serif)', fontSize: 12, letterSpacing: '0.05em',
   textTransform: 'uppercase', color: 'var(--ink-faint)',
 };
 const detail: React.CSSProperties = {
-  fontSize: '.85rem', color: 'var(--ink-soft)', lineHeight: 1.55, marginTop: '.35rem',
+  fontSize: 14, color: 'var(--ink-soft)', lineHeight: 1.43, marginTop: 8,
 };
 const card: React.CSSProperties = {
-  border: '1px solid var(--rule)', padding: '1rem', marginBottom: '.75rem', background: 'var(--paper)',
+  border: '1px solid #e5e5e5', padding: 20, marginBottom: 12, background: '#fff',
+  borderRadius: 24, boxShadow: '0 0 0 1px rgba(23,23,23,0.05), 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1)',
 };
