@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import SiteFooter from '@/components/SiteFooter';
 import DialCard from '@/components/DialCard';
 import { loadDashboard } from '@/lib/dashboard-indicators';
 
@@ -12,8 +11,8 @@ export default async function IndicesDashboard() {
   return (
     <>
       <main className="article dashboard">
-        <div className="card-kicker">Australia · latest readings</div>
-        <h1>Indices &amp; indicators</h1>
+        <p className="desk-kicker">Australia · latest readings</p>
+        <h1 className="section-head" style={{ borderBottom: 'none' }}>Indices &amp; indicators</h1>
         <p className="measure">
           Every dial is one series: the latest observation, how it moved on the previous
           print, and the recent history behind it. Colour runs green for low pressure to
@@ -66,7 +65,7 @@ export default async function IndicesDashboard() {
           <span className="dashboard-legend-item"><i style={{ background: '#c0392b' }} /> High pressure</span>
         </div>
 
-        <h2 id="readings">Every reading on this page</h2>
+        <h2 id="readings" className="dashboard-section-title">Every reading on this page</h2>
         <p className="measure">
           The same numbers as a table, so a figure can be checked without opening a dial.
           Change is measured on the previous observation in the series.
@@ -111,7 +110,6 @@ export default async function IndicesDashboard() {
           {' '}and will appear here as vintages publish.
         </p>
       </main>
-      <SiteFooter />
     </>
   );
 }

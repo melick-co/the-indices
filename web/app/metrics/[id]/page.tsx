@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import SiteFooter from '@/components/SiteFooter';
 import InputSeriesChart from '@/components/InputSeriesChart';
 import {
   DIAL_SCALES,
@@ -94,8 +93,8 @@ export default async function MetricPage({ params }: { params: { id: string } })
   return (
     <>
       <main className="article">
-        <div className="card-kicker">Metric · Australia</div>
-        <h1>{meta.name}</h1>
+        <p className="desk-kicker">Metric · Australia</p>
+        <h1 className="section-head" style={{ borderBottom: 'none' }}>{meta.name}</h1>
         <p className="measure">
           Latest reading{' '}
           {latest ? (
@@ -157,7 +156,6 @@ export default async function MetricPage({ params }: { params: { id: string } })
           </Link>
         </p>
       </main>
-      <SiteFooter />
     </>
   );
 }

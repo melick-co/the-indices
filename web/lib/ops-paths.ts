@@ -5,6 +5,8 @@ export function isOpsPath(pathname: string): boolean {
   if (pathname === '/account' || pathname.startsWith('/account/')) return true;
   if (pathname === '/login' || pathname.startsWith('/login/')) return true;
   if (pathname.startsWith('/auth/')) return true;
+  if (pathname === '/indices' || pathname.startsWith('/indices/')) return true;
+  if (pathname === '/metrics' || pathname.startsWith('/metrics/')) return true;
   if (/^\/stories\/[^/]+\/reel(?:\/|$)/.test(pathname)) return true;
   return false;
 }

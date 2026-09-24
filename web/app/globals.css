@@ -3722,6 +3722,67 @@ textarea.markets-input { resize: vertical; }
   letter-spacing: -0.025em;
 }
 
+.site-shell--ops .dashboard {
+  max-width: none;
+}
+
+.site-shell--ops .dashboard-section-title,
+.site-shell--ops .article h2 {
+  font-family: var(--font-ops);
+  font-style: normal;
+  font-weight: 600;
+  font-size: 24px;
+  letter-spacing: -0.025em;
+}
+
+.site-shell--ops .dashboard-section-desc {
+  color: var(--color-mid-gray);
+}
+
+.site-shell--ops .dial-card,
+.site-shell--ops .dash-card,
+.site-shell--ops .caveat-box {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 24px;
+  box-shadow: var(--shadow-subtle);
+}
+
+.site-shell--ops .dial-card:hover,
+.site-shell--ops .dash-card:hover {
+  background: #ffffff;
+  border-color: #e5e5e5;
+}
+
+.site-shell--ops .dial-card-kicker,
+.site-shell--ops .dial-unit,
+.site-shell--ops .dial-foot,
+.site-shell--ops .dial-change,
+.site-shell--ops .dial-age,
+.site-shell--ops .dashboard-legend,
+.site-shell--ops .readings-unit,
+.site-shell--ops .readings-period,
+.site-shell--ops .readings-change {
+  font-family: var(--font-ops);
+}
+
+.site-shell--ops .dial-value,
+.site-shell--ops .dash-score {
+  font-family: var(--font-ops);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.site-shell--ops .dial-age {
+  border-top-color: #e5e5e5;
+}
+
+.site-shell--ops .card-kicker {
+  font-family: var(--font-ops);
+  letter-spacing: 0.05em;
+  color: var(--color-mid-gray);
+}
+
 .site-shell--ops .badge-role {
   border-radius: 18px;
   background: #171717;

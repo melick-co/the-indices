@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import SiteFooter from '@/components/SiteFooter';
 import { ALL_INDICES, indexById } from '@/content/indices/registry';
 
 export const dynamicParams = false;
@@ -29,8 +28,8 @@ export default function IndexPage({ params }: { params: { id: string } }) {
   return (
     <>
       <main className="article">
-        <div className="card-kicker">Index · vintage {p.index.vintage}</div>
-        <h1>{p.index.name}</h1>
+        <p className="desk-kicker">Index · vintage {p.index.vintage}</p>
+        <h1 className="section-head" style={{ borderBottom: 'none' }}>{p.index.name}</h1>
         <p className="measure">{p.index.concept}. Scale {p.index.scale}; a higher score
           means greater pressure. Built to the {p.methodology.standard}.</p>
         <div className="byline">
@@ -241,7 +240,6 @@ export default function IndexPage({ params }: { params: { id: string } }) {
           </Link>
         </p>
       </main>
-      <SiteFooter />
     </>
   );
 }
