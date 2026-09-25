@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { AgeRestricted, RequestBlocked, TranscriptsDisabled, WebshareProxyConfig } from '@hallelx/youtube-transcript';
 import { appendContextTakeaways, formatYoutubeTakeaways, formatYoutubeUnavailable } from './context-takeaways';
-import { parseCaptionXml, youtubeVideoId } from './youtube-transcript';
+import { mapTranscriptError, parseCaptionXml, youtubeProxyConfig, youtubeVideoId } from './youtube-transcript';
 
 assert.equal(youtubeVideoId('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
 assert.equal(youtubeVideoId('https://youtu.be/dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
@@ -32,5 +33,20 @@ assert.equal(
   appendContextTakeaways('Look at household debt.', takeaways),
   `Look at household debt.\n\n${takeaways}`,
 );
+
+assert.equal(mapTranscriptError(new RequestBlocked('jNQXAC9IVRw')), 'YouTube blocked the transcript request from this host.');
+assert.equal(mapTranscriptError(new TranscriptsDisabled('jNQXAC9IVRw')), 'This video has no captions to transcribe.');
+assert.equal(mapTranscriptError(new AgeRestricted('jNQXAC9IVRw')), 'This video is age-restricted, so captions cannot be fetched here.');
+assert.equal(mapTranscriptError(new Error('The caption track was empty.')), 'The caption track was empty.');
+
+assert.equal(youtubeProxyConfig({}), undefined);
+assert.equal(youtubeProxyConfig({ WEBSHARE_PROXY_USERNAME: 'user' }), undefined);
+assert.ok(youtubeProxyConfig({
+  WEBSHARE_PROXY_USERNAME: 'user',
+  WEBSHARE_PROXY_PASSWORD: 'pass',
+}) instanceof WebshareProxyConfig);
+const generic = youtubeProxyConfig({ YOUTUBE_PROXY_HTTPS: 'http://user:pass@proxy.example:8080' });
+assert.ok(generic);
+assert.equal(generic.httpsUrl, 'http://user:pass@proxy.example:8080');
 
 console.log('youtube-transcript.check: ok');
