@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase-server';
 import { revalidatePath } from 'next/cache';
+import { fetchLinkContent as loadLinkContent } from '@/lib/link-content';
 import {
   ASK_INSTRUCTIONS,
   BRAINSTORM_INSTRUCTIONS,
@@ -19,7 +20,9 @@ import {
   SessionMessage,
 } from '@/lib/research-shared';
 
-export { fetchLinkContent } from '@/lib/link-content';
+export async function fetchLinkContent(url: string) {
+  return loadLinkContent(url);
+}
 
 function revalidateBrainstorm(sessionId?: string) {
   revalidatePath('/studio/brainstorm');

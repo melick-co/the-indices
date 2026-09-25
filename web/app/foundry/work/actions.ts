@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase-server';
 import { revalidatePath } from 'next/cache';
+import { fetchLinkContent as loadLinkContent } from '@/lib/link-content';
 import {
   buildInputPrompt,
   deriveTopicFromText,
@@ -15,7 +16,9 @@ import {
   type FoundryMessage,
 } from '@/lib/research-shared';
 
-export { fetchLinkContent } from '@/lib/link-content';
+export async function fetchLinkContent(url: string) {
+  return loadLinkContent(url);
+}
 
 function revalidateFoundry(sessionId?: string) {
   revalidatePath('/foundry/work');
