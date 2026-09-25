@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase-server';
 import { revalidatePath } from 'next/cache';
+import { fetchLinkContent as loadLinkContent } from '@/lib/link-content';
 import {
   buildInputPrompt,
   deriveTopicFromText,
@@ -15,7 +16,9 @@ import {
   type FoundryMessage,
 } from '@/lib/research-shared';
 
-const UA = 'Caveat-Foundry/0.1 (+https://the-indices.vercel.app)';
+export async function fetchLinkContent(url: string) {
+  return loadLinkContent(url);
+}
 
 function revalidateFoundry(sessionId?: string) {
   revalidatePath('/foundry/work');
@@ -59,34 +62,6 @@ export async function saveFoundrySession(
   if (error) return { ok: false as const, error: error.message };
   revalidateFoundry(sessionId);
   return { ok: true as const };
-}
-
-export async function fetchLinkContent(url: string) {
-  try {
-    const parsed = new URL(url);
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      return { ok: false as const, error: 'Only http(s) links are supported.' };
-    }
-    const res = await fetch(url, {
-      headers: { 'user-agent': UA, accept: 'text/html,text/plain,*/*' },
-      signal: AbortSignal.timeout(20000),
-      redirect: 'follow',
-    });
-    if (!res.ok) return { ok: false as const, error: `Fetch failed (${res.status})` };
-    const raw = await res.text();
-    const title = raw.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() ?? parsed.hostname;
-    const text = raw
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 12000);
-    return { ok: true as const, title, text, url };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Could not fetch link';
-    return { ok: false as const, error: msg };
-  }
 }
 
 export async function archiveFoundrySession(sessionId: string) {
