@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
+import { appendContextTakeaways } from '@/lib/context-takeaways';
 import { parseAngles, parseMonitoring, SessionInput } from '@/lib/research-shared';
 import {
   archiveBrainstormSession,
@@ -70,6 +71,9 @@ export default function BrainstormWorkspace({
         setError(fetched.error);
         return;
       }
+      const nextPrompt = fetched.takeaways
+        ? appendContextTakeaways(prompt, fetched.takeaways)
+        : prompt;
       const next: SessionInput[] = [...inputs, {
         id: uid(),
         type: 'link' as const,
@@ -78,7 +82,8 @@ export default function BrainstormWorkspace({
         content: fetched.text,
       }];
       setInputs(next);
-      await saveBrainstormSession(session.session_id, { title, prompt, inputs: next });
+      if (nextPrompt !== prompt) setPrompt(nextPrompt);
+      await saveBrainstormSession(session.session_id, { title, prompt: nextPrompt, inputs: next });
     });
   }
 
@@ -163,25 +168,26 @@ export default function BrainstormWorkspace({
       </div>
 
       <section style={card}>
-        <h3 className="section-head">Prompt</h3>
+        <h4 style={subhead}>Link</h4>
+        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="Paste a YouTube or article link"
+            style={{ ...inp, flex: 1, minWidth: '14rem' }} />
+          <button type="button" style={action('var(--ink)')} onClick={addLink} disabled={pending || !linkUrl.trim()}>
+            Fetch link
+          </button>
+          <label style={action('var(--ink-soft)')}>
+            Upload file
+            <input type="file" accept=".txt,.md,.csv,.json,.html" style={{ display: 'none' }}
+              onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+          </label>
+        </div>
+
+        <h3 className="section-head">Context</h3>
         <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} onBlur={saveDraft}
           rows={4} placeholder="What are you trying to figure out? e.g. Angles on household debt vs wage growth in Australia"
           style={textarea} />
 
         <div style={{ marginTop: '1rem' }}>
-          <h4 style={subhead}>Add context</h4>
-          <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginBottom: '.6rem' }}>
-            <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="Paste a link"
-              style={{ ...inp, flex: 1, minWidth: '14rem' }} />
-            <button type="button" style={action('var(--ink)')} onClick={addLink} disabled={pending || !linkUrl.trim()}>
-              Fetch link
-            </button>
-            <label style={action('var(--ink-soft)')}>
-              Upload file
-              <input type="file" accept=".txt,.md,.csv,.json,.html" style={{ display: 'none' }}
-                onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
-            </label>
-          </div>
           {inputs.map((input) => (
             <div key={input.id} style={inputRow}>
               <div style={meta}>

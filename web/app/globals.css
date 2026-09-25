@@ -1852,6 +1852,14 @@ table.data tr:hover td { background: transparent; }
   margin-bottom: 0.5rem;
 }
 
+.cc-context .cc-context-head:not(:first-child) {
+  margin-top: 1rem;
+}
+
+.cc-context-head + .cc-context-row {
+  margin-top: 0;
+}
+
 .cc-textarea,
 .cc-input {
   width: 100%;

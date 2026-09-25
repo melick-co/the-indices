@@ -20,6 +20,7 @@ import {
   type FoundryMessage,
   type FoundryToolStep,
 } from '@/lib/research-shared';
+import { appendContextTakeaways } from '@/lib/context-takeaways';
 import {
   archiveFoundrySession,
   bankFoundrySession,
@@ -406,6 +407,9 @@ export default function FoundryChat({
         setError(fetched.error);
         return;
       }
+      const nextPrompt = fetched.takeaways
+        ? appendContextTakeaways(prompt, fetched.takeaways)
+        : prompt;
       const next: SessionInput[] = [...inputs, {
         id: uid(),
         type: 'link' as const,
@@ -414,8 +418,11 @@ export default function FoundryChat({
         content: fetched.text,
       }];
       setInputs(next);
-      note(`Added link · ${fetched.title}`);
-      await saveFoundrySession(sessionId, { title, prompt, inputs: next, intent });
+      if (nextPrompt !== prompt) setPrompt(nextPrompt);
+      note(fetched.kind === 'youtube'
+        ? `Transcribed YouTube · ${fetched.title}`
+        : `Added link · ${fetched.title}`);
+      await saveFoundrySession(sessionId, { title, prompt: nextPrompt, inputs: next, intent });
     });
   }
 
@@ -638,21 +645,13 @@ export default function FoundryChat({
 
       {showContext && (
         <section className="cc-context">
-          <div className="cc-context-head">context</div>
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onBlur={saveDraft}
-            rows={3}
-            placeholder="The standing question or topic for this session. Every turn is run against it."
-            className="cc-textarea"
-          />
+          <div className="cc-context-head">link</div>
           <div className="cc-context-row">
             <input
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLink(linkUrl); } }}
-              placeholder="Paste a link to read into context"
+              placeholder="Paste a YouTube or article link"
               className="cc-input"
             />
             <button type="button" className="cc-link" onClick={() => addLink(linkUrl)}
@@ -665,6 +664,15 @@ export default function FoundryChat({
                 onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
             </label>
           </div>
+          <div className="cc-context-head">context</div>
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onBlur={saveDraft}
+            rows={3}
+            placeholder="The standing question or topic for this session. Every turn is run against it. YouTube takeaways land here."
+            className="cc-textarea"
+          />
           {inputs.map((input) => (
             <div key={input.id} className="cc-context-item">
               <span>

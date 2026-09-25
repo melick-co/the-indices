@@ -19,7 +19,7 @@ import {
   SessionMessage,
 } from '@/lib/research-shared';
 
-const UA = 'Caveat-Studio/0.1 (+https://the-indices.vercel.app)';
+export { fetchLinkContent } from '@/lib/link-content';
 
 function revalidateBrainstorm(sessionId?: string) {
   revalidatePath('/studio/brainstorm');
@@ -57,33 +57,6 @@ export async function saveBrainstormSession(
   if (error) return { ok: false as const, error: error.message };
   revalidateBrainstorm(sessionId);
   return { ok: true as const };
-}
-
-export async function fetchLinkContent(url: string) {
-  try {
-    const parsed = new URL(url);
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      return { ok: false as const, error: 'Only http(s) links are supported.' };
-    }
-    const res = await fetch(url, {
-      headers: { 'user-agent': UA, accept: 'text/html,text/plain,*/*' },
-      signal: AbortSignal.timeout(20000),
-      redirect: 'follow',
-    });
-    if (!res.ok) return { ok: false as const, error: `Fetch failed (${res.status})` };
-    const raw = await res.text();
-    const title = raw.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() ?? parsed.hostname;
-    const text = raw
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 12000);
-    return { ok: true as const, title, text, url };
-  } catch (e: any) {
-    return { ok: false as const, error: e.message ?? 'Could not fetch link' };
-  }
 }
 
 export async function runBrainstorm(sessionId: string, followUp?: string) {
