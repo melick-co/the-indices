@@ -1860,6 +1860,12 @@ table.data tr:hover td { background: transparent; }
   margin-top: 0;
 }
 
+.cc-link-status {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--color-mid-gray, #737373);
+}
+
 .cc-textarea,
 .cc-input {
   width: 100%;

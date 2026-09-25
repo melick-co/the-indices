@@ -18,10 +18,24 @@ export type YoutubeTranscript = {
   text: string;
 };
 
+export type YoutubeLoad =
+  | { ok: true; videoId: string; url: string; title: string; text: string; language: string; generated: boolean }
+  | { ok: false; videoId: string; url: string; title: string; error: string };
+
+export function normalizeHttpUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^(www\.)?(youtube\.com|youtu\.be|m\.youtube\.com)\//i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+}
+
 export function youtubeVideoId(raw: string): string | null {
   let url: URL;
   try {
-    url = new URL(raw.trim());
+    url = new URL(normalizeHttpUrl(raw));
   } catch {
     return null;
   }
@@ -45,6 +59,29 @@ export function youtubeVideoId(raw: string): string | null {
 function validId(id?: string | null): string | null {
   if (!id) return null;
   return /^[\w-]{11}$/.test(id) ? id : null;
+}
+
+export async function loadYoutube(url: string): Promise<YoutubeLoad> {
+  const clean = normalizeHttpUrl(url);
+  const videoId = youtubeVideoId(clean);
+  if (!videoId) return { ok: false, videoId: '', url: clean, title: clean, error: 'That does not look like a YouTube link.' };
+  const canonical = `${WATCH_URL}${videoId}`;
+  try {
+    const transcript = await fetchYoutubeTranscript(canonical);
+    return {
+      ok: true,
+      videoId,
+      url: canonical,
+      title: transcript.title,
+      text: transcript.text,
+      language: transcript.language,
+      generated: transcript.generated,
+    };
+  } catch (e: unknown) {
+    const error = e instanceof Error ? e.message : 'Could not transcribe this YouTube video.';
+    const title = await lookupYoutubeTitle(videoId, canonical) || `YouTube ${videoId}`;
+    return { ok: false, videoId, url: canonical, title, error };
+  }
 }
 
 export async function fetchYoutubeTranscript(url: string): Promise<YoutubeTranscript> {
@@ -88,10 +125,7 @@ export async function fetchYoutubeTranscript(url: string): Promise<YoutubeTransc
   const text = parseCaptionXml(xml);
   if (!text) throw new Error('The caption track was empty.');
 
-  const title = decodeEntities(
-    html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.replace(/\s*-\s*YouTube\s*$/i, '').trim()
-    ?? `YouTube ${videoId}`,
-  );
+  const title = titleFromHtml(html) ?? `YouTube ${videoId}`;
 
   return {
     videoId,
@@ -110,6 +144,32 @@ function pickTrack(tracks: Array<{ baseUrl?: string; languageCode?: string; kind
     if (hit) return hit;
   }
   return manual[0] ?? generated[0] ?? tracks[0];
+}
+
+async function lookupYoutubeTitle(videoId: string, canonical: string): Promise<string | null> {
+  try {
+    const oembed = await fetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(canonical)}&format=json`,
+      { headers: { 'user-agent': UA, accept: 'application/json' }, signal: AbortSignal.timeout(10000) },
+    );
+    if (oembed.ok) {
+      const body = await oembed.json() as { title?: string };
+      if (body.title?.trim()) return body.title.trim();
+    }
+  } catch { /* fall through */ }
+  try {
+    const html = await fetchText(`${WATCH_URL}${videoId}`);
+    return titleFromHtml(html);
+  } catch {
+    return null;
+  }
+}
+
+function titleFromHtml(html: string): string | null {
+  const raw = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
+  if (!raw) return null;
+  const title = decodeEntities(raw.replace(/\s*-\s*YouTube\s*$/i, '').trim());
+  return title || null;
 }
 
 async function fetchWatchHtml(videoId: string): Promise<string> {

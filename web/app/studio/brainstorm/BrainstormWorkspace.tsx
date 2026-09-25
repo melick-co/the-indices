@@ -33,6 +33,8 @@ export default function BrainstormWorkspace({
   const [answer, setAnswer] = useState<string | null>(session.answer ?? null);
   const [followUp, setFollowUp] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkStatus, setLinkStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [bankMsg, setBankMsg] = useState<string | null>(null);
   const [trackMsg, setTrackMsg] = useState<string | null>(null);
@@ -60,14 +62,16 @@ export default function BrainstormWorkspace({
     });
   }
 
-  function addLink() {
-    if (!linkUrl.trim()) return;
+  async function addLink() {
     const url = linkUrl.trim();
-    setLinkUrl('');
-    start(async () => {
-      setError(null);
+    if (!url || linkBusy) return;
+    setLinkBusy(true);
+    setLinkStatus('Fetching…');
+    setError(null);
+    try {
       const fetched = await fetchLinkContent(url);
       if (!fetched.ok) {
+        setLinkStatus(fetched.error);
         setError(fetched.error);
         return;
       }
@@ -77,14 +81,27 @@ export default function BrainstormWorkspace({
       const next: SessionInput[] = [...inputs, {
         id: uid(),
         type: 'link' as const,
-        url,
+        url: fetched.url || url,
         label: fetched.title,
         content: fetched.text,
       }];
       setInputs(next);
       if (nextPrompt !== prompt) setPrompt(nextPrompt);
+      setLinkUrl('');
+      const blocked = fetched.kind === 'youtube' && (fetched.takeaways ?? '').includes('Could not transcribe');
+      setLinkStatus(blocked
+        ? 'Could not read captions. The title and link are in context.'
+        : fetched.kind === 'youtube'
+          ? `Wrote takeaways from ${fetched.title} into context.`
+          : `Added ${fetched.title}`);
       await saveBrainstormSession(session.session_id, { title, prompt: nextPrompt, inputs: next });
-    });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Could not fetch that link.';
+      setLinkStatus(msg);
+      setError(msg);
+    } finally {
+      setLinkBusy(false);
+    }
   }
 
   function onFile(file: File | null) {
@@ -172,8 +189,8 @@ export default function BrainstormWorkspace({
         <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
           <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="Paste a YouTube or article link"
             style={{ ...inp, flex: 1, minWidth: '14rem' }} />
-          <button type="button" style={action('var(--ink)')} onClick={addLink} disabled={pending || !linkUrl.trim()}>
-            Fetch link
+          <button type="button" style={action('var(--ink)')} onClick={addLink} disabled={linkBusy || !linkUrl.trim()}>
+            {linkBusy ? 'Fetching…' : 'Fetch link'}
           </button>
           <label style={action('var(--ink-soft)')}>
             Upload file
@@ -181,6 +198,7 @@ export default function BrainstormWorkspace({
               onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
           </label>
         </div>
+        {linkStatus && <p className="cc-link-status" style={{ marginTop: 0, marginBottom: 12 }}>{linkStatus}</p>}
 
         <h3 className="section-head">Context</h3>
         <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} onBlur={saveDraft}

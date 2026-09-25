@@ -137,6 +137,8 @@ export default function FoundryChat({
   const forkedBranches = useMemo(() => forkIndex(forks), [forks]);
   const [composer, setComposer] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkStatus, setLinkStatus] = useState<string | null>(null);
   const [showContext, setShowContext] = useState(
     () => !normalizeMessages(session.messages).length,
   );
@@ -396,15 +398,16 @@ export default function FoundryChat({
 
   /* ---------- session actions ---------- */
 
-  function addLink(url: string) {
+  async function addLink(url: string) {
     const clean = url.trim();
-    if (!clean) return;
-    setLinkUrl('');
-    start(async () => {
-      setError(null);
+    if (!clean || linkBusy) return;
+    setLinkBusy(true);
+    setLinkStatus('Fetching…');
+    setError(null);
+    try {
       const fetched = await fetchLinkContent(clean);
       if (!fetched.ok) {
-        setError(fetched.error);
+        setLinkStatus(fetched.error);
         return;
       }
       const nextPrompt = fetched.takeaways
@@ -413,17 +416,28 @@ export default function FoundryChat({
       const next: SessionInput[] = [...inputs, {
         id: uid(),
         type: 'link' as const,
-        url: clean,
+        url: fetched.url || clean,
         label: fetched.title,
         content: fetched.text,
       }];
       setInputs(next);
       if (nextPrompt !== prompt) setPrompt(nextPrompt);
+      setLinkUrl('');
+      const blocked = fetched.kind === 'youtube' && (fetched.takeaways ?? '').includes('Could not transcribe');
+      setLinkStatus(blocked
+        ? 'Could not read captions. The title and link are in context.'
+        : fetched.kind === 'youtube'
+          ? `Wrote takeaways from ${fetched.title} into context.`
+          : `Added ${fetched.title}`);
       note(fetched.kind === 'youtube'
-        ? `Transcribed YouTube · ${fetched.title}`
+        ? (blocked ? `YouTube blocked captions · ${fetched.title}` : `Transcribed YouTube · ${fetched.title}`)
         : `Added link · ${fetched.title}`);
       await saveFoundrySession(sessionId, { title, prompt: nextPrompt, inputs: next, intent });
-    });
+    } catch (e: unknown) {
+      setLinkStatus(e instanceof Error ? e.message : 'Could not fetch that link.');
+    } finally {
+      setLinkBusy(false);
+    }
   }
 
   function onFile(file: File | null) {
@@ -655,8 +669,8 @@ export default function FoundryChat({
               className="cc-input"
             />
             <button type="button" className="cc-link" onClick={() => addLink(linkUrl)}
-              disabled={pending || !linkUrl.trim()}>
-              fetch
+              disabled={linkBusy || !linkUrl.trim()}>
+              {linkBusy ? 'fetching…' : 'fetch'}
             </button>
             <label className="cc-link" style={{ cursor: 'pointer' }}>
               upload
@@ -664,12 +678,13 @@ export default function FoundryChat({
                 onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
             </label>
           </div>
+          {linkStatus && <p className="cc-link-status">{linkStatus}</p>}
           <div className="cc-context-head">context</div>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onBlur={saveDraft}
-            rows={3}
+            rows={Math.min(12, Math.max(4, prompt.split('\n').length + 1))}
             placeholder="The standing question or topic for this session. Every turn is run against it. YouTube takeaways land here."
             className="cc-textarea"
           />

@@ -10,3 +10,13 @@ export function formatYoutubeTakeaways(title: string, bullets: string[]): string
   if (!lines.length) return '';
   return `Key takeaways from ${title}:\n${lines.join('\n')}`;
 }
+
+export function formatYoutubeUnavailable(title: string, url: string, reason: string): string {
+  return [
+    `YouTube: ${title}`,
+    url,
+    '',
+    `Could not transcribe captions. ${reason}`,
+    'The link is attached to this session. Add notes from the video here, or try fetch again.',
+  ].join('\n');
+}

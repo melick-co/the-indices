@@ -1,5 +1,5 @@
-import { formatYoutubeTakeaways } from './context-takeaways';
-import { fetchYoutubeTranscript, youtubeVideoId } from './youtube-transcript';
+import { formatYoutubeTakeaways, formatYoutubeUnavailable } from './context-takeaways';
+import { loadYoutube, normalizeHttpUrl, youtubeVideoId } from './youtube-transcript';
 
 export { appendContextTakeaways, formatYoutubeTakeaways } from './context-takeaways';
 
@@ -19,26 +19,37 @@ export async function fetchLinkContent(url: string): Promise<
   { ok: true } & FetchedLink | { ok: false; error: string }
 > {
   try {
-    const parsed = new URL(url);
+    const href = normalizeHttpUrl(url);
+    const parsed = new URL(href);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       return { ok: false, error: 'Only http(s) links are supported.' };
     }
 
-    if (youtubeVideoId(url)) {
-      const transcript = await fetchYoutubeTranscript(url);
-      const text = transcript.text.slice(0, TRANSCRIPT_LIMIT);
-      const takeaways = await summariseTranscript(transcript.title, text);
+    if (youtubeVideoId(href)) {
+      const loaded = await loadYoutube(href);
+      if (!loaded.ok) {
+        return {
+          ok: true,
+          title: loaded.title,
+          text: `${loaded.title}\n${loaded.url}`,
+          url: loaded.url,
+          kind: 'youtube',
+          takeaways: formatYoutubeUnavailable(loaded.title, loaded.url, loaded.error),
+        };
+      }
+      const text = loaded.text.slice(0, TRANSCRIPT_LIMIT);
+      const takeaways = await summariseTranscript(loaded.title, text);
       return {
         ok: true,
-        title: transcript.title,
+        title: loaded.title,
         text,
-        url,
+        url: loaded.url,
         kind: 'youtube',
         takeaways,
       };
     }
 
-    const res = await fetch(url, {
+    const res = await fetch(href, {
       headers: { 'user-agent': PAGE_UA, accept: 'text/html,text/plain,*/*' },
       signal: AbortSignal.timeout(20000),
       redirect: 'follow',
@@ -53,7 +64,7 @@ export async function fetchLinkContent(url: string): Promise<
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, PAGE_LIMIT);
-    return { ok: true, title, text, url, kind: 'page' };
+    return { ok: true, title, text, url: href, kind: 'page' };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Could not fetch link';
     return { ok: false, error: msg };
