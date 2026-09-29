@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
+    serverComponentsExternalPackages: ['@hallelx/youtube-transcript', 'undici'],
     outputFileTracingIncludes: {
       '/api/foundry/refresh': [
         '../agent/scripts/**/*',
