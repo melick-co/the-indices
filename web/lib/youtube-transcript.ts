@@ -187,7 +187,8 @@ function titleFromHtml(html: string): string | null {
   const raw = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
   if (!raw) return null;
   const title = decodeEntities(raw.replace(/\s*-\s*YouTube\s*$/i, '').trim());
-  return title || null;
+  // Unavailable videos serve a bare "YouTube" title.
+  return title && title.toLowerCase() !== 'youtube' ? title : null;
 }
 
 async function fetchText(url: string, extraHeaders: Record<string, string> = {}) {
