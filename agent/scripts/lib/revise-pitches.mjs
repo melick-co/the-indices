@@ -67,11 +67,12 @@ ${JSON.stringify(pitches.map((p) => ({
 
 For each pitch return:
 - revised: true if headline/hook/mechanism/caveat/chart_hint changed materially; false if already accurate
-- headline, hook, mechanism, caveat, chart_hint (always include full set)
+- when revised is true: headline, hook, mechanism, caveat, chart_hint (full set)
+- when revised is false: omit those five fields
 - revision_note: one line on what moved (or "unchanged")
 
 Respond ONLY with valid JSON, no markdown:
-{"revisions":[{"id":"...","revised":true,"headline":"...","hook":"...","mechanism":"...","caveat":"...","chart_hint":"...","revision_note":"..."}]}`;
+{"revisions":[{"id":"...","revised":true,"headline":"...","hook":"...","mechanism":"...","caveat":"...","chart_hint":"...","revision_note":"..."},{"id":"...","revised":false,"revision_note":"unchanged"}]}`;
 }
 
 async function callClaude(prompt) {
@@ -84,14 +85,36 @@ async function callClaude(prompt) {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4000,
+      max_tokens: 16000,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
   if (!res.ok) throw new Error(`anthropic ${res.status}: ${await res.text()}`);
   const body = await res.json();
+  if (body.stop_reason === 'max_tokens') throw new TruncatedError();
   const text = (body.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join('');
   return JSON.parse(text.replace(/```json|```/g, '').trim());
+}
+
+class TruncatedError extends Error {
+  constructor() { super('response hit max_tokens'); }
+}
+
+/** Revise one batch; if the reply is cut off, split the batch and try each half. */
+async function reviseBatch(db, charter, batch) {
+  const metricIds = [...new Set(batch.flatMap(pitchMetrics))];
+  const snapshots = await snapshotMetrics(db, metricIds);
+  try {
+    const verdict = await callClaude(buildRevisePrompt(charter, batch, snapshots));
+    return verdict.revisions ?? [];
+  } catch (e) {
+    if (!(e instanceof TruncatedError) || batch.length < 2) throw e;
+    const mid = Math.ceil(batch.length / 2);
+    return [
+      ...(await reviseBatch(db, charter, batch.slice(0, mid))),
+      ...(await reviseBatch(db, charter, batch.slice(mid))),
+    ];
+  }
 }
 
 /**
@@ -113,25 +136,31 @@ export async function revisePitches(db, opts = {}) {
 
   if (!toRevise.length) {
     onProgress('No active pitches linked to changed metrics.');
-    return { revised: 0, skipped: allActive?.length ?? 0, details: [] };
+    return { revised: 0, failed: 0, skipped: allActive?.length ?? 0, details: [] };
   }
 
   onProgress(`Revising ${toRevise.length} pitch(es)…`);
   const now = new Date().toISOString();
   const details = [];
   let revised = 0;
+  let failed = 0;
 
   for (let i = 0; i < toRevise.length; i += BATCH_SIZE) {
     const batch = toRevise.slice(i, i + BATCH_SIZE);
-    const metricIds = [...new Set(batch.flatMap(pitchMetrics))];
-    const snapshots = await snapshotMetrics(db, metricIds);
-    const prompt = buildRevisePrompt(charter, batch, snapshots);
-    const verdict = await callClaude(prompt);
+    let revisions;
+    try {
+      revisions = await reviseBatch(db, charter, batch);
+    } catch (e) {
+      // One bad batch should not throw away the rest of the night's revisions.
+      failed += batch.length;
+      onProgress(`  Batch of ${batch.length} failed: ${e.message}`);
+      continue;
+    }
 
-    for (const r of verdict.revisions ?? []) {
+    for (const r of revisions) {
       const pitch = batch.find((p) => p.id === r.id);
       if (!pitch) continue;
-      if (!r.revised) {
+      if (!r.revised || !r.headline) {
         await db.from('pitches').update({ last_evaluated: now }).eq('id', r.id);
         details.push({ id: r.id, headline: pitch.headline, revised: false, note: r.revision_note });
         continue;
@@ -151,7 +180,7 @@ export async function revisePitches(db, opts = {}) {
     }
   }
 
-  return { revised, skipped: (allActive?.length ?? 0) - toRevise.length, details };
+  return { revised, failed, skipped: (allActive?.length ?? 0) - toRevise.length, details };
 }
 
 /**
@@ -169,7 +198,7 @@ export async function followActivePitches(db, changedMetrics, onProgress) {
   const overlap = changedMetrics.filter((m) => tracked.has(m));
   if (!overlap.length && !changedMetrics.length) {
     onProgress('No tracked metrics changed overnight.');
-    return { revised: 0, skipped: 0, details: [] };
+    return { revised: 0, failed: 0, skipped: 0, details: [] };
   }
   return revisePitches(db, {
     changedMetrics: overlap.length ? overlap : changedMetrics,

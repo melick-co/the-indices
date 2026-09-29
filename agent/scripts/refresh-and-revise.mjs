@@ -71,12 +71,9 @@ export async function runRefreshPipeline(opts = {}) {
 
   emit(`Metrics touched: ${changedMetrics.length ? changedMetrics.join(', ') : '(none)'}`);
 
-  const reviseFn = opts.overnight ? followActivePitches : revisePitches;
-  const revise = await reviseFn(db, {
-    changedMetrics,
-    forceAll: opts.forceAll,
-    onProgress: emit,
-  });
+  const revise = opts.overnight
+    ? await followActivePitches(db, changedMetrics, emit)
+    : await revisePitches(db, { changedMetrics, forceAll: opts.forceAll, onProgress: emit });
 
   const run = {
     sources_changed: sourcesChanged,

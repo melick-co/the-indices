@@ -69,6 +69,10 @@ async function main() {
     console.log('\nFollowing active pitches to fresh data…');
     const revise = await followActivePitches(db, [...changed], (msg) => console.log(msg));
     console.log(`Revised ${revise.revised} pitch(es).`);
+    if (revise.failed) {
+      console.error(`${revise.failed} pitch(es) could not be revised; see batch errors above.`);
+      process.exitCode = 1;
+    }
   }
 }
 

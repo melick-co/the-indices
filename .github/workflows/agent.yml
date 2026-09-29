@@ -175,7 +175,7 @@ jobs:
       (inputs.task == 'sources' || inputs.task == 'both') ||
       github.event_name == 'schedule' && github.event.schedule == '0 2 * * *'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     defaults:
       run: { working-directory: agent }
     steps:
