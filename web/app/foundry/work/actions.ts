@@ -1,4 +1,5 @@
 'use server';
+import { requireAdmin } from '@/lib/auth';
 
 import { createClient } from '@/lib/supabase-server';
 import { revalidatePath } from 'next/cache';
@@ -28,6 +29,7 @@ export async function createFoundrySession(
   prompt?: string,
   intent: FoundryIntent = 'investigate',
 ) {
+  await requireAdmin();
   const supabase = createClient();
   const { data, error } = await supabase.from('research_sessions').insert({
     mode: 'foundry',
@@ -49,6 +51,7 @@ export async function saveFoundrySession(
   sessionId: string,
   patch: { title?: string; prompt?: string; inputs?: SessionInput[]; intent?: FoundryIntent },
 ) {
+  await requireAdmin();
   const supabase = createClient();
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.title != null) row.title = patch.title.trim() || 'Untitled session';
@@ -62,6 +65,7 @@ export async function saveFoundrySession(
 }
 
 export async function fetchLinkContent(url: string) {
+  await requireAdmin();
   try {
     const parsed = new URL(url);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
@@ -90,6 +94,7 @@ export async function fetchLinkContent(url: string) {
 }
 
 export async function archiveFoundrySession(sessionId: string) {
+  await requireAdmin();
   const supabase = createClient();
   const { error } = await supabase.from('research_sessions')
     .update({ status: 'archived', updated_at: new Date().toISOString() })
@@ -105,6 +110,7 @@ export async function bankFoundrySession(
   messageId?: string,
   angleHeadline?: string,
 ) {
+  await requireAdmin();
   const supabase = createClient();
   const { data: s, error: sessionErr } = await supabase.from('research_sessions')
     .select('question, answer, title, messages').eq('session_id', sessionId).single();
@@ -159,6 +165,7 @@ export type MonitorSelection = {
 };
 
 export async function setupMonitoring(sessionId: string, selection: MonitorSelection) {
+  await requireAdmin();
   const supabase = createClient();
   const created: string[] = [];
 
@@ -238,6 +245,7 @@ export async function setupMonitoring(sessionId: string, selection: MonitorSelec
 }
 
 export async function trackSession(sessionId: string) {
+  await requireAdmin();
   const supabase = createClient();
   const { data: session, error } = await supabase.from('research_sessions')
     .select('session_id, mode, question, title, monitoring')
@@ -299,6 +307,7 @@ export async function persistFoundryMessages(
   messages: FoundryMessage[],
   patch?: { answer?: string; tools_used?: string[]; verdict?: string | null },
 ) {
+  await requireAdmin();
   const supabase = createClient();
   const { error } = await supabase.from('research_sessions').update({
     messages,

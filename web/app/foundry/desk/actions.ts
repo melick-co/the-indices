@@ -1,4 +1,5 @@
 'use server';
+import { requireAdmin } from '@/lib/auth';
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase-server';
@@ -66,6 +67,7 @@ async function unpinAll(supabase: ReturnType<typeof createClient>) {
 }
 
 export async function pinHero(slug: string) {
+  await requireAdmin();
   const supabase = createClient();
   await unpinAll(supabase);
   const now = new Date().toISOString();
@@ -80,6 +82,7 @@ export async function pinHero(slug: string) {
 }
 
 export async function unpinHero(slug: string) {
+  await requireAdmin();
   const supabase = createClient();
   const now = new Date().toISOString();
   if (usesDeskOverlay(slug)) {
@@ -93,6 +96,7 @@ export async function unpinHero(slug: string) {
 }
 
 export async function setHomeSection(slug: string, section: HomeSection | null) {
+  await requireAdmin();
   const supabase = createClient();
   const now = new Date().toISOString();
   if (section === 'hero') await unpinAll(supabase);
@@ -118,6 +122,7 @@ export async function reorderSection(
   section: Exclude<HomeSection, 'hero'>,
   orderedSlugs: string[],
 ) {
+  await requireAdmin();
   const supabase = createClient();
   const now = new Date().toISOString();
   for (let i = 0; i < orderedSlugs.length; i += 1) {
@@ -138,6 +143,7 @@ export async function reorderSection(
 }
 
 export async function setStoryStatus(slug: string, status: 'draft' | 'published' | 'archived') {
+  await requireAdmin();
   if (usesDeskOverlay(slug)) {
     throw new Error('Founding stories are always published. Edit status in the repo.');
   }
@@ -235,6 +241,7 @@ function sanitiseBody(body: StoryBody): StoryBody {
 }
 
 export async function saveStoryCopy(slug: string, payload: StoryCopyPayload) {
+  await requireAdmin();
   requireText('Title', payload.title);
   requireText('Kicker', payload.kicker);
   requireText('Hook', payload.hook);
@@ -278,6 +285,7 @@ export async function saveStoryCopy(slug: string, payload: StoryCopyPayload) {
 }
 
 export async function saveHeroImage(slug: string, url: string, alt: string) {
+  await requireAdmin();
   const heroImageUrl = url.trim() || null;
   const heroImageAlt = alt.trim() || null;
   const now = new Date().toISOString();
@@ -299,6 +307,7 @@ export async function recordStoryArt(
   slug: string,
   piece: Omit<StoryArt, 'id' | 'createdAt'> & { id?: string; createdAt?: string },
 ) {
+  await requireAdmin();
   const supabase = createClient();
   const now = new Date().toISOString();
   if (usesDeskOverlay(slug)) {
@@ -340,6 +349,7 @@ export type DeskRender = {
 
 /** Succeeded Runway (or other) renders for this slug. Read-only; does not start jobs. */
 export async function loadSucceededRenders(slug: string): Promise<DeskRender[]> {
+  await requireAdmin();
   const supabase = createClient();
   const { data, error } = await supabase.from('story_reel_renders')
     .select('render_id, kind, output_url, prompt_text')
@@ -362,6 +372,7 @@ export async function loadSucceededRenders(slug: string): Promise<DeskRender[]> 
 
 /** Attach an existing render URL to the story. Does not call Runway. */
 export async function attachRenderToStory(slug: string, render: DeskRender, asHero: boolean) {
+  await requireAdmin();
   const isClip = render.kind === 'clip' || render.kind === 'chart_video' || render.kind === 'reel';
   return recordStoryArt(slug, {
     kind: asHero ? 'hero' : isClip ? 'clip' : 'still',

@@ -1,4 +1,5 @@
 'use server';
+import { requireAdmin } from '@/lib/auth';
 
 import { createClient } from '@/lib/supabase-server';
 import { revalidatePath } from 'next/cache';
@@ -28,6 +29,7 @@ function revalidateBrainstorm(sessionId?: string) {
 }
 
 export async function createBrainstormSession(title?: string, prompt?: string) {
+  await requireAdmin();
   const supabase = createClient();
   const { data, error } = await supabase.from('research_sessions').insert({
     mode: 'brainstorm',
@@ -48,6 +50,7 @@ export async function saveBrainstormSession(
   sessionId: string,
   patch: { title?: string; prompt?: string; inputs?: SessionInput[] },
 ) {
+  await requireAdmin();
   const supabase = createClient();
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.title != null) row.title = patch.title.trim() || 'Untitled brainstorm';
@@ -60,6 +63,7 @@ export async function saveBrainstormSession(
 }
 
 export async function fetchLinkContent(url: string) {
+  await requireAdmin();
   try {
     const parsed = new URL(url);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
@@ -87,6 +91,7 @@ export async function fetchLinkContent(url: string) {
 }
 
 export async function runBrainstorm(sessionId: string, followUp?: string) {
+  await requireAdmin();
   const started = Date.now();
   const supabase = createClient();
   const { data: session, error: loadErr } = await supabase.from('research_sessions')
@@ -144,6 +149,7 @@ export async function runBrainstorm(sessionId: string, followUp?: string) {
 }
 
 export async function archiveBrainstormSession(sessionId: string) {
+  await requireAdmin();
   const supabase = createClient();
   const { error } = await supabase.from('research_sessions')
     .update({ status: 'archived', updated_at: new Date().toISOString() })
@@ -158,6 +164,7 @@ export async function bankBrainstorm(
   headline: string,
   angleHeadline?: string,
 ) {
+  await requireAdmin();
   const supabase = createClient();
   const { data: s, error: sessionErr } = await supabase.from('research_sessions')
     .select('question, answer, title').eq('session_id', sessionId).single();
@@ -197,6 +204,7 @@ export type MonitorSelection = {
 };
 
 export async function setupMonitoring(sessionId: string, selection: MonitorSelection) {
+  await requireAdmin();
   const supabase = createClient();
   const created: string[] = [];
 
@@ -277,6 +285,7 @@ export async function setupMonitoring(sessionId: string, selection: MonitorSelec
 
 /** Legacy ask entry — kept for /studio/ask */
 export async function research(mode: 'ask' | 'brainstorm', question: string) {
+  await requireAdmin();
   const started = Date.now();
   const supabase = createClient();
   const metricList = await loadMetricList();
@@ -313,11 +322,13 @@ export async function research(mode: 'ask' | 'brainstorm', question: string) {
 }
 
 export async function bankResearch(sessionId: string, headline: string) {
+  await requireAdmin();
   return bankBrainstorm(sessionId, headline);
 }
 
 /** Route session into the right watch list: Ask → tracked topics, Brainstorm → session index. */
 export async function trackSession(sessionId: string) {
+  await requireAdmin();
   const supabase = createClient();
   const { data: session, error } = await supabase.from('research_sessions')
     .select('session_id, mode, question, title, monitoring')
@@ -377,6 +388,7 @@ export async function trackSession(sessionId: string) {
 }
 
 export async function addTopic(label: string, keywords: string, why: string) {
+  await requireAdmin();
   const supabase = createClient();
   await supabase.from('tracked_topics').insert({
     label,
@@ -387,6 +399,7 @@ export async function addTopic(label: string, keywords: string, why: string) {
 }
 
 export async function toggleTopic(topicId: string, active: boolean) {
+  await requireAdmin();
   const supabase = createClient();
   await supabase.from('tracked_topics').update({ active }).eq('topic_id', topicId);
   revalidateBrainstorm();

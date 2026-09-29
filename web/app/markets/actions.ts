@@ -1,4 +1,5 @@
 'use server';
+import { requireAdmin } from '@/lib/auth';
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase-server';
@@ -19,6 +20,7 @@ export type InspectedSource = {
 export async function inspectSourceUrl(rawUrl: string): Promise<
   { ok: true; data: InspectedSource } | { ok: false; error: string }
 > {
+  await requireAdmin();
   try {
     const parsed = new URL(rawUrl);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
@@ -72,6 +74,7 @@ export async function addMarketWatch(input: {
   provider?: MarketProvider;
   symbol?: string;
 }) {
+  await requireAdmin();
   const label = input.label.trim();
   if (!label) return { ok: false as const, error: 'Give the series a name.' };
   let url: URL;
@@ -143,6 +146,7 @@ export async function addMarketWatch(input: {
 }
 
 export async function dropMarketWatch(watchId: string) {
+  await requireAdmin();
   const supabase = createClient();
   const { error } = await supabase.from('market_watches')
     .update({ status: 'dropped', updated_at: new Date().toISOString() })
@@ -154,6 +158,7 @@ export async function dropMarketWatch(watchId: string) {
 }
 
 export async function proposeMarketWatch(watchId: string, why?: string) {
+  await requireAdmin();
   const supabase = createClient();
   const { data: watch, error } = await supabase.from('market_watches')
     .select('*').eq('watch_id', watchId).maybeSingle();
@@ -190,6 +195,7 @@ export async function proposeMarketWatch(watchId: string, why?: string) {
 }
 
 export async function refreshMarketWatches() {
+  await requireAdmin();
   const { refreshStaleWatches, loadMarketWatches } = await import('@/lib/markets-loader');
   try {
     await refreshStaleWatches(await loadMarketWatches(), { force: true });

@@ -1,4 +1,4 @@
-import { createClient } from './supabase-server';
+import { createSessionClient } from './supabase-server';
 
 export interface Profile {
   id: string; email: string | null; role: 'admin' | 'subscriber';
@@ -8,7 +8,7 @@ export interface Profile {
 
 /** Current user's profile, or null when signed out. */
 export async function getProfile(): Promise<Profile | null> {
-  const supabase = createClient();
+  const supabase = createSessionClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
@@ -23,4 +23,15 @@ export async function getProfile(): Promise<Profile | null> {
 
 export async function isAdmin(): Promise<boolean> {
   return (await getProfile())?.role === 'admin';
+}
+
+/**
+ * Throw unless the caller is a signed-in admin.
+ * Server actions can be invoked from any route, so middleware alone does not
+ * protect them: call this first in every admin action and route handler.
+ */
+export async function requireAdmin(): Promise<Profile> {
+  const profile = await getProfile();
+  if (profile?.role !== 'admin') throw new Error('Not authorised.');
+  return profile;
 }

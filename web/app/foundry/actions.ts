@@ -1,4 +1,5 @@
 'use server';
+import { requireAdmin } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase-server';
 
@@ -11,6 +12,7 @@ const STATE_FOR: Partial<Record<Action, string>> = {
 /** Records the decision AND moves the pitch. Feedback is what teaches the taste
  *  layer: every action here lands in the next run's prompt. Nothing is deleted. */
 export async function act(pitchId: string, action: Action, comment?: string) {
+  await requireAdmin();
   const supabase = createClient();
   const now = new Date().toISOString();
 
@@ -50,6 +52,7 @@ export async function act(pitchId: string, action: Action, comment?: string) {
 }
 
 export async function addToInbox(kind: string, title: string, body: string, url: string) {
+  await requireAdmin();
   const supabase = createClient();
   await supabase.from('inbox').insert({
     kind, title: title || null, body: body || null, url: url || null,
@@ -60,6 +63,7 @@ export async function addToInbox(kind: string, title: string, body: string, url:
 
 /** Mark a news item for the public ticker, with an optional label. */
 export async function curate(itemId: string, curated: boolean, note?: string) {
+  await requireAdmin();
   const supabase = createClient();
   await supabase.from('rss_items').update({
     curated,
@@ -73,6 +77,7 @@ export async function curate(itemId: string, curated: boolean, note?: string) {
 
 /** Apply an approved topic/story suggestion from the email review queue. */
 export async function approveSuggestion(suggestionId: string, note?: string) {
+  await requireAdmin();
   const supabase = createClient();
   const { data: s } = await supabase.from('topic_suggestions')
     .select('*').eq('suggestion_id', suggestionId).maybeSingle();
@@ -132,6 +137,7 @@ export async function approveSuggestion(suggestionId: string, note?: string) {
 }
 
 export async function approveSourceSuggestion(suggestionId: string, note?: string) {
+  await requireAdmin();
   const supabase = createClient();
   const { data: s } = await supabase.from('source_suggestions')
     .select('*').eq('suggestion_id', suggestionId).maybeSingle();
@@ -183,6 +189,7 @@ export async function approveSourceSuggestion(suggestionId: string, note?: strin
 }
 
 export async function rejectSourceSuggestion(suggestionId: string, note?: string) {
+  await requireAdmin();
   const supabase = createClient();
   await supabase.from('source_suggestions').update({
     status: 'rejected',
