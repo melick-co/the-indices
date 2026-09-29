@@ -21,23 +21,103 @@ function overlaps(changedSet, pitch) {
   return linked.some((m) => changedSet.has(m));
 }
 
-async function snapshotMetrics(db, metricIds) {
+const HOME = 'AUS';
+const COPY_FIELDS = ['headline', 'hook', 'mechanism', 'caveat', 'chart_hint'];
+const HISTORY = 4;
+
+/**
+ * One reference block per run, shared by every batch so all pitches cite the same figures.
+ * For each metric: Australia's latest reading, a short history, and for cross-country
+ * series the full table at that period with Australia's rank already computed.
+ * Metrics with no observations are marked missing rather than sent empty.
+ */
+export async function buildReference(db, metricIds) {
   const out = {};
   for (const mid of metricIds) {
     const { data: meta } = await db.from('metrics')
-      .select('metric_id, name, unit, period, source_org, source_tier')
+      .select('metric_id, name, unit, source_org, source_tier, direction')
       .eq('metric_id', mid).maybeSingle();
-    const { data: obs } = await db.from('observations')
-      .select('entity, period, value, status, created_at')
-      .eq('metric_id', mid)
+    const { data: home } = await db.from('observations')
+      .select('period, value, status')
+      .eq('metric_id', mid).eq('entity', HOME)
       .order('period', { ascending: false })
-      .limit(5);
-    out[mid] = { meta: meta ?? { metric_id: mid }, latest: obs ?? [] };
+      .limit(HISTORY);
+    if (!meta || !home?.length) {
+      out[mid] = { missing: true, note: 'No Australian observations in the database. Do not cite a figure for this.' };
+      continue;
+    }
+    const [latest, ...history] = home;
+    const entry = {
+      name: meta.name,
+      unit: meta.unit,
+      source: meta.source_org,
+      tier: meta.source_tier,
+      latest: { period: latest.period, value: latest.value, status: latest.status },
+      earlier: history.map((h) => ({ period: h.period, value: h.value })),
+    };
+    const { data: peers } = await db.from('observations')
+      .select('entity, value')
+      .eq('metric_id', mid).eq('period', latest.period);
+    if ((peers?.length ?? 0) > 1) {
+      entry.ranking = rankEntities(peers, latest.period);
+    }
+    out[mid] = entry;
   }
   return out;
 }
 
-function buildRevisePrompt(charter, pitches, snapshots) {
+/** Highest value first; Australia's position is computed here, never by the model. */
+export function rankEntities(rows, period) {
+  const sorted = [...rows].sort((a, b) => b.value - a.value);
+  const pos = sorted.findIndex((r) => r.entity === HOME) + 1;
+  return {
+    period,
+    order: 'highest first',
+    aus_rank: pos || null,
+    of: sorted.length,
+    top: sorted.slice(0, Math.max(5, pos)).map((r, i) => `${i + 1}. ${r.entity} ${r.value}`),
+  };
+}
+
+// Numbers a revision may use without coming from the reference or the pitch itself.
+const YEAR = (n) => Number.isInteger(n) && n >= 1900 && n <= 2100;
+
+export function numbersIn(text) {
+  const out = [];
+  const re = /(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*(%|pp|per ?cent|bps?|basis points)?/gi;
+  for (const m of String(text ?? '').matchAll(re)) {
+    const n = Number((m[1] + (m[2] ?? '')).replace(/,/g, ''));
+    const unit = m[3];
+    // Small bare integers are counts ("three hikes", "5 suburbs"); years are dates.
+    if (!unit && Number.isInteger(n) && n <= 12) continue;
+    if (YEAR(n) && !unit) continue;
+    out.push(n);
+  }
+  return out;
+}
+
+/** Every number in the source material, plus thousand/million/billion rescalings. */
+export function allowedNumbers(...sources) {
+  const set = [];
+  for (const src of sources) {
+    for (const n of numbersIn(typeof src === 'string' ? src : JSON.stringify(src ?? ''))) {
+      set.push(n, n / 1e3, n / 1e6, n / 1e9, n * 100);
+    }
+  }
+  return set;
+}
+
+function supported(n, allowed) {
+  return allowed.some((a) => Math.abs(a - n) < 0.051 || Math.round(a) === n);
+}
+
+/** Figures in the revised copy that appear in neither the reference nor the original pitch. */
+export function unsupportedFigures(revision, allowed) {
+  const text = COPY_FIELDS.map((f) => revision[f] ?? '').join(' ');
+  return [...new Set(numbersIn(text).filter((n) => !supported(n, allowed)))];
+}
+
+function buildRevisePrompt(charter, pitches, reference) {
   return `You are revising data-journalism pitch briefs after fresh observations landed.
 Apply the editorial charter. Update copy only where numbers, rankings, or the "why now"
 hook would be wrong or stale. Preserve voice and detector logic.
@@ -46,9 +126,19 @@ hook would be wrong or stale. Preserve voice and detector logic.
 ${charter}
 </charter>
 
-<metric_snapshots>
-${JSON.stringify(snapshots)}
-</metric_snapshots>
+<reference>
+${JSON.stringify(reference)}
+</reference>
+
+Rules for figures:
+- <reference> is the only source of current numbers. "latest" is the current Australian reading;
+  "earlier" is history for context and must not be presented as current.
+- For rankings, use ranking.aus_rank and ranking.top exactly. Do not re-rank.
+- Every pitch must cite the same value, period and source for the same metric.
+- Do not introduce any number that is not in <reference> or already in that pitch's own fields.
+  No estimates, no new derived figures (gaps, differences, totals) unless already in the pitch.
+- If a metric is marked missing and the pitch leans on it, remove or soften that figure and
+  say so in revision_note. Never fill it in.
 
 <pitches_to_revise>
 ${JSON.stringify(pitches.map((p) => ({
@@ -101,18 +191,16 @@ class TruncatedError extends Error {
 }
 
 /** Revise one batch; if the reply is cut off, split the batch and try each half. */
-async function reviseBatch(db, charter, batch) {
-  const metricIds = [...new Set(batch.flatMap(pitchMetrics))];
-  const snapshots = await snapshotMetrics(db, metricIds);
+async function reviseBatch(charter, batch, reference) {
   try {
-    const verdict = await callClaude(buildRevisePrompt(charter, batch, snapshots));
+    const verdict = await callClaude(buildRevisePrompt(charter, batch, reference));
     return verdict.revisions ?? [];
   } catch (e) {
     if (!(e instanceof TruncatedError) || batch.length < 2) throw e;
     const mid = Math.ceil(batch.length / 2);
     return [
-      ...(await reviseBatch(db, charter, batch.slice(0, mid))),
-      ...(await reviseBatch(db, charter, batch.slice(mid))),
+      ...(await reviseBatch(charter, batch.slice(0, mid), reference)),
+      ...(await reviseBatch(charter, batch.slice(mid), reference)),
     ];
   }
 }
@@ -136,20 +224,26 @@ export async function revisePitches(db, opts = {}) {
 
   if (!toRevise.length) {
     onProgress('No active pitches linked to changed metrics.');
-    return { revised: 0, failed: 0, skipped: allActive?.length ?? 0, details: [] };
+    return { revised: 0, rejected: 0, failed: 0, skipped: allActive?.length ?? 0, details: [] };
   }
 
   onProgress(`Revising ${toRevise.length} pitch(es)…`);
+  const reference = await buildReference(db, [...new Set(toRevise.flatMap(pitchMetrics))]);
+  const missing = Object.keys(reference).filter((m) => reference[m].missing);
+  if (missing.length) onProgress(`  Metrics with no Australian data: ${missing.join(', ')}`);
+  const refNumbers = allowedNumbers(reference);
+
   const now = new Date().toISOString();
   const details = [];
   let revised = 0;
   let failed = 0;
+  let rejected = 0;
 
   for (let i = 0; i < toRevise.length; i += BATCH_SIZE) {
     const batch = toRevise.slice(i, i + BATCH_SIZE);
     let revisions;
     try {
-      revisions = await reviseBatch(db, charter, batch);
+      revisions = await reviseBatch(charter, batch, reference);
     } catch (e) {
       // One bad batch should not throw away the rest of the night's revisions.
       failed += batch.length;
@@ -163,6 +257,16 @@ export async function revisePitches(db, opts = {}) {
       if (!r.revised || !r.headline) {
         await db.from('pitches').update({ last_evaluated: now }).eq('id', r.id);
         details.push({ id: r.id, headline: pitch.headline, revised: false, note: r.revision_note });
+        continue;
+      }
+      const allowed = refNumbers.concat(allowedNumbers(...COPY_FIELDS.map((f) => pitch[f]), pitch.trigger_rows));
+      const unsupported = unsupportedFigures(r, allowed);
+      if (unsupported.length) {
+        // Keep the current copy rather than publish figures nobody can source.
+        await db.from('pitches').update({ last_evaluated: now }).eq('id', r.id);
+        rejected++;
+        details.push({ id: r.id, headline: pitch.headline, revised: false, rejected: unsupported, note: r.revision_note });
+        onProgress(`  Rejected: ${pitch.headline.slice(0, 60)}… (unsourced figures: ${unsupported.join(', ')})`);
         continue;
       }
       await db.from('pitches').update({
@@ -180,7 +284,7 @@ export async function revisePitches(db, opts = {}) {
     }
   }
 
-  return { revised, failed, skipped: (allActive?.length ?? 0) - toRevise.length, details };
+  return { revised, rejected, failed, skipped: (allActive?.length ?? 0) - toRevise.length, details };
 }
 
 /**
@@ -198,7 +302,7 @@ export async function followActivePitches(db, changedMetrics, onProgress) {
   const overlap = changedMetrics.filter((m) => tracked.has(m));
   if (!overlap.length && !changedMetrics.length) {
     onProgress('No tracked metrics changed overnight.');
-    return { revised: 0, failed: 0, skipped: 0, details: [] };
+    return { revised: 0, rejected: 0, failed: 0, skipped: 0, details: [] };
   }
   return revisePitches(db, {
     changedMetrics: overlap.length ? overlap : changedMetrics,
