@@ -6,6 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadKnownMetrics, normaliseMetricIds, withUnlinked } from './metric-ids.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 
@@ -166,6 +167,7 @@ async function loadPitchBank(db) {
 }
 
 export async function applyDecisions(db, { topics, pitches, decisions, onProgress = () => {} }) {
+  let known;
   const topicByKey = new Map(topics.map((t) => [t.topic_key, t]));
   const pitchById = new Map(pitches.map((p) => [p.id, p]));
   const now = new Date().toISOString();
@@ -287,6 +289,7 @@ export async function applyDecisions(db, { topics, pitches, decisions, onProgres
         finding: String(d.finding ?? d.hook ?? '').trim(),
         headlines: (topic.sample_headlines ?? []).slice(0, 3),
       };
+      const links = normaliseMetricIds(d.metric_ids, known ??= await loadKnownMetrics(db));
       const { data: row, error } = await db.from('pitches').insert({
         headline,
         hook: d.hook ?? `${topic.topic} is on the daily trends list`,
@@ -294,7 +297,7 @@ export async function applyDecisions(db, { topics, pitches, decisions, onProgres
         caveat: d.caveat ?? null,
         chart_hint: d.chart_hint ?? null,
         detector: 'trending_topic',
-        trigger_rows: {
+        trigger_rows: withUnlinked({
           fingerprint,
           topic: topic.topic,
           topic_key: topic.topic_key,
@@ -303,8 +306,8 @@ export async function applyDecisions(db, { topics, pitches, decisions, onProgres
           period_end: topic.period_end,
           archetype: d.archetype ?? null,
           findings: [finding],
-        },
-        metric_ids: Array.isArray(d.metric_ids) ? d.metric_ids : [],
+        }, links.unlinked),
+        metric_ids: links.linked,
         state: 'candidate',
       }).select('id, headline').single();
       if (error) throw error;

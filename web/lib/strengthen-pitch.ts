@@ -3,6 +3,7 @@ import { runFoundryTurn, type FoundryEvent } from '@/lib/foundry-agent';
 import { CHARTER, MODEL } from '@/lib/research-agent';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { loadKnownMetrics, normaliseMetricIds, withUnlinked } from '../../agent/scripts/lib/metric-ids.mjs';
 
 export type StrengthenResult = {
   strengthened: boolean;
@@ -207,8 +208,9 @@ export async function strengthenPitch(
 
   const update = await structurePitchUpdate(pitch, researchText);
   const now = new Date().toISOString();
+  const links = normaliseMetricIds(update.metric_ids, await loadKnownMetrics(supabase));
   const priorMetrics = new Set(pitch.metric_ids ?? []);
-  const metricsAdded = (update.metric_ids ?? []).filter((m) => !priorMetrics.has(m));
+  const metricsAdded = links.linked.filter((m) => !priorMetrics.has(m));
 
   const patch: Record<string, unknown> = {
     last_evaluated: now,
@@ -221,15 +223,15 @@ export async function strengthenPitch(
     patch.mechanism = update.mechanism;
     patch.caveat = update.caveat;
     patch.chart_hint = update.chart_hint;
-    patch.metric_ids = update.metric_ids;
+    patch.metric_ids = links.linked;
     if (update.score) patch.score = update.score;
-    patch.trigger_rows = {
+    patch.trigger_rows = withUnlinked({
       ...(pitch.trigger_rows as Record<string, unknown> ?? {}),
       strengthened_at: now,
       new_findings: update.new_findings,
       strengthening_note: update.strengthening_note,
       research_excerpt: researchText.slice(0, 4000),
-    };
+    }, links.unlinked);
   }
 
   await supabase.from('pitches').update(patch).eq('id', pitchId);
