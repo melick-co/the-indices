@@ -82,12 +82,22 @@ export function rankEntities(rows, period) {
 // Numbers a revision may use without coming from the reference or the pitch itself.
 const YEAR = (n) => Number.isInteger(n) && n >= 1900 && n <= 2100;
 
+// Words that introduce an identifier rather than a figure: "ABS 6345.0", "cat. no. 5206.0", "Table D2".
+const IDENT_BEFORE = /(?:\bABS|\bcat(?:alogue)?\.?(?:\s*no\.?)?|\btable|\bseries(?:\s*id)?)\s*$/i;
+
 export function numbersIn(text) {
   const out = [];
+  const src = String(text ?? '');
   const re = /(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*(%|pp|per ?cent|bps?|basis points)?/gi;
-  for (const m of String(text ?? '').matchAll(re)) {
+  for (const m of src.matchAll(re)) {
     const n = Number((m[1] + (m[2] ?? '')).replace(/,/g, ''));
     const unit = m[3];
+    const before = src.slice(Math.max(0, m.index - 16), m.index);
+    // Digits inside a code are not figures: "A2325846C", "Q2", "D2".
+    if (/[A-Za-z]$/.test(before)) continue;
+    if (!unit && IDENT_BEFORE.test(before)) continue;
+    // ABS catalogue numbers are written "6345.0".
+    if (!unit && /^\d{4}$/.test(m[1]) && m[2] === '.0' && !/\$\s*$/.test(before)) continue;
     // Small bare integers are counts ("three hikes", "5 suburbs"); years are dates.
     if (!unit && Number.isInteger(n) && n <= 12) continue;
     if (YEAR(n) && !unit) continue;
