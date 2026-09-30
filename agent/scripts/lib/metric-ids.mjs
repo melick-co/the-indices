@@ -8,14 +8,32 @@
  */
 
 /** Only exact matches: same measure, same basis. */
+// Deliberately absent because the store's series is a different measure:
+// labour_productivity (level or growth?), gross_government_debt_pct_gdp (the
+// store holds central, not general, government debt), household_debt_disposable_income
+// (OECD or RBA basis?), headline_cpi (index or change?).
 export const METRIC_ALIASES = {
   cash_rate: 'cash_rate_au',
   rba_cash_rate: 'cash_rate_au',
+  rba_cash_rate_target: 'cash_rate_au',
   cpi_quarterly_aus: 'cpi_annual_au',
+  cpi_inflation_annual: 'cpi_annual_au',
   dwelling_stock_total_value: 'dwelling_stock_value_bn',
+  residential_dwelling_stock_value: 'dwelling_stock_value_bn',
+  residential_dwelling_value_total_au: 'dwelling_stock_value_bn',
+  total_value_of_dwellings: 'dwelling_stock_value_bn',
+  dwelling_completions_quarterly: 'dwelling_completions',
+  mean_dwelling_price_au: 'mean_dwelling_price',
   housing_credit_growth: 'credit_housing_12m_au',
+  household_credit_outstanding: 'household_credit_bn',
+  household_credit_outstanding_au: 'household_credit_bn',
   net_overseas_migration: 'nom_annual',
+  nom_net_overseas_migration: 'nom_annual',
   rba_hike_probability_implied: 'rba_hike_prob_market_au',
+  market_implied_rate_hike_probability: 'rba_hike_prob_market_au',
+  oecd_gdp_per_hour_worked: 'productivity_level',
+  gdp_per_hour_worked: 'productivity_level',
+  labour_productivity_level_oecd_ppp: 'productivity_level',
   wage_price_index: 'wpi_annual_au',
   wpi_annual_change: 'wpi_annual_au',
   wpi_growth: 'wpi_annual_au',
