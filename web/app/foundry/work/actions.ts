@@ -1,7 +1,9 @@
 'use server';
+import { requireAdmin } from '@/lib/auth';
 
 import { createClient } from '@/lib/supabase-server';
 import { revalidatePath } from 'next/cache';
+import { fetchLinkContent as loadLinkContent } from '@/lib/link-content';
 import {
   buildInputPrompt,
   deriveTopicFromText,
@@ -15,7 +17,10 @@ import {
   type FoundryMessage,
 } from '@/lib/research-shared';
 
-const UA = 'Caveat-Foundry/0.1 (+https://the-indices.vercel.app)';
+export async function fetchLinkContent(url: string) {
+  await requireAdmin();
+  return loadLinkContent(url);
+}
 
 function revalidateFoundry(sessionId?: string) {
   revalidatePath('/foundry/work');
@@ -28,6 +33,7 @@ export async function createFoundrySession(
   prompt?: string,
   intent: FoundryIntent = 'investigate',
 ) {
+  await requireAdmin();
   const supabase = createClient();
   const { data, error } = await supabase.from('research_sessions').insert({
     mode: 'foundry',
@@ -49,6 +55,7 @@ export async function saveFoundrySession(
   sessionId: string,
   patch: { title?: string; prompt?: string; inputs?: SessionInput[]; intent?: FoundryIntent },
 ) {
+  await requireAdmin();
   const supabase = createClient();
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.title != null) row.title = patch.title.trim() || 'Untitled session';
@@ -61,35 +68,8 @@ export async function saveFoundrySession(
   return { ok: true as const };
 }
 
-export async function fetchLinkContent(url: string) {
-  try {
-    const parsed = new URL(url);
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      return { ok: false as const, error: 'Only http(s) links are supported.' };
-    }
-    const res = await fetch(url, {
-      headers: { 'user-agent': UA, accept: 'text/html,text/plain,*/*' },
-      signal: AbortSignal.timeout(20000),
-      redirect: 'follow',
-    });
-    if (!res.ok) return { ok: false as const, error: `Fetch failed (${res.status})` };
-    const raw = await res.text();
-    const title = raw.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() ?? parsed.hostname;
-    const text = raw
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 12000);
-    return { ok: true as const, title, text, url };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Could not fetch link';
-    return { ok: false as const, error: msg };
-  }
-}
-
 export async function archiveFoundrySession(sessionId: string) {
+  await requireAdmin();
   const supabase = createClient();
   const { error } = await supabase.from('research_sessions')
     .update({ status: 'archived', updated_at: new Date().toISOString() })
@@ -105,6 +85,7 @@ export async function bankFoundrySession(
   messageId?: string,
   angleHeadline?: string,
 ) {
+  await requireAdmin();
   const supabase = createClient();
   const { data: s, error: sessionErr } = await supabase.from('research_sessions')
     .select('question, answer, title, messages').eq('session_id', sessionId).single();
@@ -159,6 +140,7 @@ export type MonitorSelection = {
 };
 
 export async function setupMonitoring(sessionId: string, selection: MonitorSelection) {
+  await requireAdmin();
   const supabase = createClient();
   const created: string[] = [];
 
@@ -238,6 +220,7 @@ export async function setupMonitoring(sessionId: string, selection: MonitorSelec
 }
 
 export async function trackSession(sessionId: string) {
+  await requireAdmin();
   const supabase = createClient();
   const { data: session, error } = await supabase.from('research_sessions')
     .select('session_id, mode, question, title, monitoring')
@@ -299,6 +282,7 @@ export async function persistFoundryMessages(
   messages: FoundryMessage[],
   patch?: { answer?: string; tools_used?: string[]; verdict?: string | null },
 ) {
+  await requireAdmin();
   const supabase = createClient();
   const { error } = await supabase.from('research_sessions').update({
     messages,
