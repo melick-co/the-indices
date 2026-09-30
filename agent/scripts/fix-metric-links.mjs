@@ -27,15 +27,18 @@ async function main() {
   let changed = 0;
 
   for (const p of pitches ?? []) {
-    const links = normaliseMetricIds(p.metric_ids, known);
+    // Previously unlinked ids get another chance: the series may have been added since.
+    const priorUnlinked = Array.isArray(p.trigger_rows?.unlinked_metrics) ? p.trigger_rows.unlinked_metrics : [];
+    const links = normaliseMetricIds([...(p.metric_ids ?? []), ...priorUnlinked], known);
     const resurface = normaliseMetricIds(p.resurface_metrics, known);
     const unlinked = [...new Set([...links.unlinked, ...resurface.unlinked])];
     const resurfaceNext = p.resurface_metrics == null ? null : resurface.linked;
-    if (same(links.linked, p.metric_ids) && same(resurfaceNext, p.resurface_metrics) && !unlinked.length) continue;
+    if (same(links.linked, p.metric_ids) && same(resurfaceNext, p.resurface_metrics)
+      && same(unlinked, priorUnlinked)) continue;
 
     changed++;
     for (const id of unlinked) unlinkedCount.set(id, (unlinkedCount.get(id) ?? 0) + 1);
-    for (const id of [...(p.metric_ids ?? []), ...(p.resurface_metrics ?? [])]) {
+    for (const id of [...(p.metric_ids ?? []), ...priorUnlinked, ...(p.resurface_metrics ?? [])]) {
       if (known.has(METRIC_ALIASES[id])) remapped.set(`${id} -> ${METRIC_ALIASES[id]}`, (remapped.get(`${id} -> ${METRIC_ALIASES[id]}`) ?? 0) + 1);
     }
     console.log(`${p.state.padEnd(9)} ${String(p.headline ?? '').slice(0, 60)}`);
@@ -46,7 +49,7 @@ async function main() {
       const { error: upErr } = await db.from('pitches').update({
         metric_ids: links.linked,
         resurface_metrics: resurfaceNext,
-        trigger_rows: withUnlinked(p.trigger_rows, unlinked),
+        trigger_rows: withUnlinked({ ...(p.trigger_rows ?? {}), unlinked_metrics: [] }, unlinked),
       }).eq('id', p.id);
       if (upErr) throw new Error(`update ${p.id}: ${upErr.message}`);
     }
