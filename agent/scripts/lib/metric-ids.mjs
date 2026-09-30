@@ -9,9 +9,10 @@
 
 /**
  * Only exact matches: same measure, same basis. Deliberately absent because the
- * store's series is a different measure: gross_government_debt_pct_gdp (the store holds central, not general, government
- * debt), household_debt_disposable_income (OECD or RBA basis?), headline_cpi
- * (index or change?).
+ * store's series is a different measure: gross_government_debt_pct_gdp (the
+ * store holds central, not general, government debt),
+ * household_debt_disposable_income (OECD or RBA basis?), headline_cpi (index or
+ * change?).
  */
 export const METRIC_ALIASES = {
   cash_rate: 'cash_rate_au',
