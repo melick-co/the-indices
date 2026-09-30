@@ -1,41 +1,48 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { IBM_Plex_Mono, Inter, Newsreader, Source_Sans_3, Source_Serif_4 } from 'next/font/google';
+import localFont from 'next/font/local';
 import { SiteShell } from '@/components/SiteShell';
 
-const newsreader = Newsreader({
-  subsets: ['latin'],
+// Self-hosted (SIL OFL, see app/fonts/README.md) so builds never depend on
+// fonts.gstatic.com. Latin subset, same weights the Google loader used.
+const newsreader = localFont({
+  src: [
+    { path: './fonts/newsreader-roman.woff2', weight: '400 700', style: 'normal' },
+    { path: './fonts/newsreader-italic.woff2', weight: '400 700', style: 'italic' },
+  ],
   display: 'swap',
-  weight: ['400', '500', '600', '700'],
-  style: ['normal', 'italic'],
   variable: '--font-newsreader',
+  adjustFontFallback: 'Times New Roman',
 });
 
-const sourceSerif = Source_Serif_4({
-  subsets: ['latin'],
+const sourceSerif = localFont({
+  src: './fonts/source-serif-4.woff2',
+  weight: '400 600',
   display: 'swap',
-  weight: ['400', '600'],
   variable: '--font-source-serif',
+  adjustFontFallback: 'Times New Roman',
 });
 
-const sourceSans = Source_Sans_3({
-  subsets: ['latin'],
+const sourceSans = localFont({
+  src: './fonts/source-sans-3.woff2',
+  weight: '400 600',
   display: 'swap',
-  weight: ['400', '600'],
   variable: '--font-source-sans',
 });
 
-const plexMono = IBM_Plex_Mono({
-  subsets: ['latin'],
+const plexMono = localFont({
+  src: [
+    { path: './fonts/ibm-plex-mono-400.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/ibm-plex-mono-500.woff2', weight: '500', style: 'normal' },
+  ],
   display: 'swap',
-  weight: ['400', '500'],
   variable: '--font-plex',
 });
 
-const inter = Inter({
-  subsets: ['latin'],
+const inter = localFont({
+  src: './fonts/inter.woff2',
+  weight: '400 600',
   display: 'swap',
-  weight: ['400', '500', '600'],
   variable: '--font-geist',
 });
 
