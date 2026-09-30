@@ -1,5 +1,6 @@
 'use server';
 import { requireAdmin } from '@/lib/auth';
+import { loadKnownMetrics, normaliseMetricIds, withUnlinked } from '../../../agent/scripts/lib/metric-ids.mjs';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase-server';
 
@@ -105,17 +106,18 @@ export async function approveSuggestion(suggestionId: string, note?: string) {
       });
     }
   } else if (s.action === 'story_idea') {
+    const links = normaliseMetricIds(p.metric_ids, await loadKnownMetrics(supabase));
     const { data: pitch } = await supabase.from('pitches').insert({
       headline: String(p.headline_draft ?? s.summary).slice(0, 240),
       hook: p.hook ? String(p.hook) : null,
       caveat: p.kill_condition ? String(p.kill_condition) : null,
       detector: 'email_lead',
-      trigger_rows: {
+      trigger_rows: withUnlinked({
         suggestion_id: suggestionId,
         inbox_id: s.source_id,
         data_needed: p.data_needed ?? null,
-      },
-      metric_ids: Array.isArray(p.metric_ids) ? p.metric_ids.map(String) : [],
+      }, links.unlinked),
+      metric_ids: links.linked,
       state: 'candidate',
     }).select('id').single();
     linkedPitch = pitch?.id ?? null;

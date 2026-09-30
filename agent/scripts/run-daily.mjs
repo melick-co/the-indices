@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import './lib/load-env.mjs';
 import { runDetectors } from './detectors.mjs';
+import { loadKnownMetrics, normaliseMetricIds } from './lib/metric-ids.mjs';
 
 const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY,
   { auth: { persistSession: false } });
@@ -169,9 +170,11 @@ async function apply(v) {
     if (row) pitched.push(row);
   }
 
+  const known = await loadKnownMetrics(db);
   for (const d of v.dormant ?? [])
     await db.from('pitches').update({ state: 'dormant',
-      resurface_metrics: d.resurface_metrics ?? null,
+      // An unknown series can never move, so it cannot resurface anything.
+      resurface_metrics: normaliseMetricIds(d.resurface_metrics, known).linked,
       resurface_after: d.resurface_after ?? null,
       resurface_on: d.resurface_on ?? null,
       last_evaluated: now, state_changed: now }).eq('id', d.id);

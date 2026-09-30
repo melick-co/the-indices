@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import './lib/load-env.mjs';
 import { detectTrends } from './lib/trend-detect.mjs';
+import { loadKnownMetrics, normaliseMetricIds, withUnlinked } from './lib/metric-ids.mjs';
 
 const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY,
   { auth: { persistSession: false } });
@@ -66,6 +67,7 @@ async function persistClusters(detected, windowStart, windowEnd) {
 }
 
 async function hypothesize() {
+  let known;
   const { data: clusters } = await db.from('trend_clusters')
     .select('*')
     .eq('status', 'open')
@@ -153,6 +155,7 @@ async function hypothesize() {
         archived++;
         continue;
       }
+      const links = normaliseMetricIds(d.metric_ids, known ??= await loadKnownMetrics(db));
       const { data: pitch } = await db.from('pitches').insert({
         headline: d.headline_draft ?? cluster.label,
         hook: d.hook ?? `${cluster.item_count} items across ${cluster.outlet_count} outlets`,
@@ -160,7 +163,7 @@ async function hypothesize() {
         caveat: d.kill_condition ?? null,
         chart_hint: null,
         detector: 'trend_hypothesis',
-        trigger_rows: {
+        trigger_rows: withUnlinked({
           fingerprint,
           cluster_id: cluster.cluster_id,
           cluster_label: cluster.label,
@@ -170,8 +173,8 @@ async function hypothesize() {
           archetype: d.archetype ?? null,
           data_needed: d.data_needed ?? null,
           related_pitch_id: d.related_pitch_id ?? null,
-        },
-        metric_ids: d.metric_ids ?? [],
+        }, links.unlinked),
+        metric_ids: links.linked,
         state: 'candidate',
       }).select('id').single();
       await db.from('trend_clusters').update({
