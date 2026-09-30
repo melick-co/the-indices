@@ -14,6 +14,14 @@ assert.deepEqual(rank.top.slice(0, 3), ['1. NOR 236', '2. CHE 224', '3. AUS 223'
 assert.deepEqual(numbersIn('Three hikes in 2026 took the cash rate to 4.6% over 5 meetings'), [4.6]);
 assert.deepEqual(numbersIn('$12,689 billion; 0.8pp gap; 97.6 per cent'), [12689, 0.8, 97.6]);
 
+// Identifiers are not figures: ABS catalogue numbers, table and series codes.
+assert.deepEqual(numbersIn('ABS 6345.0 shows wages up 3.4%'), [3.4]);
+assert.deepEqual(numbersIn('Source: ABS cat. no. 5206.0, Table 12; series A2325846C'), []);
+assert.deepEqual(numbersIn('the 6401.0 release'), []);
+assert.deepEqual(numbersIn('RBA Table D2 and 2026-Q2 data'), []);
+// But a real figure next to those words still counts.
+assert.deepEqual(numbersIn('ABS says 6,345 dwellings; $6345.0 million'), [6345, 6345]);
+
 const reference = {
   cash_rate_au: { latest: { period: '2026-09-30', value: 4.6 }, earlier: [{ period: '2026-05-06', value: 4.35 }] },
   rba_hike_prob_market_au: { latest: { period: '2026-10-06', value: 0 } },
