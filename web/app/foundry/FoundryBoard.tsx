@@ -200,6 +200,14 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
                       </table>
                     </div>
                   ) : null}
+                  {unlinkedOf(p).length ? (
+                    <div style={{ marginTop: '1rem' }}>
+                      <div style={meta}>Not in the store — source these or drop the claim</div>
+                      <div style={{ fontSize: '.8rem', marginTop: '.3rem', fontFamily: 'var(--font-mono)' }}>
+                        {unlinkedOf(p).join(', ')}
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div style={{ marginTop: '1rem' }}>
                     <div style={meta}>Audit trail</div>
@@ -432,6 +440,12 @@ function describeEvent(e: PitchEvent): string {
     return `trending ${verdict}${topic}${e.note ? ` — ${e.note}` : ''}`;
   }
   return e.event;
+}
+
+/** Series the pitch asked for that have no metric in the store (set by metric-ids.mjs). */
+function unlinkedOf(p: Pitch): string[] {
+  const raw = p.trigger_rows?.unlinked_metrics;
+  return Array.isArray(raw) ? raw.map(String) : [];
 }
 
 function findingsOf(p: Pitch): Array<{
