@@ -39,3 +39,37 @@ export function seriesKeys(json) {
     return { key: k, label };
   });
 }
+
+/**
+ * SDMX-JSON with many series -> [{ dims: { REF_AREA, MEASURE, ... }, period, value, obsStatus }].
+ * parseSdmxJson above reads only the first series; use this for cross-country pulls.
+ * obsStatus is the SDMX OBS_STATUS code ('A' normal, 'E' estimated, 'P' provisional) or null.
+ */
+export function parseSdmxSeries(json) {
+  const root = json?.data ?? json;
+  const ds = root?.dataSets?.[0];
+  const struct = root?.structures?.[0] ?? root?.structure ?? json?.structure;
+  if (!ds?.series || !struct) return [];
+  const seriesDims = struct.dimensions?.series ?? [];
+  const timeValues = (struct.dimensions?.observation ?? [])
+    .find((d) => d.id === 'TIME_PERIOD' || d.role === 'time')?.values ?? [];
+  const obsAttrs = struct.attributes?.observation ?? [];
+  const statusPos = obsAttrs.findIndex((a) => a.id === 'OBS_STATUS');
+
+  const out = [];
+  for (const [key, series] of Object.entries(ds.series)) {
+    const dims = {};
+    key.split(':').map(Number).forEach((p, i) => {
+      if (seriesDims[i]) dims[seriesDims[i].id] = seriesDims[i].values?.[p]?.id;
+    });
+    for (const [idx, arr] of Object.entries(series.observations ?? {})) {
+      const period = timeValues[Number(idx)]?.id;
+      const value = Array.isArray(arr) ? arr[0] : arr;
+      if (period == null || value == null) continue;
+      const sIdx = statusPos >= 0 && Array.isArray(arr) ? arr[1 + statusPos] : null;
+      const obsStatus = sIdx != null ? obsAttrs[statusPos].values?.[sIdx]?.id ?? null : null;
+      out.push({ dims, period: String(period), value: Number(value), obsStatus });
+    }
+  }
+  return out;
+}

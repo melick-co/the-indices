@@ -2,9 +2,10 @@
  * Run all configured source watchers.
  * Used by GitHub Actions and manual invocations.
  *
- *   node scripts/load-sources.mjs              # ABS + World Bank + RBA
+ *   node scripts/load-sources.mjs              # ABS + World Bank + OECD + RBA
  *   node scripts/load-sources.mjs abs          # ABS only
  *   node scripts/load-sources.mjs wb           # World Bank only
+ *   node scripts/load-sources.mjs oecd         # OECD only
  *   node scripts/load-sources.mjs rba          # RBA only
  *   node scripts/load-sources.mjs hot          # high-churn only (RBA + ABS + indicator)
  *   node scripts/load-sources.mjs all --revise # full load + overnight pitch follow-up
@@ -15,6 +16,7 @@ import { dirname, join } from 'node:path';
 import './lib/load-env.mjs';
 import { loadRba } from './watch-rba.mjs';
 import { loadAbs } from './watch-abs.mjs';
+import { loadOecd } from './watch-oecd.mjs';
 import { computeRbaIndicator } from './compute-rba-rate-indicator.mjs';
 import { createDb } from './lib/obs-loader.mjs';
 import { followActivePitches } from './lib/revise-pitches.mjs';
@@ -55,6 +57,15 @@ async function main() {
       for (const m of r.changedMetrics ?? []) changed.add(m);
     }
     if (target === 'all' || target === 'wb') await loadWb();
+    if (target === 'all' || target === 'oecd') {
+      // The OECD API is flaky; never let it block the RBA load and revision below.
+      try {
+        const r = await loadOecd();
+        for (const m of r.changedMetrics ?? []) changed.add(m);
+      } catch (e) {
+        console.error(`OECD load failed: ${e.message}`);
+      }
+    }
     if (target === 'all' || target === 'rba') {
       const db = createDb();
       const r = await loadRba(db);
@@ -76,8 +87,8 @@ async function main() {
   }
 }
 
-if (!['all', 'abs', 'wb', 'rba', 'hot'].includes(target)) {
-  console.log('Usage: node scripts/load-sources.mjs [all|abs|wb|rba|hot] [--revise]');
+if (!['all', 'abs', 'wb', 'oecd', 'rba', 'hot'].includes(target)) {
+  console.log('Usage: node scripts/load-sources.mjs [all|abs|wb|oecd|rba|hot] [--revise]');
   process.exit(1);
 }
 
