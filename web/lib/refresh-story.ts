@@ -42,6 +42,9 @@ export async function refreshStory(
   onEvent: (event: FoundryEvent) => void,
 ): Promise<{ revisionId: string; title: string; check: FactCheck }> {
   const db = createClient();
+  // Fail before the (slow) rewrite if the revisions table is missing (agent/supabase/32_story_revisions.sql).
+  const { error: tableErr } = await db.from('story_revisions').select('revision_id').limit(1);
+  if (tableErr) throw new Error(`story_revisions is not available (run agent/supabase/32_story_revisions.sql): ${tableErr.message}`);
   const row = await loadPublished(slug);
   if (!row.pitch_id) throw new Error(`/stories/${slug} has no pitch to write from`);
   const { data: pitch } = await db.from('pitches').select('*').eq('id', row.pitch_id).single();
