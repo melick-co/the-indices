@@ -48,6 +48,7 @@ export const METRIC_ALIASES = {
   market_sector_labour_productivity: 'market_gva_per_hour_annual_au',
   government_spending_pct_gdp: 'gov_expenditure_gdp',
   gross_government_debt_pct_gdp: 'gov_gross_debt_gdp',
+  general_government_gross_debt_pct_gdp: 'gov_gross_debt_gdp',
   tax_to_gdp_ratio: 'tax_revenue_gdp',
   labour_productivity_index: 'gdp_per_hour_worked_index_au',
 };
