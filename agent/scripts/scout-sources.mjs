@@ -117,7 +117,8 @@ async function dimensionsOf(provider, flow, terms) {
   const actual = (json?.data?.contentConstraints ?? []).find((c) => c.type === 'Actual');
   const allowed = {};
   for (const kv of actual?.cubeRegions?.[0]?.keyValues ?? []) allowed[kv.id] = new Set(kv.values);
-  const t = terms.map((x) => x.toLowerCase());
+  // Match code labels on single words ("rents" for "rent price index"), not whole phrases.
+  const t = [...new Set(terms.flatMap((x) => x.toLowerCase().split(/\s+/)).filter((w) => w.length > 3))];
   return dims.map((d) => {
     const clId = (d.localRepresentation?.enumeration ?? '').split(':').pop().split('(')[0];
     let codes = (cls.find((c) => c.id === clId)?.codes ?? []).map((c) => ({ id: c.id, name: c.name ?? c.names?.en ?? '' }));
