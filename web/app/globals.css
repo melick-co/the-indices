@@ -4242,7 +4242,24 @@ html:has(.site-shell--ops) body {
 .story-hero-video .figure-cap { margin-top: 8px; }
 
 /* ---------- blackletter nameplate (public site; desk pages use OpsNav) ---------- */
-:root { --masthead-bg: #1d2a48; --masthead-ink: #ffffff; }
+:root {
+  --masthead-bg: #1d2a48;
+  --masthead-ink: #ffffff;
+  /* Graphics take the masthead navy as their highlight colour; everything else is muted grey
+     (NEWS-STYLE.md §4.4). */
+  --graphic-accent: var(--masthead-bg);
+  --graphic-muted: #b9b2a6;
+}
+
+/* Inside charts and figures only: the "pen" highlight becomes the masthead navy and the
+   other series are muted grey (--graphic-muted). Links and editorial marks elsewhere keep --pen. */
+.figure,
+.story-chart,
+.hero-stat,
+.story-timeline,
+.story-line {
+  --pen: var(--graphic-accent);
+}
 
 .mast-top {
   position: relative;
