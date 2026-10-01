@@ -77,7 +77,7 @@ export function checkStyle(story: Checkable): StyleCheck {
 
   // 2.2 Deck: 20–35 words.
   const dw = words(story.hook);
-  if (dw < 20 || dw > 35) issues.push(`deck is ${dw} words; it must be 20 to 35`);
+  if (dw < 20 || dw > 35) issues.push(`deck is ${dw} words; it must be 20 to 35 (rewrite it to about 28)`);
 
   // 2.3 Hero graphic: a stat card from stored data, or a chart.
   const charts = blocks.filter((b): b is StoryChartBlock => b.type === 'chart');
@@ -86,7 +86,7 @@ export function checkStyle(story: Checkable): StyleCheck {
   // 2.4 Lede: the first paragraph, at most 35 words.
   const lede = paras.find((p) => p.role === 'lede') ?? paras[0];
   if (!lede) issues.push('no lede paragraph');
-  else if (words(lede.text) > 35) issues.push(`lede is ${words(lede.text)} words; it must be 35 or fewer`);
+  else if (words(lede.text) > 35) issues.push(`lede is ${words(lede.text)} words; it must be 35 or fewer (rewrite it to about 28, moving detail to the next paragraph)`);
   if (lede && blocks.indexOf(lede) > 1) issues.push('the lede must open the story');
 
   // 2.5 Nut graf by paragraph 4.

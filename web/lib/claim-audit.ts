@@ -64,8 +64,12 @@ between things. For each, decide:
 
 Dates, release names and plain descriptions without quantities are not claims to audit.
 
+For each claim, write the evidence first, then decide the verdict from it: if the evidence shows the
+claim holds, the verdict is "supported". Wording or framing you would prefer is not grounds for
+"unsupported"; only a figure, comparison or span the reference does not bear out.
+
 Respond ONLY with JSON:
-{"claims":[{"claim":"short quote","verdict":"supported|unsupported","evidence":"metric_id, period and value used, or why unsupported"}]}`;
+{"claims":[{"claim":"short quote","evidence":"metric_id, period and value used, or why unsupported","verdict":"supported|unsupported"}]}`;
 
   const result = await callClaudeJson(prompt, { label: 'claim audit' }) as { claims?: ClaimVerdict[] };
   const claims = (result.claims ?? []).filter((c) => c && typeof c.claim === 'string');
