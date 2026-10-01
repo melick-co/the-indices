@@ -64,10 +64,17 @@ async function demand(known) {
 let catalogues;
 async function loadCatalogues() {
   if (catalogues) return catalogues;
-  const abs = await absFetch('/dataflow/ABS?detail=allstubs&format=jsondata', STRUCTURE);
-  const oecd = await oecdFetch('/dataflow/all?detail=allstubs');
-  const wbRes = await fetch('https://api.worldbank.org/v2/source/2/indicator?format=json&per_page=3000');
-  const wb = wbRes.ok ? (await wbRes.json())[1] ?? [] : [];
+  // A provider that is down this run is skipped rather than failing every target.
+  const attempt = async (label, fn) => {
+    try { return await fn(); } catch (e) { log(`  ${label} catalogue unavailable: ${e.message}`); return null; }
+  };
+  const abs = await attempt('ABS', () => absFetch('/dataflow/ABS?detail=allstubs&format=jsondata', STRUCTURE));
+  const oecd = await attempt('OECD', () => oecdFetch('/dataflow/all?detail=allstubs'));
+  const wb = await attempt('World Bank', async () => {
+    const res = await fetch('https://api.worldbank.org/v2/source/2/indicator?format=json&per_page=3000');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json())[1] ?? [];
+  }) ?? [];
   catalogues = {
     abs: (abs?.data?.dataflows ?? []).map((f) => ({ flow: f.id, name: f.name ?? f.names?.en ?? '' })),
     oecd: (oecd?.data?.dataflows ?? []).map((f) => ({ flow: `${f.agencyID},${f.id},${f.version}`, name: f.name ?? '' })),
@@ -217,7 +224,24 @@ Respond ONLY with JSON: {"name":"...","unit":"...","basis":"...","direction":"hi
     choice = { ...choice, ...meta };
   }
 
-  const checked = await verify(pick.provider, choice, dims);
+  const attemptVerify = async () => {
+    try { return await verify(pick.provider, choice, dims); }
+    catch (e) { return { ok: false, why: e.message }; }
+  };
+  let checked = await attemptVerify();
+  // One retry for a key the provider rejects or that matches several series.
+  if (!checked.ok && pick.provider !== 'wb') {
+    const fixed = await ask(`The SDMX key ${choice.key} for ${pick.provider} dataflow ${pick.flow} failed: ${checked.why}
+
+Dimensions in key order (code = label):
+${dims.map((d, i) => `${i + 1}. ${d.id}: ${d.codes.map((c) => `${c.id}=${c.name}`).join('; ')}`).join('\n')}
+
+Requested: ${target.id} (${plan.meaning}). Return a corrected key using only listed codes, or null if this
+dataflow cannot provide it. Respond ONLY with JSON: {"key":"..." | null,"measure":"OECD MEASURE code or null"}`, 'scout key retry');
+    if (!fixed.key) return { outcome: 'rejected', note: `${pick.flow}: ${checked.why}; no valid key` };
+    choice = { ...choice, key: fixed.key, measure: fixed.measure ?? choice.measure };
+    checked = await attemptVerify();
+  }
   if (!checked.ok) return { outcome: 'rejected', note: `${pick.provider} ${pick.flow} ${choice.key ?? ''}: ${checked.why}` };
 
   const confirm = await ask(`Requested: ${target.id}

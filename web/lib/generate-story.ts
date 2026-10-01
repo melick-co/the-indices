@@ -5,7 +5,7 @@ import { articleFromApprovedPitch, type StructuredStory } from '@/lib/article-fr
 import { bindStoryCharts } from '@/lib/chart-from-data';
 import { factCheckStory, type FactCheck } from '@/lib/fact-check';
 import { auditClaims, reviseForChecks } from '@/lib/claim-audit';
-import { METRIC_ALIASES, loadKnownMetrics, normaliseMetricIds } from '../../agent/scripts/lib/metric-ids.mjs';
+import { canonicalMetricId, loadKnownMetrics, normaliseMetricIds } from '../../agent/scripts/lib/metric-ids.mjs';
 import type { StoryChartBlock } from '@/lib/story-types';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -324,7 +324,7 @@ export async function publishStoryFromPitch(
   onEvent({ type: 'tool_start', name: 'check', label: 'Building charts from stored data and checking figures', at: new Date().toISOString() });
   // Models still reach for old metric names (e.g. trimmed_mean_cpi); map them to real ids.
   const known = await loadKnownMetrics(supabase);
-  const canonical = (id?: string) => (id ? (METRIC_ALIASES as Record<string, string>)[id] ?? id : id);
+  const canonical = (id?: string) => (id ? canonicalMetricId(id, known) : id);
   const unlabel = (t: string) => t.replace(/^\s*(?:lede|nut graf|layer \d+|context|closing)\s*:\s*/i, '');
 
   /** Normalise ids, build charts from the store, then check figures and audit claims. */
