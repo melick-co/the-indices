@@ -60,6 +60,30 @@ async function mark(id: string, patch: Partial<AutoMark>) {
   await db.from('pitches').update({ trigger_rows: { ...rows, auto_article: { ...prior, ...patch } } }).eq('id', id);
 }
 
+/**
+ * When an article is held because a claim needs a series the store does not
+ * have, file a source suggestion so the daily source scout tries to load it.
+ */
+async function requestMissingSeries(p: Pitch, issues: string[]) {
+  const wanted = new Map<string, string>();
+  for (const issue of issues) {
+    if (!issue.startsWith('claim not supported')) continue;
+    const series = issue.match(/\bno ([a-z0-9 ,()'-]{4,80}?) series\b/i)?.[1]?.trim();
+    if (series && !wanted.has(series.toLowerCase())) wanted.set(series.toLowerCase(), issue);
+    if (wanted.size >= 3) break;
+  }
+  for (const [series, issue] of wanted) {
+    if (dryRun) continue;
+    await db.from('source_suggestions').insert({
+      action: 'register_data_source',
+      status: 'pending',
+      summary: `Auto-article held: needs ${series}`,
+      payload: { series, tier: 1, why: `Article for "${p.headline.slice(0, 120)}" was held: ${issue.slice(0, 300)}` },
+    });
+    log(`  Requested series for the source scout: ${series}`);
+  }
+}
+
 async function candidates(today: string) {
   const { data, error } = await db.from('pitches')
     .select('id, headline, state, score, rank_value, trigger_rows, metric_ids')
@@ -128,6 +152,7 @@ async function runOne(p: Pitch, today: string): Promise<AutoMark> {
   if (!draft.check.ok) {
     log(`  Held for review (${draft.check.issues.length} issue(s)):`);
     for (const i of draft.check.issues.slice(0, 12)) log(`    - ${i}`);
+    await requestMissingSeries(p, draft.check.issues);
     return { ...started, outcome: 'held', slug: draft.slug, issues: draft.check.issues.slice(0, 20) };
   }
 

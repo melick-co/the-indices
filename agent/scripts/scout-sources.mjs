@@ -7,8 +7,10 @@
  *   ... --id=<metric_id>                      # scout these ids instead of the demand list
  *                                             # (repeatable, or SCOUT_IDS, space/comma separated)
  *
- * Demand comes from pitches' trigger_rows.unlinked_metrics (ids the model asked
- * for that the store does not hold). For the most-requested ids it:
+ * Demand comes first from pending tier 1/2 source_suggestions (filed by Foundry
+ * turns and by auto-articles held for missing data), then from pitches'
+ * trigger_rows.unlinked_metrics (ids the model asked for that the store does not
+ * hold). For each target it:
  *   1. asks Claude what the id means and how to search for it;
  *   2. searches the live ABS, OECD and World Bank (WDI) catalogues;
  *   3. lets Claude pick a dataflow and build a key from that dataflow's real codes;
@@ -58,11 +60,40 @@ async function demand(known) {
   const { data: tried } = await db.from('source_scout_log').select('requested_id, last_tried');
   const cutoff = Date.now() - RETRY_DAYS * 864e5;
   const recent = new Set((tried ?? []).filter((t) => Date.parse(t.last_tried) > cutoff).map((t) => t.requested_id));
-  return [...counts.values()]
+  const unlinked = [...counts.values()]
     .filter((e) => !recent.has(e.id))
     // Ids that read like a single fact ("ABS_WPI_Q2-2026_annual-3.0pct") are not series.
     .filter((e) => /^[a-z][a-z0-9_]{2,60}$/.test(e.id))
     .sort((a, b) => b.pitches - a.pitches);
+  // Explicit requests come first: Foundry turns and held articles file these.
+  const suggested = (await suggestions()).filter((t) => !recent.has(t.logId));
+  return [...suggested, ...unlinked];
+}
+
+const slug = (text) => String(text ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 50);
+
+/** Pending tier 1/2 data-source suggestions (Foundry turns, held auto-articles), as scout targets. */
+async function suggestions() {
+  const { data } = await db.from('source_suggestions')
+    .select('suggestion_id, summary, payload, created_at')
+    .eq('action', 'register_data_source').eq('status', 'pending')
+    .order('created_at', { ascending: false }).limit(50);
+  return (data ?? [])
+    .filter((r) => !r.payload?.tier || Number(r.payload.tier) <= 2)
+    .map((r) => {
+      const p = r.payload ?? {};
+      const what = p.series || p.name || r.summary;
+      return {
+        id: slug(what) || `suggestion_${r.suggestion_id.slice(0, 8)}`,
+        logId: `suggestion:${r.suggestion_id}`,
+        suggestionId: r.suggestion_id,
+        pitches: 0,
+        headlines: [],
+        hint: [what && `Statistic: ${what}`, p.org && `Publisher: ${p.org}`, p.url && `Seen at: ${p.url}`,
+          p.why && `Why: ${p.why}`, r.summary && `Summary: ${r.summary}`].filter(Boolean).join('\n'),
+      };
+    })
+    .filter((t) => t.hint);
 }
 
 // ---------- catalogues ----------
@@ -198,9 +229,11 @@ async function verify(provider, choice, dims) {
 
 async function scout(target, known) {
   const ask = (prompt, label) => callClaudeJson(prompt, { label, maxTokens: 4000 });
-  const context = target.headlines.length
-    ? `Requested metric id: ${target.id}\nAsked for by ${target.pitches} pitch(es), e.g.:\n${target.headlines.map((h) => `- ${h}`).join('\n')}`
-    : `Requested metric id: ${target.id} (requested by an editor)`;
+  const context = target.hint
+    ? `Requested series (from a research suggestion), working id ${target.id}:\n${target.hint}`
+    : target.headlines.length
+      ? `Requested metric id: ${target.id}\nAsked for by ${target.pitches} pitch(es), e.g.:\n${target.headlines.map((h) => `- ${h}`).join('\n')}`
+      : `Requested metric id: ${target.id} (requested by an editor)`;
 
   const plan = await ask(`${context}
 
@@ -359,8 +392,19 @@ async function main() {
     log(`  ${r.outcome}${r.metric_id ? ` as ${r.metric_id}` : ''}: ${r.note}`);
     results.push({ id: t.id, ...r });
     if (!dryRun) {
+      if (t.suggestionId && r.outcome === 'adopted') {
+        await db.from('source_suggestions').update({
+          status: 'approved', reviewed_at: new Date().toISOString(),
+          review_note: `Adopted by the source scout as ${r.metric_id}: ${r.note}`.slice(0, 1000),
+        }).eq('suggestion_id', t.suggestionId);
+      } else if (t.suggestionId) {
+        // Leave it pending for the editor (it can still be registered as a source), with the scout's finding.
+        await db.from('source_suggestions').update({
+          review_note: `Source scout ${r.outcome}: ${r.note}`.slice(0, 1000),
+        }).eq('suggestion_id', t.suggestionId);
+      }
       await db.from('source_scout_log').upsert({
-        requested_id: t.id, last_tried: new Date().toISOString(),
+        requested_id: t.logId ?? t.id, last_tried: new Date().toISOString(),
         outcome: r.outcome, metric_id: r.metric_id ?? null, note: r.note?.slice(0, 1000) ?? null,
       });
     }
