@@ -242,9 +242,19 @@ async function loadMetricContext(metricIds: string[]) {
   }));
 }
 
+export type PublishOptions = {
+  /**
+   * Run the claim audit and revision rounds. Off by default: the Foundry's
+   * "Approve and write" runs on Vercel with a 300s limit and an editor reviews
+   * the draft anyway. The daily auto-articles job turns this on.
+   */
+  audit?: boolean;
+};
+
 export async function publishStoryFromPitch(
   pitchId: string,
   onEvent: (event: FoundryEvent) => void,
+  opts: PublishOptions = {},
 ): Promise<PublishResult> {
   const supabase = createClient();
 
@@ -343,7 +353,7 @@ export async function publishStoryFromPitch(
     result.ok = result.ok && bound.issues.length === 0;
 
     // Figures exist in the data; now check each claim uses them truthfully.
-    if (result.ok && apiKey) {
+    if (result.ok && apiKey && opts.audit) {
       onEvent({ type: 'tool_start', name: 'audit', label: 'Auditing every claim against stored data', at: new Date().toISOString() });
       try {
         const audit = await auditClaims(supabase, draft, [...ids]);
@@ -361,7 +371,8 @@ export async function publishStoryFromPitch(
   let { check, ids: checkedIds } = await checkStory(story);
 
   // Up to MAX_REVISIONS rounds: correct or drop what the checks could not support, then check again.
-  for (let round = 1; !check.ok && apiKey && story.body.blocks.length && round <= MAX_REVISIONS; round++) {
+  const rounds = opts.audit ? MAX_REVISIONS : 0;
+  for (let round = 1; !check.ok && apiKey && story.body.blocks.length && round <= rounds; round++) {
     onEvent({ type: 'tool_start', name: 'revise', label: `Revision ${round}: ${check.issues.length} unsupported item(s)`, at: new Date().toISOString() });
     try {
       const revised = await reviseForChecks(supabase, story, check.issues, [...checkedIds]);
@@ -374,7 +385,7 @@ export async function publishStoryFromPitch(
       break;
     }
   }
-  if (!check.ok) check.issues.unshift(`unsupported after ${MAX_REVISIONS} revision round(s):`);
+  if (!check.ok && rounds) check.issues.unshift(`unsupported after ${rounds} revision round(s):`);
 
   const slug = existing?.slug ?? await uniqueSlug(story.slug_hint || story.title);
   const now = new Date().toISOString();

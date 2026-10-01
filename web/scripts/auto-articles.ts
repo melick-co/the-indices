@@ -118,7 +118,7 @@ async function runOne(p: Pitch, today: string): Promise<AutoMark> {
   }
 
   log('  Writing article…');
-  const draft = await publishStoryFromPitch(p.id, onEvent);
+  const draft = await publishStoryFromPitch(p.id, onEvent, { audit: true });
   log(`  Draft: /stories/${draft.slug} "${draft.title}"`);
   const { data: written } = await db.from('stories').select('hook, body').eq('pitch_id', p.id).single();
   const lede = (written?.body?.blocks ?? []).find((b: { type: string }) => b.type === 'paragraph') as { text?: string } | undefined;
