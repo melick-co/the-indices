@@ -47,6 +47,6 @@ create policy "admin all source_scout_log" on source_scout_log
   for all to authenticated using (is_admin()) with check (is_admin());
 
 insert into data_sources (source_id, name, org, tier, api_kind, cadence, notes) values
-  ('scout_registry', 'Scout-adopted series', 'Various (ABS, OECD, World Bank)', 1, 'sdmx', 'mixed',
+  ('scout_registry', 'Scout-adopted series', 'Various (ABS, OECD, World Bank)', 1, 'sdmx', 'irregular',
    'Series added by the source scout; see series_registry')
 on conflict (source_id) do nothing;
