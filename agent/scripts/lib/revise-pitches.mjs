@@ -37,7 +37,7 @@ const HISTORY = 4;
  */
 /** @param {{ history?: number }} [opts] how many Australian readings to include per metric */
 export async function buildReference(db, metricIds, opts = {}) {
-  const history = opts.history ?? HISTORY;
+  const historyLength = opts.history ?? HISTORY;
   const out = {};
   for (const mid of metricIds) {
     const { data: meta } = await db.from('metrics')
@@ -47,7 +47,7 @@ export async function buildReference(db, metricIds, opts = {}) {
       .select('period, value, status')
       .eq('metric_id', mid).eq('entity', HOME)
       .order('period', { ascending: false })
-      .limit(history);
+      .limit(historyLength);
     if (!meta || !home?.length) {
       out[mid] = { missing: true, note: 'No Australian observations in the database. Do not cite a figure for this.' };
       continue;
