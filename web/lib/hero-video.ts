@@ -1,13 +1,11 @@
-import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createVideo, isMediaConfigured, synthesizeSpeech, waitForTask, type ImageRef } from '@/lib/elevenlabs-client';
 import { heroPrompt } from '@/lib/hero-image';
 import { attachGeneratedArt } from '@/lib/story-art';
-import { hasFfmpeg, webVideo } from '@/lib/media-encode';
+import { hasFfmpeg, mediaDuration, webVideo } from '@/lib/media-encode';
 
 /**
  * The day's hero story gets an 8-second narrated clip: a Veo 3.1 Fast video
@@ -19,7 +17,6 @@ import { hasFfmpeg, webVideo } from '@/lib/media-encode';
  * audit. If neither fits in the clip, the video goes out without a voiceover.
  */
 
-const run = promisify(execFile);
 const CLIP_SECONDS = 8;
 const BUCKET = 'reel-renders';
 
@@ -39,11 +36,6 @@ export function narrationCandidates(story: HeroStory): string[] {
     out.push(clean(`${story.one_number.value}: ${story.one_number.label}.`));
   }
   return out.filter(Boolean);
-}
-
-async function durationOf(file: string): Promise<number> {
-  const { stdout } = await run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file]);
-  return Number(stdout.trim()) || 0;
 }
 
 export async function generateHeroVideo(
@@ -77,7 +69,7 @@ export async function generateHeroVideo(
       try {
         const file = join(dir, `vo-${i}.mp3`);
         await writeFile(file, await synthesizeSpeech(line));
-        const secs = await durationOf(file);
+        const secs = await mediaDuration(file);
         if (secs > 0 && secs <= CLIP_SECONDS - 0.3) { narration = line; audioFile = file; break; }
         log(`  Voiceover "${line.slice(0, 60)}" runs ${secs.toFixed(1)}s; too long for the clip.`);
       } catch (e) {
