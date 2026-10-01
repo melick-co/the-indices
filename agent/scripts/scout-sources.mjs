@@ -18,7 +18,8 @@
  *   5. asks Claude, shown the actual series labels and values, whether it is the
  *      same measure as requested. Only then is it added, with the requested id
  *      as an alias. The loaders pick it up and fix-metric-links re-links pitches.
- * Only providers we already load from are used (agreed Oct 2026). Every
+ * Providers: ABS, OECD, World Bank, RBA statistical tables, BIS and IMF; all official
+ * (agreed Oct 2026). IMF release vintages and projection datasets are excluded. Every
  * requested id is logged in source_scout_log and not retried for RETRY_DAYS.
  */
 import { createDb } from './lib/obs-loader.mjs';
@@ -27,6 +28,8 @@ import { loadKnownMetrics, canonicalMetricId } from './lib/metric-ids.mjs';
 import { parseSdmxJson, parseSdmxSeries, seriesKeys } from './lib/sdmx-json.mjs';
 import { absFetch } from './watch-abs.mjs';
 import { oecdFetch, fetchSeries } from './watch-oecd.mjs';
+import { catalogue as sdmxCatalogue, dimensions as sdmxDimensions, fetchRows } from './lib/sdmx-providers.mjs';
+import { rbaCatalogue, rbaColumns, rbaRows } from './lib/rba-catalogue.mjs';
 
 const MAX_TARGETS = 4;
 const RETRY_DAYS = 30;
@@ -116,8 +119,11 @@ async function loadCatalogues() {
     abs: (abs?.data?.dataflows ?? []).map((f) => ({ flow: f.id, name: f.name ?? f.names?.en ?? '' })),
     oecd: (oecd?.data?.dataflows ?? []).map((f) => ({ flow: `${f.agencyID},${f.id},${f.version}`, name: f.name ?? '' })),
     wb: wb.map((i) => ({ flow: i.id, name: i.name ?? '' })),
+    rba: (await attempt('RBA', rbaCatalogue)) ?? [],
+    bis: (await attempt('BIS', () => sdmxCatalogue('bis'))) ?? [],
+    imf: (await attempt('IMF', () => sdmxCatalogue('imf'))) ?? [],
   };
-  log(`Catalogues: ABS ${catalogues.abs.length}, OECD ${catalogues.oecd.length}, World Bank ${catalogues.wb.length}.`);
+  log(`Catalogues: ${Object.entries(catalogues).map(([p, c]) => `${p.toUpperCase()} ${c.length}`).join(', ')}.`);
   return catalogues;
 }
 
@@ -140,6 +146,13 @@ function search(list, terms) {
 
 /** Dimensions in key order, each with the codes that have data (OECD) or all codes (ABS). */
 async function dimensionsOf(provider, flow, terms) {
+  const words = [...new Set(terms.flatMap((x) => x.toLowerCase().split(/\s+/)).filter((w) => w.length > 3))];
+  if (provider === 'bis' || provider === 'imf') return sdmxDimensions(provider, flow, words, CODES_PER_DIMENSION);
+  if (provider === 'rba') {
+    // An RBA table's columns are its series; the key is the exact column Title.
+    const cols = await rbaColumns(flow);
+    return [{ id: 'COLUMN', total: cols.length, codes: cols.map((c) => ({ id: c.id, name: c.name, cadence: c.cadence })) }];
+  }
   const json = provider === 'abs'
     ? await absFetch(`/datastructure/ABS/${flow}?references=children&format=jsondata`, STRUCTURE)
     : await oecdFetch(`/dataflow/${flow.split(',').join('/')}?references=all`);
@@ -219,6 +232,22 @@ async function verify(provider, choice, dims) {
     const label = Object.entries(aus[0].dims).map(([k, v]) => `${k}=${name(k, v)}`).join(' | ');
     return { ok: true, label, sample: aus.slice(-6).map((r) => ({ period: r.period, value: r.value })), countries: [...new Set(rows.map((r) => r.dims.REF_AREA))] };
   }
+  if (provider === 'rba') {
+    const rows = await rbaRows(choice.flow, choice.key, choice.measure ?? 'monthly');
+    if (rows.length < 4) return { ok: false, why: `only ${rows.length} observations` };
+    const col = dims[0]?.codes.find((c) => c.id === choice.key);
+    return { ok: true, label: `RBA ${choice.flow}: ${col?.name ?? choice.key}`, sample: rows.slice(-6).map((r) => ({ period: r.period, value: r.value })), countries: ['AUS'] };
+  }
+  if (provider === 'bis' || provider === 'imf') {
+    const rows = await fetchRows(provider, choice.flow, choice.key, '2015');
+    const aus = rows.filter((r) => r.entity === 'AUS').sort((a, b) => a.period.localeCompare(b.period));
+    if (!aus.length) return { ok: false, why: 'no Australian rows' };
+    if (new Set(rows.map((r) => `${r.entity}|${r.period}`)).size !== rows.length) {
+      return { ok: false, why: 'key returns several series per country' };
+    }
+    const label = Object.entries(aus[0].dims).map(([k, v]) => `${k}=${name(k, v)}`).join(' | ');
+    return { ok: true, label, sample: aus.slice(-6).map((r) => ({ period: r.period, value: r.value })), countries: [...new Set(rows.map((r) => r.entity))] };
+  }
   const res = await fetch(`https://api.worldbank.org/v2/country/AUS/indicator/${choice.flow}?format=json&date=2005:${new Date().getFullYear()}`);
   const rows = res.ok ? ((await res.json())[1] ?? []).filter((r) => r.value != null) : [];
   if (rows.length < 3) return { ok: false, why: `only ${rows.length} Australian values` };
@@ -250,6 +279,9 @@ is_series is false if the id names a one-off fact, a forecast or a policy target
     abs: search(cats.abs, plan.search_terms),
     oecd: search(cats.oecd, plan.search_terms),
     wb: search(cats.wb, plan.search_terms),
+    rba: search(cats.rba, plan.search_terms),
+    bis: search(cats.bis, plan.search_terms),
+    imf: search(cats.imf, plan.search_terms),
   };
   const pick = await ask(`${context}
 Meaning: ${plan.meaning}
@@ -257,9 +289,13 @@ Meaning: ${plan.meaning}
 Candidate dataflows from live catalogues (provider, flow id, name):
 ${Object.entries(candidates).flatMap(([p, list]) => list.map((c) => `${p} | ${c.flow} | ${c.name}`)).join('\n') || '(none found)'}
 
-Pick the single dataflow most likely to contain exactly this measure for Australia. Prefer ABS for
-Australian-only measures, OECD or World Bank for cross-country comparisons. If none fits, say so.
-Respond ONLY with JSON: {"provider":"abs|oecd|wb|none","flow":"exact flow id from the list","why":"..."}`, 'scout pick');
+Pick the single dataflow most likely to contain exactly this measure for Australia. Guide:
+- ABS: Australian prices, labour, output, population, housing activity.
+- RBA tables: Australian interest and lending rates, credit, housing finance, household finances.
+- OECD, World Bank, IMF: cross-country comparisons. IMF for government finance statistics.
+- BIS: cross-country property prices, debt service ratios, credit-to-GDP.
+If none fits, say so.
+Respond ONLY with JSON: {"provider":"abs|oecd|wb|rba|bis|imf|none","flow":"exact flow id from the list","why":"..."}`, 'scout pick');
   if (!pick.provider || pick.provider === 'none' || !candidates[pick.provider]?.some((c) => c.flow === pick.flow)) {
     return { outcome: 'no_match', note: pick.why ?? 'no dataflow fits' };
   }
@@ -275,10 +311,13 @@ Provider: ${pick.provider}, dataflow ${pick.flow}
 Dimensions in key order (code = label; only codes with data are listed for OECD; long lists are trimmed):
 ${dims.map((d, i) => `${i + 1}. ${d.id} (${d.total} codes): ${d.codes.map((c) => `${c.id}=${c.name}`).join('; ')}`).join('\n')}
 
-Build an SDMX key: one code per dimension joined by dots, in the order above.
-${pick.provider === 'abs'
-    ? 'ABS: specify every dimension so the key returns exactly ONE series, for Australia as a whole, quarterly or monthly. Prefer original or seasonally adjusted headline series and, when the request is a growth rate, the "change from corresponding period of previous year" measure.'
-    : 'OECD: leave REF_AREA empty (all countries) and fix every other dimension so each country has one series. Use annual frequency unless the request implies otherwise.'}
+${{
+    abs: 'Build an SDMX key: one code per dimension joined by dots, in the order above. ABS: specify every dimension so the key returns exactly ONE series, for Australia as a whole, quarterly or monthly. Prefer original or seasonally adjusted headline series and, when the request is a growth rate, the "change from corresponding period of previous year" measure.',
+    oecd: 'Build an SDMX key: one code per dimension joined by dots, in the order above. OECD: leave REF_AREA empty (all countries) and fix every other dimension so each country has one series. Use annual frequency unless the request implies otherwise.',
+    bis: 'Build an SDMX key: one code per dimension joined by dots, in the order above. BIS: leave REF_AREA empty (all countries) and fix every other dimension so each country has one series. Prefer quarterly.',
+    imf: 'Build an SDMX key: one code per dimension joined by dots, in the order above. IMF: put * for COUNTRY (all countries) and fix every other dimension so each country has one series. Prefer ratios to GDP or percentages over amounts in national currency.',
+    rba: 'RBA: the key is the exact Title of ONE column from the COLUMN list above (copy it character for character).',
+  }[pick.provider]}
 Also describe the series for the store.
 
 Respond ONLY with JSON:
@@ -290,6 +329,11 @@ Respond ONLY with JSON:
  "derive_annual_change": false}
 ${pick.provider === 'abs' ? 'ABS only: if the request is a growth rate but the dataflow publishes this item only as an index, choose the index series and set derive_annual_change true; the store will compute change on the same period a year earlier.' : ''}`, 'scout key');
     choice = { ...choice, ...keyAnswer };
+    if (pick.provider === 'rba') {
+      const col = dims[0].codes.find((c) => c.id === choice.key);
+      if (!col) return { outcome: 'rejected', note: `${pick.flow}: "${choice.key}" is not a column of this table` };
+      choice.measure = col.cadence;
+    }
   } else {
     const meta = await ask(`${context}
 Meaning: ${plan.meaning}
@@ -316,6 +360,11 @@ dataflow cannot provide it. If only an index exists and the request is a growth 
 and set derive_annual_change true.
 Respond ONLY with JSON: {"key":"..." | null,"measure":"OECD MEASURE code or null","derive_annual_change":true|false}`, 'scout key retry');
     if (!fixed.key) return { outcome: 'rejected', note: `${pick.flow}: ${checked.why}; no valid key` };
+    if (pick.provider === 'rba') {
+      const col = dims[0].codes.find((c) => c.id === fixed.key);
+      if (!col) return { outcome: 'rejected', note: `${pick.flow}: retry "${fixed.key}" is not a column of this table` };
+      fixed.measure = col.cadence;
+    }
     if (existing.length && !existing.some((k) => k.key === fixed.key)) {
       return { outcome: 'rejected', note: `${pick.flow}: retry key ${fixed.key} is not one of the ${existing.length} series that exist` };
     }

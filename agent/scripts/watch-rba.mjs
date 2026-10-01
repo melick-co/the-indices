@@ -6,6 +6,7 @@
 import { RBA_SERIES } from './rba-config.mjs';
 import { parseRbaCsv } from './lib/rba-csv.mjs';
 import { createDb, upsertSeries } from './lib/obs-loader.mjs';
+import { loadRegistry } from './lib/registry.mjs';
 
 const BASE = 'https://www.rba.gov.au/statistics/tables/csv';
 const UA = 'caveat-indices/0.1 (+https://the-indices.vercel.app)';
@@ -24,7 +25,13 @@ export async function loadRba(db = createDb()) {
   let totalNew = 0;
   const changedMetrics = [];
 
-  for (const s of RBA_SERIES) {
+  // Scout-adopted RBA series: flow = CSV file, key = column Title, measure = cadence.
+  const scouted = (await loadRegistry(db, 'rba')).map((r) => ({
+    metric_id: r.metric_id, file: r.flow, column: r.key, cadence: r.measure || 'monthly',
+    name: r.name, unit: r.unit, basis: r.basis, direction: r.direction, category: r.category,
+    source_id: 'scout_registry', source_dataset: `${r.flow} (added by source scout)`,
+  }));
+  for (const s of [...RBA_SERIES, ...scouted]) {
     try {
       const text = await fetchCsv(s.file);
       const parsed = parseRbaCsv(text, s.column, s.cadence);

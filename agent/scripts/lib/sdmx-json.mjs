@@ -1,3 +1,6 @@
+/** A code or period label: SDMX-JSON 1.0 uses `id`, SDMX-JSON 2.0 (IMF) uses `value`. */
+const codeOf = (v) => v?.id ?? v?.value;
+
 /** SDMX-JSON -> [{ period, value }]. Shared by ABS and OECD watchers. */
 export function parseSdmxJson(json) {
   const root = json?.data ?? json;
@@ -12,14 +15,14 @@ export function parseSdmxJson(json) {
     const firstKey = Object.keys(ds.series)[0];
     const obs = ds.series[firstKey]?.observations ?? {};
     for (const [idx, arr] of Object.entries(obs)) {
-      const period = timeValues[Number(idx)]?.id ?? timeValues[Number(idx)]?.name;
+      const period = codeOf(timeValues[Number(idx)]) ?? timeValues[Number(idx)]?.name;
       const value = Array.isArray(arr) ? arr[0] : arr;
       if (period != null && value != null) out.push({ period: String(period), value: Number(value) });
     }
   } else if (ds.observations) {
     for (const [key, arr] of Object.entries(ds.observations)) {
       const idx = Number(String(key).split(':').pop());
-      const period = timeValues[idx]?.id;
+      const period = codeOf(timeValues[idx]);
       const value = Array.isArray(arr) ? arr[0] : arr;
       if (period != null && value != null) out.push({ period: String(period), value: Number(value) });
     }
@@ -35,7 +38,7 @@ export function seriesKeys(json) {
   const dims = struct.dimensions?.series ?? [];
   return Object.keys(ds.series).slice(0, 25).map((k) => {
     const parts = k.split(':').map(Number);
-    const label = parts.map((p, i) => dims[i]?.values?.[p]?.name ?? '?').join(' | ');
+    const label = parts.map((p, i) => dims[i]?.values?.[p]?.name ?? codeOf(dims[i]?.values?.[p]) ?? '?').join(' | ');
     return { key: k, label };
   });
 }
@@ -54,20 +57,20 @@ export function parseSdmxSeries(json) {
   const timeValues = (struct.dimensions?.observation ?? [])
     .find((d) => d.id === 'TIME_PERIOD' || d.role === 'time')?.values ?? [];
   const obsAttrs = struct.attributes?.observation ?? [];
-  const statusPos = obsAttrs.findIndex((a) => a.id === 'OBS_STATUS');
+  const statusPos = obsAttrs.findIndex((a) => a.id === 'OBS_STATUS' || a.id === 'STATUS');
 
   const out = [];
   for (const [key, series] of Object.entries(ds.series)) {
     const dims = {};
     key.split(':').map(Number).forEach((p, i) => {
-      if (seriesDims[i]) dims[seriesDims[i].id] = seriesDims[i].values?.[p]?.id;
+      if (seriesDims[i]) dims[seriesDims[i].id] = codeOf(seriesDims[i].values?.[p]);
     });
     for (const [idx, arr] of Object.entries(series.observations ?? {})) {
-      const period = timeValues[Number(idx)]?.id;
+      const period = codeOf(timeValues[Number(idx)]);
       const value = Array.isArray(arr) ? arr[0] : arr;
       if (period == null || value == null) continue;
       const sIdx = statusPos >= 0 && Array.isArray(arr) ? arr[1 + statusPos] : null;
-      const obsStatus = sIdx != null ? obsAttrs[statusPos].values?.[sIdx]?.id ?? null : null;
+      const obsStatus = sIdx != null ? codeOf(obsAttrs[statusPos].values?.[sIdx]) ?? null : null;
       out.push({ dims, period: String(period), value: Number(value), obsStatus });
     }
   }

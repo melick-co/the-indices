@@ -6,6 +6,7 @@
  *   node scripts/load-sources.mjs abs          # ABS only
  *   node scripts/load-sources.mjs wb           # World Bank only
  *   node scripts/load-sources.mjs oecd         # OECD only
+ *   node scripts/load-sources.mjs extra        # scout-adopted BIS + IMF series
  *   node scripts/load-sources.mjs rba          # RBA only
  *   node scripts/load-sources.mjs hot          # high-churn only (RBA + ABS + indicator)
  *   node scripts/load-sources.mjs all --revise # full load + overnight pitch follow-up
@@ -17,6 +18,7 @@ import './lib/load-env.mjs';
 import { loadRba } from './watch-rba.mjs';
 import { loadAbs } from './watch-abs.mjs';
 import { loadOecd } from './watch-oecd.mjs';
+import { loadExtra } from './watch-extra.mjs';
 import { computeRbaIndicator } from './compute-rba-rate-indicator.mjs';
 import { createDb } from './lib/obs-loader.mjs';
 import { followActivePitches } from './lib/revise-pitches.mjs';
@@ -66,6 +68,14 @@ async function main() {
         console.error(`OECD load failed: ${e.message}`);
       }
     }
+    if (target === 'all' || target === 'extra') {
+      try {
+        const r = await loadExtra();
+        for (const m of r.changedMetrics ?? []) changed.add(m);
+      } catch (e) {
+        console.error(`BIS/IMF load failed: ${e.message}`);
+      }
+    }
     if (target === 'all' || target === 'rba') {
       const db = createDb();
       const r = await loadRba(db);
@@ -87,8 +97,8 @@ async function main() {
   }
 }
 
-if (!['all', 'abs', 'wb', 'oecd', 'rba', 'hot'].includes(target)) {
-  console.log('Usage: node scripts/load-sources.mjs [all|abs|wb|oecd|rba|hot] [--revise]');
+if (!['all', 'abs', 'wb', 'oecd', 'extra', 'rba', 'hot'].includes(target)) {
+  console.log('Usage: node scripts/load-sources.mjs [all|abs|wb|oecd|extra|rba|hot] [--revise]');
   process.exit(1);
 }
 
