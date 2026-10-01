@@ -101,7 +101,9 @@ export async function dimensions(provider, flow, words, limit = 40) {
     const clId = codelistIdOf(d, data) ?? (d.id === 'FREQUENCY' || d.id === 'FREQ' ? 'CL_FREQ' : `CL_${d.id}`);
     let codes = ((data.codelists ?? []).find((c) => c.id === clId)?.codes ?? [])
       .map((c) => ({ id: c.id, name: c.name ?? c.names?.en ?? '' }));
-    if (allowed[d.id]) codes = codes.filter((c) => allowed[d.id].has(c.id));
+    // BIS publishes an incomplete "actual" constraint (WS_SPP lists only nominal, yet real data exists),
+    // so it is not used to filter BIS codes.
+    if (allowed[d.id] && provider !== 'bis') codes = codes.filter((c) => allowed[d.id].has(c.id));
     const total = codes.length;
     if (total > limit) {
       const rel = codes.filter((c) => words.some((w) => c.name.toLowerCase().includes(w)));
