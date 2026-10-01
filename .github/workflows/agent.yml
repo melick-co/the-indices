@@ -199,10 +199,6 @@ jobs:
       - uses: actions/setup-node@v5
         with: { node-version: 22 }
       - run: npm install @supabase/supabase-js --no-save --silent
-      - name: Probe OECD with curl
-        run: |
-          curl -sS -o /dev/null -w 'curl %{http_code} %{http_version} %{remote_ip}\n' -H 'Accept: application/vnd.sdmx.data+json;version=1.0' 'https://sdmx.oecd.org/public/rest/data/OECD.CTP.TPS,DSD_REV_COMP_OECD@DF_RSOECD,2.0/.TAX_REV.S13._T._T.PT_B1GQ.A?startPeriod=2015' || true
-          curl -sS -H 'Accept: application/vnd.sdmx.data+json;version=1.0' 'https://sdmx.oecd.org/public/rest/data/OECD.CTP.TPS,DSD_REV_COMP_OECD@DF_RSOECD,2.0/.TAX_REV.S13._T._T.PT_B1GQ.A?startPeriod=2015' | head -c 300 || true
       - name: OECD only
         run: node scripts/load-sources.mjs oecd
         env:

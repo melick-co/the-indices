@@ -8,6 +8,7 @@
  *
  * The API rejects format=jsondata; ask for SDMX-JSON through the Accept header.
  */
+import https from 'node:https';
 import { OECD_SERIES } from './oecd-config.mjs';
 import { parseSdmxSeries } from './lib/sdmx-json.mjs';
 import { createDb, loadEntityCodes, upsertSeries } from './lib/obs-loader.mjs';
@@ -17,22 +18,33 @@ const UA = 'caveat-indices/0.1 (+https://the-indices.vercel.app)';
 const STRUCTURE = 'application/vnd.sdmx.structure+json;version=1.0';
 const DATA = 'application/vnd.sdmx.data+json;version=1.0';
 
-// The OECD API rate-limits per hour (429) and fails intermittently (500) on
-// requests that succeed later, so retry with backoff, honouring Retry-After.
+// The OECD origin fails often (500) and rate-limits (429); its CDN serves cached
+// copies fine. fetch() adds headers (accept-language, sec-fetch-mode,
+// accept-encoding) that miss the cache and reach the failing origin, so send a
+// plain request with only the headers below, as curl does. Retry with backoff.
+function get(url, accept) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { headers: { accept, 'user-agent': UA }, timeout: 120000 }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => { body += c; });
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body }));
+    });
+    req.on('timeout', () => req.destroy(new Error('OECD request timed out')));
+    req.on('error', reject);
+  });
+}
+
 async function oecdFetch(path, accept = STRUCTURE, attempts = 5) {
   for (let i = 1; ; i++) {
-    const res = await fetch(`${BASE}${path}`, {
-      headers: { 'user-agent': UA, accept },
-      signal: AbortSignal.timeout(120000),
-    });
-    const text = await res.text();
-    if (res.ok) {
-      try { return JSON.parse(text); } catch { return text; }
+    const res = await get(`${BASE}${path}`, accept);
+    if (res.status >= 200 && res.status < 300) {
+      try { return JSON.parse(res.body); } catch { return res.body; }
     }
     const retryable = res.status >= 500 || res.status === 429;
-    if (!retryable || i >= attempts) throw new Error(`OECD ${res.status}: ${text.slice(0, 200)}`);
+    if (!retryable || i >= attempts) throw new Error(`OECD ${res.status}: ${res.body.slice(0, 200)}`);
     // Cap the wait: Retry-After can be an hour, and the nightly job has other sources to load.
-    const after = Number(res.headers.get('retry-after'));
+    const after = Number(res.headers['retry-after']);
     const wait = Math.min(after > 0 ? after * 1000 : 5000 * 2 ** (i - 1), 60000);
     console.log(`  OECD ${res.status}; retry ${i}/${attempts - 1} in ${Math.round(wait / 1000)}s`);
     await new Promise((r) => setTimeout(r, wait));
