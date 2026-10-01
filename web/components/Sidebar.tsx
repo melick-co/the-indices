@@ -40,6 +40,7 @@ export default function Sidebar() {
   return (
     <header className="site-sidebar">
       <div className="mast-top">
+        <span className="mast-monogram" aria-hidden="true">C</span>
         <div className="mast-meta mast-meta-left">
           <span>{today}</span>
           <span>Australia</span>

@@ -39,6 +39,15 @@ const plexMono = localFont({
   variable: '--font-plex',
 });
 
+// Masthead only: blackletter nameplate in the tradition of the Sydney Morning Herald.
+const masthead = localFont({
+  src: './fonts/unifraktur-maguntia.woff2',
+  weight: '400',
+  display: 'swap',
+  variable: '--font-masthead',
+  adjustFontFallback: false,
+});
+
 const inter = localFont({
   src: './fonts/inter.woff2',
   weight: '400 600',
@@ -56,7 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en-AU"
-      className={`${newsreader.variable} ${sourceSerif.variable} ${sourceSans.variable} ${plexMono.variable} ${inter.variable}`}
+      className={`${newsreader.variable} ${sourceSerif.variable} ${sourceSans.variable} ${plexMono.variable} ${inter.variable} ${masthead.variable}`}
     >
       <body>
         <SiteShell>{children}</SiteShell>

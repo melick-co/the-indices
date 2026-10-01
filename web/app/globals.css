@@ -4240,3 +4240,46 @@ html:has(.site-shell--ops) body {
 .story-hero-video { margin: var(--spacing-21) 0 var(--spacing-42); }
 .story-hero-video .story-hero-art { margin: 0; }
 .story-hero-video .figure-cap { margin-top: 8px; }
+
+/* ---------- blackletter nameplate (public site; desk pages use OpsNav) ---------- */
+:root { --masthead-bg: #1d2a48; --masthead-ink: #ffffff; }
+
+.mast-top {
+  position: relative;
+  overflow: hidden;
+  background: var(--masthead-bg);
+  color: var(--masthead-ink);
+  border-top: 0;
+  padding: 20px 24px 22px;
+  align-items: center;
+}
+.mast-monogram {
+  position: absolute;
+  left: 3%;
+  top: 50%;
+  transform: translateY(-52%);
+  font-family: var(--font-masthead), serif;
+  font-size: clamp(140px, 22vw, 240px);
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+  user-select: none;
+}
+.mast-top .mast-meta { position: relative; color: rgba(255, 255, 255, 0.78); }
+.mast-top .wordmark {
+  position: relative;
+  font-family: var(--font-masthead), 'Times New Roman', serif;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--masthead-ink);
+  /* Medium weight: thickens the Fraktur strokes in proportion to the size. */
+  -webkit-text-stroke: 0.014em currentColor;
+  paint-order: stroke fill;
+}
+.mast-top .wordmark:hover { color: var(--masthead-ink); }
+
+@media (max-width: 768px) {
+  .mast-top { padding: 14px 16px 16px; }
+  .mast-monogram { font-size: 120px; }
+}
