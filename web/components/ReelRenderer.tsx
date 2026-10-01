@@ -61,9 +61,9 @@ function Status({ render }: { render?: StoryReelRender }) {
 }
 
 /**
- * Runway renderer. Lives after the locked storyboard / prompt pack: it consumes
+ * ElevenLabs renderer. Lives after the locked storyboard / prompt pack: it consumes
  * traced figures, it does not invent them. Polls GET /v1/tasks/{id} via the
- * server; Runway has no webhook.
+ * server rather than taking ElevenLabs webhooks.
  */
 export default function ReelRenderer({
   slug,
@@ -142,9 +142,9 @@ export default function ReelRenderer({
       apply(data);
       setNote(data.configured === false
         ? data.message
-        : 'Runway job started. Status updates every few seconds.');
+        : 'ElevenLabs job started. Status updates every few seconds.');
     } catch (e) {
-      setNote(e instanceof Error ? e.message : 'Runway failed');
+      setNote(e instanceof Error ? e.message : 'ElevenLabs failed');
     } finally {
       setBusy(null);
     }
@@ -155,11 +155,11 @@ export default function ReelRenderer({
 
   return (
     <section className="runway-block">
-      <h2 className="reel-h2">Runway render</h2>
+      <h2 className="reel-h2">ElevenLabs render</h2>
       <p className="reel-lede">
-        After the prompt pack, Runway draws the stills and animates the clips.
+        After the prompt pack, ElevenLabs draws the stills and animates the clips.
         Chart scenes send the locked series and caption; the model is not asked
-        for new figures. Jobs are async: we poll Runway until each task lands,
+        for new figures. Jobs are async: we poll ElevenLabs until each task lands,
         then copy the file into our storage before the download link expires.
       </p>
 

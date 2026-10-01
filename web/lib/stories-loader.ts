@@ -225,7 +225,7 @@ export async function loadStoryLinksByPitch(): Promise<Record<string, { slug: st
 }
 
 /**
- * Attach a generated still or clip produced outside the desk (e.g. Runway).
+ * Attach a generated still or clip produced outside the desk (e.g. ElevenLabs).
  * Does not call any generator. Writes `stories.art` for DB stories and
  * `story_desk.art` for static founding slugs.
  */

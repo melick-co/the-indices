@@ -20,6 +20,7 @@ import { createClient } from '@/lib/supabase-server';
 import { strengthenPitch } from '@/lib/strengthen-pitch';
 import { goLiveFromPitch, publishStoryFromPitch } from '@/lib/generate-story';
 import { generateHeroImage } from '@/lib/hero-image';
+import { generateHeroVideo } from '@/lib/hero-video';
 import type { FoundryEvent } from '@/lib/foundry-agent';
 
 const DIMS = ['surprise', 'checkability', 'mechanism', 'visual', 'timing'] as const;
@@ -118,6 +119,9 @@ async function candidates(today: string) {
   return { fives: fives.length, eligible, slots: Math.max(0, MAX_PER_DAY - publishedToday), publishedToday };
 }
 
+/** True for the first article published today: it gets the paid hero video. */
+let heroVideoDue = false;
+
 async function runOne(p: Pitch, today: string): Promise<AutoMark> {
   const started: AutoMark = { attempted_at: new Date().toISOString(), day: today, outcome: 'running' };
   await mark(p.id, started);
@@ -162,10 +166,16 @@ async function runOne(p: Pitch, today: string): Promise<AutoMark> {
     return { ...started, outcome: 'passed-unpublished', slug: draft.slug };
   }
 
-  const { data: story } = await db.from('stories').select('slug, title, hook, kicker').eq('pitch_id', p.id).single();
+  const { data: story } = await db.from('stories').select('slug, title, hook, kicker, one_number').eq('pitch_id', p.id).single();
+  let heroGenerationId: string | null = null;
   if (story) {
-    try { await generateHeroImage(db, story, (m) => log(`  ${m}`)); }
+    try { heroGenerationId = (await generateHeroImage(db, story, (m) => log(`  ${m}`)))?.generationId ?? null; }
     catch (e) { log(`  Hero image failed (${e instanceof Error ? e.message : e}); publishing without one.`); }
+  }
+  if (story && heroVideoDue) {
+    heroVideoDue = false;
+    try { await generateHeroVideo(db, story, { heroGenerationId, log: (m) => log(`  ${m}`) }); }
+    catch (e) { log(`  Hero video failed (${e instanceof Error ? e.message : e}); publishing without one.`); }
   }
 
   const live = await goLiveFromPitch(p.id);
@@ -186,6 +196,7 @@ async function main() {
     return;
   }
 
+  heroVideoDue = publishedToday === 0;
   const results: Array<{ headline: string } & AutoMark> = [];
   let published = 0;
   for (const p of eligible) {

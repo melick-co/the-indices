@@ -66,7 +66,7 @@ export default async function ReelPage({
                 <p className="reel-lede">
                   Scene prompts are one shot each, with the locked script quoted so a generator
                   cannot rewrite the read. The shot list is the same brief flattened. Scene JSON
-                  drives anything with an API. Runway consumes this pack next.
+                  drives anything with an API. ElevenLabs consumes this pack next.
                 </p>
                 <ReelPayload
                   json={JSON.stringify(

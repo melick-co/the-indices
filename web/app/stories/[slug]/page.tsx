@@ -8,7 +8,7 @@ import SpiralTimeline from '@/components/SpiralTimeline';
 import ReelControls from '@/components/ReelControls';
 import { STORIES } from '@/content/stories';
 import { loadStoryBySlug } from '@/lib/stories-loader';
-import { resolveHeroImage } from '@/lib/story-art';
+import { clipsOf, resolveHeroImage } from '@/lib/story-art';
 import Migration from './bodies/migration';
 import WageSpiral from './bodies/wage-spiral';
 
@@ -42,6 +42,8 @@ export default async function StoryPage({
   if (!story) notFound();
   if (story.status === 'draft' && !preview) notFound();
   const art = resolveHeroImage(story);
+  // The daily hero story's narrated summary clip (hero-video.ts), newest first.
+  const clip = clipsOf(story).filter((c) => c.generator === 'elevenlabs').at(-1);
 
   return (
     <>
@@ -53,7 +55,13 @@ export default async function StoryPage({
         )}
         <div className="card-kicker">{story.kicker}</div>
         <h1>{story.title}</h1>
-        {art && (
+        {clip ? (
+          <figure className="story-hero-video">
+            <video className="story-hero-art" src={clip.url} poster={art?.url} controls playsInline
+              preload="none" aria-label={clip.alt ?? story.title} />
+            <figcaption className="figure-cap">Eight-second summary. Illustration and narration generated with ElevenLabs.</figcaption>
+          </figure>
+        ) : art && (
           // eslint-disable-next-line @next/next/no-img-element
           <img className="story-hero-art" src={art.url} alt={art.alt} />
         )}

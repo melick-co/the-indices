@@ -1,12 +1,12 @@
-import { isRunwayConfigured, pollRenders } from '@/lib/generate-runway';
-import { RunwayConfigError } from '@/lib/runway-client';
+import { isMediaConfigured, pollRenders } from '@/lib/generate-runway';
+import { MediaConfigError } from '@/lib/elevenlabs-client';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 /**
- * Poll open Runway tasks for this story. Runway has no webhook; GET /v1/tasks/{id}
- * is the completion model. Call this at least five seconds apart.
+ * Poll open ElevenLabs generations for this story (GET /v1/flows/{image|video}/{id}).
+ * Call this at least five seconds apart.
  */
 export async function POST(
   _req: Request,
@@ -14,10 +14,10 @@ export async function POST(
 ) {
   try {
     const renders = await pollRenders(params.slug);
-    return Response.json({ configured: isRunwayConfigured(), renders });
+    return Response.json({ configured: isMediaConfigured(), renders });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    const status = e instanceof RunwayConfigError ? 503 : 400;
-    return Response.json({ configured: isRunwayConfigured(), message }, { status });
+    const status = e instanceof MediaConfigError ? 503 : 400;
+    return Response.json({ configured: isMediaConfigured(), message }, { status });
   }
 }

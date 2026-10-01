@@ -272,7 +272,7 @@ export default function StoryEditor({ story, renders = [] }: { story: Story; ren
             <div className="desk-row-meta">Generated stills / clips (from the reel renderer)</div>
             <p className="desk-note">
               These already exist on the story&apos;s reel. Attach one as card art. The desk
-              does not start a Runway job.
+              does not start a generation job.
             </p>
             {renders.map((r) => (
               <div key={r.renderId} className="desk-art-item">

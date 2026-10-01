@@ -1,7 +1,7 @@
 /**
  * Story art: editor-set hero images and a write-hook for generated stills/clips.
  *
- * The News Desk does not call Runway. Succeeded rows in `story_reel_renders`
+ * The News Desk does not call a generator. Succeeded rows in `story_reel_renders`
  * (written by the reel renderer) can be attached here with `recordStoryArt` /
  * `attachGeneratedArtToStory`. Home cards resolve a still via `resolveHeroImage`.
  */
