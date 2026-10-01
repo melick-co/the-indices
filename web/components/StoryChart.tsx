@@ -62,7 +62,7 @@ function Bars({ chart }: { chart: StoryChartBlock }) {
             <span style={{
               height: 14, borderRadius: 2,
               width: seen ? `${Math.max(2, (Math.abs(s.value) / max) * 58)}%` : '0%',
-              background: s.highlight ? 'var(--pen)' : 'var(--ink)',
+              background: s.highlight ? 'var(--pen)' : 'var(--graphic-muted)',
               transition: `width .8s ${GROW} ${i * 70}ms`,
             }} />
             <span style={{
@@ -131,7 +131,7 @@ function RankSwap({ chart }: { chart: StoryChartBlock }) {
               <span style={{
                 height: 14, borderRadius: 2,
                 width: `${Math.max(2, (Math.abs(s.value) / max) * 58)}%`,
-                background: s.highlight ? 'var(--pen)' : 'var(--ink)',
+                background: s.highlight ? 'var(--pen)' : 'var(--graphic-muted)',
                 transition: 'width .9s cubic-bezier(.65,0,.35,1)',
               }} />
               <span style={{
@@ -170,7 +170,7 @@ function Timeline({ chart }: { chart: StoryChartBlock }) {
             <span style={{
               width: '100%', maxWidth: 36,
               height: seen ? `${Math.max(4, (Math.abs(s.value) / max) * 100)}%` : '0%',
-              background: s.highlight ? 'var(--pen)' : 'var(--ink)',
+              background: s.highlight ? 'var(--pen)' : 'var(--graphic-muted)',
               borderRadius: 2,
               transition: `height .7s ${GROW} ${i * 60}ms`,
             }} />

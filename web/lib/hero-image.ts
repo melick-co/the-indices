@@ -16,7 +16,7 @@ export function heroPrompt(story: { title: string; hook: string; kicker: string 
   return [
     'Editorial illustration for a data-journalism article in a broadsheet newspaper.',
     `Subject: ${story.kicker}. ${story.title}. ${story.hook}`.slice(0, 600),
-    'Style: restrained, textured print illustration, muted newsprint palette with one ink-red accent, strong single focal point, generous negative space.',
+    'Style: restrained, textured print illustration, muted newsprint palette with one deep navy blue accent (#1d2a48), matching the masthead, strong single focal point, generous negative space.',
     'Do not include any text, letters, numbers, charts, graphs, logos, flags, real people or recognisable public figures.',
   ].join(' ').slice(0, 1000);
 }
