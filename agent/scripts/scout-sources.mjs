@@ -305,6 +305,9 @@ Countries: ${checked.countries.length > 10 ? `${checked.countries.length} countr
 
 Is this the same measure as requested: same concept, same coverage (e.g. sector, whole economy),
 same form (level vs growth rate), plausible values? If it differs in any of these, answer false.
+Not differences: frequency (a quarterly or monthly series serves an annual request; it is stored at its
+native frequency) and seasonal adjustment. For Australian CPI, "weighted average of eight capital
+cities" is the national CPI.
 Respond ONLY with JSON: {"match":true|false,"why":"..."}`, 'scout confirm');
   if (!confirm.match) return { outcome: 'rejected', note: `${pick.flow} ${choice.key ?? ''}: ${confirm.why}` };
 
