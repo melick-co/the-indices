@@ -279,29 +279,37 @@ export type PublishOptions = {
   audit?: boolean;
 };
 
-export async function publishStoryFromPitch(
-  pitchId: string,
+type SupabaseClient = ReturnType<typeof createClient>;
+
+/** A published article being refreshed: the writer keeps its finding unless newer data changes it. */
+export type PriorArticle = { title: string; hook: string; published: string; text: string };
+
+function priorArticleBrief(prior: PriorArticle) {
+  return `
+
+<published_article date="${prior.published}">
+${prior.title}
+${prior.hook}
+
+${prior.text.slice(0, 8000)}
+</published_article>
+
+This is a refresh of the article above, published ${prior.published}. Rewrite it in the house news style with
+the latest stored data. Keep its finding if the data still supports it; if newer data changes the finding, the
+new copy says so plainly. Do not mention that the article was rewritten; the page carries an update note.`;
+}
+
+/** Research, write and check an article for a pitch, with revision rounds. Saves nothing. */
+export async function draftStory(
+  supabase: SupabaseClient,
+  pitch: Record<string, unknown>,
   onEvent: (event: FoundryEvent) => void,
-  opts: PublishOptions = {},
-): Promise<PublishResult> {
-  const supabase = createClient();
-
-  const { data: pitch, error } = await supabase.from('pitches').select('*').eq('id', pitchId).single();
-  if (error || !pitch) throw new Error('Pitch not found');
-  if (pitch.state !== 'approved') {
-    throw new Error(`Pitch must be approved before publishing (current state: ${pitch.state})`);
-  }
-
-  const { data: existing } = await supabase.from('stories')
-    .select('slug, status').eq('pitch_id', pitchId).maybeSingle();
-  if (existing?.status === 'published') {
-    throw new Error(`Story already published at /stories/${existing.slug}`);
-  }
-
+  opts: PublishOptions & { prior?: PriorArticle },
+): Promise<{ story: StructuredStory; check: FactCheck }> {
   onEvent({ type: 'tool_start', name: 'load', label: 'Loading pitch and metrics', at: new Date().toISOString() });
 
   const metricIds = [
-    ...new Set([...(pitch.metric_ids ?? []), ...(pitch.resurface_metrics ?? [])]),
+    ...new Set([...((pitch.metric_ids as string[] | null) ?? []), ...((pitch.resurface_metrics as string[] | null) ?? [])]),
   ] as string[];
   const metrics = await loadMetricContext(metricIds);
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
@@ -319,7 +327,7 @@ export async function publishStoryFromPitch(
     story = articleFromApprovedPitch(pitch);
   } else {
     const charter = loadEditorialCharter();
-    const researchPrompt = buildResearchPrompt(pitch, metrics, charter);
+    const researchPrompt = buildResearchPrompt(pitch, metrics, charter) + (opts.prior ? priorArticleBrief(opts.prior) : '');
 
     onEvent({ type: 'tool_start', name: 'research', label: 'Researching story data', at: new Date().toISOString() });
 
@@ -430,6 +438,29 @@ export async function publishStoryFromPitch(
     if (round === rounds && rounds === MAX_REVISIONS && !check.ok && styleOnly()) rounds++;
   }
   if (!check.ok && rounds) check.issues.unshift(`not fixed after ${rounds} revision round(s):`);
+  return { story, check };
+}
+
+export async function publishStoryFromPitch(
+  pitchId: string,
+  onEvent: (event: FoundryEvent) => void,
+  opts: PublishOptions = {},
+): Promise<PublishResult> {
+  const supabase = createClient();
+
+  const { data: pitch, error } = await supabase.from('pitches').select('*').eq('id', pitchId).single();
+  if (error || !pitch) throw new Error('Pitch not found');
+  if (pitch.state !== 'approved') {
+    throw new Error(`Pitch must be approved before publishing (current state: ${pitch.state})`);
+  }
+
+  const { data: existing } = await supabase.from('stories')
+    .select('slug, status').eq('pitch_id', pitchId).maybeSingle();
+  if (existing?.status === 'published') {
+    throw new Error(`Story already published at /stories/${existing.slug}`);
+  }
+
+  const { story, check } = await draftStory(supabase, pitch, onEvent, opts);
 
   const slug = existing?.slug ?? await uniqueSlug(story.slug_hint || story.title);
   const now = new Date().toISOString();

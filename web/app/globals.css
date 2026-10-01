@@ -4319,3 +4319,11 @@ html:has(.site-shell--ops) body {
   .story-line-dot.key, .story-line-label.key { opacity: 1; transition: none; }
   .story-timeline li { opacity: 1; transform: none; transition: none; }
 }
+
+/* Reader-facing note on a revised article (story_revisions). */
+.story-update-note {
+  margin: -0.4rem 0 1rem;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}

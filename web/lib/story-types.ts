@@ -175,6 +175,9 @@ export interface Story {
   /** True for founding stories whose body is a React component in the repo. */
   staticBody?: boolean;
   storyId?: string;
+  /** Reader-facing note on the last applied revision, and its date. */
+  updateNote?: string | null;
+  updatedOn?: string | null;
 }
 
 /** Best (lowest) tier and unique publisher names for the receipt strip. */
