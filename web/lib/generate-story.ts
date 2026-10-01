@@ -4,6 +4,7 @@ import { CHARTER, MODEL } from '@/lib/research-agent';
 import { articleFromApprovedPitch, type StructuredStory } from '@/lib/article-from-pitch';
 import { bindStoryCharts } from '@/lib/chart-from-data';
 import { factCheckStory, type FactCheck } from '@/lib/fact-check';
+import { auditClaims } from '@/lib/claim-audit';
 import { METRIC_ALIASES, loadKnownMetrics, normaliseMetricIds } from '../../agent/scripts/lib/metric-ids.mjs';
 import type { StoryChartBlock } from '@/lib/story-types';
 import { readFileSync } from 'node:fs';
@@ -334,6 +335,20 @@ export async function publishStoryFromPitch(
   const check = await factCheckStory(supabase, story, [...knownIds]);
   check.issues.unshift(...bound.issues);
   check.ok = check.ok && bound.issues.length === 0;
+
+  // Figures exist in the data; now check each claim uses them truthfully.
+  if (check.ok && apiKey) {
+    onEvent({ type: 'tool_start', name: 'audit', label: 'Auditing every claim against stored data', at: new Date().toISOString() });
+    try {
+      const audit = await auditClaims(supabase, story, [...knownIds]);
+      check.claims = audit.claims;
+      for (const c of audit.unsupported) check.issues.push(`claim not supported by stored data: "${c.claim}" (${c.evidence})`);
+      check.ok = audit.ok;
+    } catch (e) {
+      check.ok = false;
+      check.issues.push(`claim audit failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
 
   const slug = existing?.slug ?? await uniqueSlug(story.slug_hint || story.title);
   const now = new Date().toISOString();

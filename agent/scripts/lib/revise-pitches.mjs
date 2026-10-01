@@ -35,7 +35,9 @@ const HISTORY = 4;
  * series the full table at that period with Australia's rank already computed.
  * Metrics with no observations are marked missing rather than sent empty.
  */
-export async function buildReference(db, metricIds) {
+/** @param {{ history?: number }} [opts] how many Australian readings to include per metric */
+export async function buildReference(db, metricIds, opts = {}) {
+  const history = opts.history ?? HISTORY;
   const out = {};
   for (const mid of metricIds) {
     const { data: meta } = await db.from('metrics')
@@ -45,7 +47,7 @@ export async function buildReference(db, metricIds) {
       .select('period, value, status')
       .eq('metric_id', mid).eq('entity', HOME)
       .order('period', { ascending: false })
-      .limit(HISTORY);
+      .limit(history);
     if (!meta || !home?.length) {
       out[mid] = { missing: true, note: 'No Australian observations in the database. Do not cite a figure for this.' };
       continue;

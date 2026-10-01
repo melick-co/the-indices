@@ -131,6 +131,7 @@ async function runOne(p: Pitch, today: string): Promise<AutoMark> {
     return { ...started, outcome: 'held', slug: draft.slug, issues: draft.check.issues.slice(0, 20) };
   }
 
+  log(`  Claims audited: ${draft.check.claims?.length ?? 0}, all supported.`);
   if (noPublish) {
     log('  Fact check passed; --no-publish, so left as a draft.');
     return { ...started, outcome: 'passed-unpublished', slug: draft.slug };
@@ -183,7 +184,10 @@ async function main() {
     quiet_day: published === 0,
     notes: `auto-articles: ${summary.join(' | ')}`.slice(0, 2000),
   });
-  log(`\nDone. ${published} published, ${results.filter((r) => r.outcome === 'held').length} held for review.`);
+  const held = results.filter((r) => r.outcome === 'held').length;
+  log(noPublish
+    ? `\nDone. ${published} passed every check (left as drafts), ${held} held for review.`
+    : `\nDone. ${published} published, ${held} held for review.`);
 }
 
 main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });

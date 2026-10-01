@@ -56,6 +56,8 @@ export type FactCheck = {
   ok: boolean;
   issues: string[];
   unsupported: Array<{ where: string; value: number }>;
+  /** Claim-by-claim audit (lib/claim-audit.ts), run once the figures pass. */
+  claims?: Array<{ claim: string; verdict: string; evidence: string }>;
 };
 
 type Obs = { entity: string; period: string; value: number };
