@@ -3,6 +3,7 @@
  *
  *   npx tsx --import ./scripts/node-shims.mjs scripts/auto-articles.ts            # run (from web/)
  *   npx tsx --import ./scripts/node-shims.mjs scripts/auto-articles.ts --dry-run  # list only, change nothing
+ *   ... --no-publish   # write and check everything, but leave articles as drafts
  *
  * Policy (agreed Oct 2026):
  * - Only pitches scoring 5 on every rubric dimension.
@@ -35,6 +36,7 @@ type Pitch = {
 type AutoMark = { attempted_at: string; day: string; outcome: string; slug?: string; issues?: string[] };
 
 const dryRun = process.argv.includes('--dry-run');
+const noPublish = process.argv.includes('--no-publish');
 const db = createClient();
 const sydneyDay = (d = new Date()) => d.toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' });
 const allFives = (s: Pitch['score']) => !!s && DIMS.every((d) => Number(s[d]) === 5);
@@ -111,6 +113,11 @@ async function runOne(p: Pitch, today: string): Promise<AutoMark> {
     return { ...started, outcome: 'held', slug: draft.slug, issues: draft.check.issues.slice(0, 20) };
   }
 
+  if (noPublish) {
+    log('  Fact check passed; --no-publish, so left as a draft.');
+    return { ...started, outcome: 'passed-unpublished', slug: draft.slug };
+  }
+
   const { data: story } = await db.from('stories').select('slug, title, hook, kicker').eq('pitch_id', p.id).single();
   if (story) {
     try { await generateHeroImage(db, story, (m) => log(`  ${m}`)); }
@@ -146,7 +153,7 @@ async function main() {
     }
     await mark(p.id, result);
     results.push({ headline: p.headline, ...result });
-    if (result.outcome === 'published') published++;
+    if (result.outcome === 'published' || result.outcome === 'passed-unpublished') published++;
   }
 
   const summary = results.map((r) => `${r.outcome}: ${r.headline.slice(0, 80)}${r.slug ? ` (/stories/${r.slug})` : ''}`);
