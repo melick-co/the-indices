@@ -77,7 +77,7 @@ export type StoryArtSource = 'upload' | 'url' | 'generated';
 
 /**
  * A still or clip attached to a story. The News Desk reads these; generators
- * (Runway or otherwise) write them via `attachGeneratedArt` in story-art.ts.
+ * (ElevenLabs or otherwise) write them via `attachGeneratedArt` in story-art.ts.
  * Do not call a generator from the desk.
  */
 export interface StoryArt {

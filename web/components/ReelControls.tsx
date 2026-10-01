@@ -54,7 +54,7 @@ export default function ReelControls({
     <Link
       href={href}
       style={style}
-      title="Open the video pipeline: script, then storyboard, then prompt output, then Runway"
+      title="Open the video pipeline: script, then storyboard, then prompt output, then ElevenLabs"
     >
       {label(reel)} →
     </Link>

@@ -8,16 +8,15 @@ import {
   createImageToVideo,
   createTextToImage,
   createTextToVideo,
-  isRunwayConfigured,
+  isMediaConfigured,
   isTerminalStatus,
   retrieveTask,
-  RunwayConfigError,
-  RUNWAY_IMAGE_MODEL,
-  RUNWAY_VIDEO_MODEL,
-  type RunwayEndpoint,
-  type RunwayTask,
-  type RunwayTaskStatus,
-} from '@/lib/runway-client';
+  MediaConfigError,
+  ELEVEN_IMAGE_MODEL,
+  ELEVEN_VIDEO_MODEL,
+  type MediaTask,
+  type MediaTaskStatus,
+} from '@/lib/elevenlabs-client';
 import { compactRunwayPrompt } from '@/lib/runway-prompts';
 import {
   REEL_SCENE_ID,
@@ -27,7 +26,10 @@ import {
   type StoryReelRender,
 } from '@/lib/reel-render-types';
 
-export { isRunwayConfigured };
+export { isMediaConfigured };
+
+/** Generation endpoint recorded on a render row (column names predate the switch from Runway). */
+type MediaEndpoint = 'text_to_image' | 'image_to_video' | 'text_to_video';
 
 const BUCKET = 'reel-renders';
 const POLL_FLOOR_MS = 5000;
@@ -78,9 +80,9 @@ function asRender(row: RenderRow): StoryReelRender {
   };
 }
 
-function mapTaskStatus(status: RunwayTaskStatus): RenderStatus {
+function mapTaskStatus(status: MediaTaskStatus): RenderStatus {
   if (status === 'SUCCEEDED') return 'succeeded';
-  if (status === 'FAILED' || status === 'CANCELLED' || status === 'CANCELED') return 'failed';
+  if (status === 'FAILED') return 'failed';
   if (status === 'RUNNING') return 'running';
   return 'queued';
 }
@@ -97,7 +99,7 @@ async function loadBoard(slug: string): Promise<{ spec: ReelSpec; scenes: ReelSc
   if (!story) throw new Error(`No story found at /stories/${slug}`);
   if (!reel) throw new Error('Write the script and storyboard first');
   if (reel.stage === 'script') {
-    throw new Error('Draw the storyboard before generating with Runway, so pictures and figures are locked');
+    throw new Error('Draw the storyboard before generating video, so pictures and figures are locked');
   }
   return { spec: reel.spec, scenes: reel.spec.scenes ?? [], title: story.title };
 }
@@ -138,7 +140,7 @@ async function insertQueued(fields: {
   promptText: string;
   chainTo?: RenderChainTo | null;
   model?: string | null;
-  endpoint?: RunwayEndpoint | null;
+  endpoint?: MediaEndpoint | null;
 }): Promise<RenderRow> {
   const supabase = createClient();
   const { data, error } = await supabase.from('story_reel_renders').insert({
@@ -152,7 +154,7 @@ async function insertQueued(fields: {
     runway_endpoint: fields.endpoint ?? null,
     updated_at: new Date().toISOString(),
   }).select('*').single();
-  if (error || !data) throw new Error(error?.message ?? 'Could not record the Runway job');
+  if (error || !data) throw new Error(error?.message ?? 'Could not record the generation job');
   return data as RenderRow;
 }
 
@@ -164,18 +166,18 @@ async function updateRow(id: string, patch: Record<string, unknown>): Promise<Re
     .eq('render_id', id)
     .select('*')
     .single();
-  if (error || !data) throw new Error(error?.message ?? 'Could not update the Runway job');
+  if (error || !data) throw new Error(error?.message ?? 'Could not update the generation job');
   return data as RenderRow;
 }
 
-async function submitToRunway(
+async function submitToGenerator(
   row: RenderRow,
   opts?: { promptImage?: string | null; duration?: number },
 ): Promise<RenderRow> {
-  if (!isRunwayConfigured()) {
+  if (!isMediaConfigured()) {
     return updateRow(row.render_id, {
       status: 'failed',
-      error: new RunwayConfigError().message,
+      error: new MediaConfigError().message,
     });
   }
 
@@ -183,12 +185,12 @@ async function submitToRunway(
   const promptImage = opts?.promptImage;
 
   try {
-    let task: RunwayTask;
+    let task: MediaTask;
     if (row.kind === 'still' || row.kind === 'chart') {
       task = await createTextToImage({ promptText: row.prompt_text });
       await updateRow(row.render_id, {
         runway_endpoint: 'text_to_image',
-        model: RUNWAY_IMAGE_MODEL,
+        model: ELEVEN_IMAGE_MODEL,
       });
     } else if (promptImage) {
       task = await createImageToVideo({
@@ -198,7 +200,7 @@ async function submitToRunway(
       });
       await updateRow(row.render_id, {
         runway_endpoint: 'image_to_video',
-        model: RUNWAY_VIDEO_MODEL,
+        model: ELEVEN_VIDEO_MODEL,
       });
     } else {
       task = await createTextToVideo({
@@ -207,7 +209,7 @@ async function submitToRunway(
       });
       await updateRow(row.render_id, {
         runway_endpoint: 'text_to_video',
-        model: RUNWAY_VIDEO_MODEL,
+        model: ELEVEN_VIDEO_MODEL,
       });
     }
 
@@ -238,7 +240,7 @@ async function persistOutput(row: RenderRow, remoteUrl: string): Promise<RenderR
   if (!res.ok) {
     return updateRow(row.render_id, {
       status: 'failed',
-      error: `Runway output could not be downloaded (${res.status}). The URL may have expired.`,
+      error: `ElevenLabs output could not be downloaded (${res.status}). The URL may have expired.`,
     });
   }
   const buf = Buffer.from(await res.arrayBuffer());
@@ -254,7 +256,7 @@ async function persistOutput(row: RenderRow, remoteUrl: string): Promise<RenderR
   if (error) {
     return updateRow(row.render_id, {
       status: 'failed',
-      error: `Could not persist Runway output to storage: ${error.message}`,
+      error: `Could not persist ElevenLabs output to storage: ${error.message}`,
     });
   }
 
@@ -327,10 +329,10 @@ async function startStillJob(
     kind,
     promptText,
     chainTo,
-    model: RUNWAY_IMAGE_MODEL,
+    model: ELEVEN_IMAGE_MODEL,
     endpoint: 'text_to_image',
   });
-  return submitToRunway(row, { duration: scene.seconds });
+  return submitToGenerator(row, { duration: scene.seconds });
 }
 
 async function startVideoJob(
@@ -355,10 +357,10 @@ async function startVideoJob(
     sceneId: scene.id,
     kind,
     promptText,
-    model: RUNWAY_VIDEO_MODEL,
+    model: ELEVEN_VIDEO_MODEL,
     endpoint: promptImage ? 'image_to_video' : 'text_to_video',
   });
-  return submitToRunway(row, { promptImage, duration: scene.seconds });
+  return submitToGenerator(row, { promptImage, duration: scene.seconds });
 }
 
 async function ensureReelRow(slug: string, sceneCount: number): Promise<void> {
@@ -370,7 +372,7 @@ async function ensureReelRow(slug: string, sceneCount: number): Promise<void> {
     slug,
     sceneId: REEL_SCENE_ID,
     kind: 'reel',
-    promptText: `Assemble ${sceneCount} locked scene clips in storyboard order. Figures stay as traced; no new Runway generation.`,
+    promptText: `Assemble ${sceneCount} locked scene clips in storyboard order. Figures stay as traced; no new generation.`,
   });
 }
 
@@ -427,7 +429,7 @@ async function refreshReelAssembly(slug: string, scenes: ReelScene[]): Promise<v
  * Video jobs prefer image-to-video from a locked still so chart figures stay put.
  */
 export async function startRenders(slug: string, req: StartRenderRequest): Promise<StoryReelRender[]> {
-  if (!isRunwayConfigured()) throw new RunwayConfigError();
+  if (!isMediaConfigured()) throw new MediaConfigError();
 
   const { spec, scenes, title } = await loadBoard(slug);
   if (!scenes.length) throw new Error('The storyboard has no scenes to render');
@@ -483,13 +485,13 @@ async function pollOne(row: RenderRow, board: { spec: ReelSpec; scenes: ReelScen
       const image = latestStillUrl(rows, row.scene_id);
       const scene = board.scenes.find((s) => s.id === row.scene_id);
       if (image) {
-        await submitToRunway(row, { promptImage: image, duration: scene?.seconds ?? 5 });
-      } else if (!isRunwayConfigured()) {
-        await updateRow(row.render_id, { status: 'failed', error: new RunwayConfigError().message });
+        await submitToGenerator(row, { promptImage: image, duration: scene?.seconds ?? 5 });
+      } else if (!isMediaConfigured()) {
+        await updateRow(row.render_id, { status: 'failed', error: new MediaConfigError().message });
       }
     } else if (row.status === 'queued') {
       const scene = board.scenes.find((s) => s.id === row.scene_id);
-      await submitToRunway(row, { duration: scene?.seconds ?? 5 });
+      await submitToGenerator(row, { duration: scene?.seconds ?? 5 });
     }
     return;
   }
@@ -499,7 +501,7 @@ async function pollOne(row: RenderRow, board: { spec: ReelSpec; scenes: ReelScen
 
   await updateRow(row.render_id, { last_polled_at: new Date().toISOString() });
 
-  let task: RunwayTask;
+  let task: MediaTask;
   try {
     task = await retrieveTask(row.runway_task_id);
   } catch (e) {
@@ -519,7 +521,7 @@ async function pollOne(row: RenderRow, board: { spec: ReelSpec; scenes: ReelScen
   if (status === 'failed') {
     await updateRow(row.render_id, {
       status: 'failed',
-      error: task.failure || task.failureCode || 'Runway marked this task failed',
+      error: task.failure || 'ElevenLabs marked this generation failed',
     });
     return;
   }
@@ -528,7 +530,7 @@ async function pollOne(row: RenderRow, board: { spec: ReelSpec; scenes: ReelScen
   if (!remote) {
     await updateRow(row.render_id, {
       status: 'failed',
-      error: 'Runway succeeded but returned no output URL',
+      error: 'ElevenLabs succeeded but returned no output URL',
     });
     return;
   }
@@ -552,7 +554,7 @@ async function pollOne(row: RenderRow, board: { spec: ReelSpec; scenes: ReelScen
 }
 
 /**
- * Poll open Runway tasks for this story (at most once per five seconds per job),
+ * Poll open ElevenLabs generations for this story (at most once per five seconds per job),
  * persist finished files, and chain still → clip / animated chart.
  */
 export async function pollRenders(slug: string): Promise<StoryReelRender[]> {

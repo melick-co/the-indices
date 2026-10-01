@@ -18,7 +18,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for. Space separated.'
@@ -229,6 +229,8 @@ jobs:
       - run: npm ci --silent
       - run: npm install @supabase/supabase-js --no-save --silent
         working-directory: agent
+      - name: Ensure ffmpeg (hero video muxing)
+        run: command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
       - name: Write and publish articles
         run: npx tsx --import ./scripts/node-shims.mjs scripts/auto-articles.ts ${{ inputs.task == 'articles-dry-run' && '--dry-run' || inputs.task == 'articles-draft' && '--no-publish' || '' }}
         env:
@@ -237,7 +239,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          RUNWAYML_API_SECRET: ${{ secrets.RUNWAYML_API_SECRET }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
 
   scout:
     # Daily source scout (agent/scripts/scout-sources.mjs): adopt official series that
@@ -274,6 +276,25 @@ jobs:
       - name: Re-link pitches
         if: inputs.task != 'scout-dry-run'
         run: node scripts/fix-metric-links.mjs --apply
+
+  media-smoke:
+    # One small image and a voice line (optionally a 4s video) to confirm the ElevenLabs setup.
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.task == 'media-smoke' || inputs.task == 'media-smoke-video')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run: { working-directory: web }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm ci --silent
+      - name: ElevenLabs smoke test
+        run: npx tsx --import ./scripts/node-shims.mjs scripts/elevenlabs-smoke.ts ${{ inputs.task == 'media-smoke-video' && '--video' || '' }}
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
 
   sources:
     if: >-

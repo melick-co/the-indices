@@ -28,7 +28,7 @@ export default async function NewsDeskPage() {
         Lay out the home page, edit published copy, and attach images. Pitches stay
         on <Link href="/foundry">Foundry</Link>. Chart figures are editor-entered —
         the desk does not invent them. Generated stills and clips attach here when
-        another agent writes them; this desk does not call Runway.
+        another agent writes them; this desk does not call a generator.
       </p>
       <DeskBoard
         hero={layout.hero}

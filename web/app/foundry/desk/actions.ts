@@ -347,7 +347,7 @@ export type DeskRender = {
   prompt: string;
 };
 
-/** Succeeded Runway (or other) renders for this slug. Read-only; does not start jobs. */
+/** Succeeded ElevenLabs (or earlier Runway) renders for this slug. Read-only; does not start jobs. */
 export async function loadSucceededRenders(slug: string): Promise<DeskRender[]> {
   await requireAdmin();
   const supabase = createClient();
@@ -370,7 +370,7 @@ export async function loadSucceededRenders(slug: string): Promise<DeskRender[]> 
     }));
 }
 
-/** Attach an existing render URL to the story. Does not call Runway. */
+/** Attach an existing render URL to the story. Does not call a generator. */
 export async function attachRenderToStory(slug: string, render: DeskRender, asHero: boolean) {
   await requireAdmin();
   const isClip = render.kind === 'clip' || render.kind === 'chart_video' || render.kind === 'reel';

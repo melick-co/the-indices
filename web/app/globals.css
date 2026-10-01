@@ -4235,3 +4235,8 @@ html:has(.site-shell--ops) body {
   }
 }
 
+
+/* Narrated hero clip on the daily lead story: same frame as the hero image, caption below. */
+.story-hero-video { margin: var(--spacing-21) 0 var(--spacing-42); }
+.story-hero-video .story-hero-art { margin: 0; }
+.story-hero-video .figure-cap { margin-top: 8px; }
