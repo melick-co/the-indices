@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import './lib/load-env.mjs';
 import { runDetectors } from './detectors.mjs';
+import { callClaudeJson } from './lib/claude.mjs';
 import { loadKnownMetrics, normaliseMetricIds } from './lib/metric-ids.mjs';
 
 const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -133,18 +134,7 @@ async function taste() {
       ({ id, headline, hook, mechanism, caveat, detector, trigger_rows, metric_ids, times_pitched })),
     inbox ?? []);
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }] }),
-  });
-  if (!res.ok) throw new Error(`anthropic ${res.status}: ${await res.text()}`);
-  const body = await res.json();
-  const text = (body.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join('');
-  try { return JSON.parse(text.replace(/```json|```/g, '').trim()); }
-  catch { throw new Error('taste verdict was not valid JSON'); }
+  return callClaudeJson(prompt, { label: 'taste verdict' });
 }
 
 // ---------- 4. Apply verdict ----------
