@@ -20,11 +20,12 @@
 import { ABS_SERIES } from './abs-config.mjs';
 import { parseSdmxJson, seriesKeys } from './lib/sdmx-json.mjs';
 import { createDb, upsertSeries } from './lib/obs-loader.mjs';
+import { loadRegistry } from './lib/registry.mjs';
 
 const BASE = 'https://data.api.abs.gov.au/rest';
 const UA = 'caveat-indices/0.1 (+https://caveat.news)';
 
-async function absFetch(path, accept = 'application/vnd.sdmx.data+json') {
+export async function absFetch(path, accept = 'application/vnd.sdmx.data+json') {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'user-agent': UA, accept },
     signal: AbortSignal.timeout(45000),
@@ -102,7 +103,17 @@ async function peek(id, key = 'all', lastN = 8) {
 export async function loadAbs(db = createDb()) {
   let totalNew = 0;
   const changedMetrics = [];
-  for (const s of ABS_SERIES) {
+  const scouted = (await loadRegistry(db, 'abs')).map((r) => ({
+    metric_id: r.metric_id, name: r.name, dataflow: r.flow, dataKey: r.key, lastN: 40,
+    unit: r.unit, basis: r.basis, direction: r.direction, category: r.category, source_id: 'scout_registry',
+    ...(r.derive?.metric_id ? {
+      derive: {
+        metric_id: r.derive.metric_id, name: r.derive.name, unit: 'percent', basis: r.derive.basis,
+        direction: r.direction, category: r.category, lag: r.derive.lag,
+      },
+    } : {}),
+  }));
+  for (const s of [...ABS_SERIES, ...scouted]) {
     try {
       const json = await absFetch(
         `/data/ABS,${s.dataflow}/${s.dataKey}?lastNObservations=${s.lastN}&format=jsondata`);

@@ -57,13 +57,23 @@ export const METRIC_ALIASES = {
  * @param {Set<string>} known real metric_ids
  * @returns {{ linked: string[], unlinked: string[] }}
  */
+/**
+ * The real metric_id for a requested id: the static aliases above first, then
+ * aliases of series the source scout adopted (carried on `known.aliases`).
+ * @param {string} id
+ * @param {Set<string> & { aliases?: Record<string, string> }} [known]
+ */
+export function canonicalMetricId(id, known) {
+  return METRIC_ALIASES[id] ?? known?.aliases?.[id] ?? id;
+}
+
 export function normaliseMetricIds(ids, known) {
   const linked = new Set();
   const unlinked = new Set();
   for (const raw of Array.isArray(ids) ? ids : []) {
     const id = String(raw ?? '').trim();
     if (!id) continue;
-    const canonical = METRIC_ALIASES[id] ?? id;
+    const canonical = canonicalMetricId(id, known);
     if (known.has(canonical)) linked.add(canonical);
     else unlinked.add(id);
   }
@@ -79,9 +89,20 @@ export function withUnlinked(triggerRows, unlinked) {
   return rows;
 }
 
-/** @param {{ from: Function }} db Supabase client */
+/**
+ * Every metric_id in the store, with the scout registry's aliases attached as
+ * `.aliases` so normaliseMetricIds links requests to scout-adopted series.
+ * @param {{ from: Function }} db Supabase client
+ * @returns {Promise<Set<string> & { aliases: Record<string, string> }>}
+ */
 export async function loadKnownMetrics(db) {
   const { data, error } = await db.from('metrics').select('metric_id');
   if (error) throw new Error(`metrics lookup failed: ${error.message}`);
-  return new Set((data ?? []).map((m) => m.metric_id));
+  const known = /** @type {Set<string> & { aliases: Record<string, string> }} */ (new Set((data ?? []).map((m) => m.metric_id)));
+  known.aliases = {};
+  // The registry may not exist yet (migration 30); links then use the static aliases only.
+  const { data: reg } = await db.from('series_registry').select('metric_id, aliases, derive').eq('status', 'active');
+  // A derived series (annual change from an index) is what the requested id meant.
+  for (const r of reg ?? []) for (const a of r.aliases ?? []) known.aliases[a] = r.derive?.metric_id ?? r.metric_id;
+  return known;
 }

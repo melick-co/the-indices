@@ -6,6 +6,7 @@
  */
 import { WB_SERIES } from './wb-config.mjs';
 import { createDb, loadEntityCodes, upsertSeries } from './lib/obs-loader.mjs';
+import { loadRegistry } from './lib/registry.mjs';
 
 const BASE = 'https://api.worldbank.org/v2';
 
@@ -23,7 +24,12 @@ async function load() {
   let totalNew = 0;
   const changed = [];
 
-  for (const s of WB_SERIES) {
+  const scouted = (await loadRegistry(db, 'wb')).map((r) => ({
+    metric_id: r.metric_id, indicator: r.flow, name: r.name, unit: r.unit, basis: r.basis,
+    direction: r.direction, category: r.category, source_id: 'scout_registry',
+    source_dataset: `WDI ${r.flow} (added by source scout)`, startYear: 2000,
+  }));
+  for (const s of [...WB_SERIES, ...scouted]) {
     try {
       const raw = await fetchIndicator(s.indicator, s.startYear);
       const rows = [];

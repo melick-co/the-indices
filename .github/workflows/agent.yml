@@ -12,15 +12,16 @@ on:
     - cron: '0 2 * * *'
     - cron: '0 14 * * *'
     - cron: '0 22 * * *'
+    - cron: '0 3 * * 0'
   workflow_dispatch:
     inputs:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
-        description: 'articles only: pitch id(s), space separated, to run regardless of the retry window'
+        description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for. Space separated.'
         required: false
         default: ''
 
@@ -237,6 +238,40 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RUNWAYML_API_SECRET: ${{ secrets.RUNWAYML_API_SECRET }}
+
+  scout:
+    # Weekly source scout (agent/scripts/scout-sources.mjs): adopt official series
+    # pitches keep asking for, load them, and re-link pitches. Sundays 03:00 UTC.
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.task == 'scout' || inputs.task == 'scout-dry-run') ||
+      github.event_name == 'schedule' && github.event.schedule == '0 3 * * 0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run: { working-directory: agent }
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm install @supabase/supabase-js --no-save --silent
+      - name: Scout sources
+        run: node scripts/scout-sources.mjs ${{ inputs.task == 'scout-dry-run' && '--dry-run' || '' }}
+        env:
+          SCOUT_IDS: ${{ inputs.pitch }}
+      - name: Load adopted series
+        if: inputs.task != 'scout-dry-run'
+        run: |
+          node scripts/load-sources.mjs abs
+          node scripts/load-sources.mjs oecd
+          node scripts/watch-wb.mjs load
+      - name: Re-link pitches
+        if: inputs.task != 'scout-dry-run'
+        run: node scripts/fix-metric-links.mjs --apply
 
   sources:
     if: >-

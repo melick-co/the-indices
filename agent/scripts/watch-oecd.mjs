@@ -12,6 +12,7 @@ import https from 'node:https';
 import { OECD_SERIES } from './oecd-config.mjs';
 import { parseSdmxSeries } from './lib/sdmx-json.mjs';
 import { createDb, loadEntityCodes, upsertSeries } from './lib/obs-loader.mjs';
+import { loadRegistry } from './lib/registry.mjs';
 
 const BASE = 'https://sdmx.oecd.org/public/rest';
 const UA = 'caveat-indices/0.1 (+https://the-indices.vercel.app)';
@@ -35,7 +36,7 @@ function get(url, accept) {
   });
 }
 
-async function oecdFetch(path, accept = STRUCTURE, attempts = 5) {
+export async function oecdFetch(path, accept = STRUCTURE, attempts = 5) {
   for (let i = 1; ; i++) {
     const res = await get(`${BASE}${path}`, accept);
     if (res.status >= 200 && res.status < 300) {
@@ -51,7 +52,7 @@ async function oecdFetch(path, accept = STRUCTURE, attempts = 5) {
   }
 }
 
-async function fetchSeries(flow, key, startPeriod) {
+export async function fetchSeries(flow, key, startPeriod) {
   const json = await oecdFetch(`/data/${flow}/${key}?startPeriod=${startPeriod}`, DATA);
   return parseSdmxSeries(json);
 }
@@ -106,13 +107,18 @@ export async function loadOecd(db = createDb()) {
   const changedMetrics = [];
 
   const cache = new Map();
-  for (const s of OECD_SERIES) {
+  const scouted = (await loadRegistry(db, 'oecd')).map((r) => ({
+    metric_id: r.metric_id, name: r.name, flow: r.flow, key: r.key, measure: r.measure, startPeriod: '2000',
+    unit: r.unit, basis: r.basis, direction: r.direction, category: r.category,
+    source_dataset: `${r.flow} (added by source scout)`,
+  }));
+  for (const s of [...OECD_SERIES, ...scouted]) {
     try {
       const cacheKey = `${s.flow}/${s.key}/${s.startPeriod}`;
       if (!cache.has(cacheKey)) cache.set(cacheKey, fetchSeries(s.flow, s.key, s.startPeriod));
       const raw = await cache.get(cacheKey);
       const rows = raw
-        .filter((r) => r.dims.MEASURE === s.measure && entities.has(r.dims.REF_AREA))
+        .filter((r) => (!s.measure || r.dims.MEASURE === s.measure) && entities.has(r.dims.REF_AREA))
         .map((r) => ({
           metric_id: s.metric_id,
           entity: r.dims.REF_AREA,
@@ -121,13 +127,18 @@ export async function loadOecd(db = createDb()) {
           status: statusOf(r.obsStatus),
         }));
       if (!rows.length) { console.log(`${s.metric_id}: no rows for known entities`); continue; }
+      // A key must give one value per country and period; anything else is ambiguous.
+      if (new Set(rows.map((r) => `${r.entity}|${r.period}`)).size !== rows.length) {
+        console.error(`${s.metric_id}: key returns several series per country; not loaded`);
+        continue;
+      }
 
       const { fresh } = await upsertSeries(db, {
         metric_id: s.metric_id, name: s.name, unit: s.unit, basis: s.basis,
         direction: s.direction, category: s.category, source_tier: 1,
         source_org: 'OECD', source_dataset: s.source_dataset,
         source_url: `${BASE}/data/${s.flow}/${s.key}`,
-        source_id: 'oecd_gov',
+        source_id: s.source_dataset?.includes('source scout') ? 'scout_registry' : 'oecd_gov',
       }, rows);
       totalNew += fresh;
       if (fresh) changedMetrics.push(s.metric_id);
