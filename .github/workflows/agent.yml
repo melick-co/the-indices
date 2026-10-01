@@ -19,6 +19,10 @@ on:
         type: choice
         options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, refresh, metric-links, metric-links-apply, both]
         default: both
+      pitch:
+        description: 'articles only: pitch id(s), space separated, to run regardless of the retry window'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -227,6 +231,7 @@ jobs:
       - name: Write and publish articles
         run: npx tsx --import ./scripts/node-shims.mjs scripts/auto-articles.ts ${{ inputs.task == 'articles-dry-run' && '--dry-run' || inputs.task == 'articles-draft' && '--no-publish' || '' }}
         env:
+          AUTO_ARTICLE_PITCHES: ${{ inputs.pitch }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

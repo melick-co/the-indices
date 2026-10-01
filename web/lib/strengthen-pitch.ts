@@ -223,7 +223,8 @@ export async function strengthenPitch(
     patch.mechanism = update.mechanism;
     patch.caveat = update.caveat;
     patch.chart_hint = update.chart_hint;
-    patch.metric_ids = links.linked;
+    // Keep existing links; the model's list adds to them, it does not replace them.
+    patch.metric_ids = [...new Set([...(pitch.metric_ids ?? []), ...links.linked])];
     if (update.score) patch.score = update.score;
     patch.trigger_rows = withUnlinked({
       ...(pitch.trigger_rows as Record<string, unknown> ?? {}),

@@ -4,6 +4,8 @@
  *   npx tsx --import ./scripts/node-shims.mjs scripts/auto-articles.ts            # run (from web/)
  *   npx tsx --import ./scripts/node-shims.mjs scripts/auto-articles.ts --dry-run  # list only, change nothing
  *   ... --no-publish   # write and check everything, but leave articles as drafts
+ *   ... --pitch=<id>   # only these pitches (repeatable, or AUTO_ARTICLE_PITCHES); ignores the retry window and
+ *                      # rewrites an existing draft, but never touches a published story
  *
  * Policy (agreed Oct 2026):
  * - Only pitches scoring 5 on every rubric dimension.
@@ -37,6 +39,10 @@ type AutoMark = { attempted_at: string; day: string; outcome: string; slug?: str
 
 const dryRun = process.argv.includes('--dry-run');
 const noPublish = process.argv.includes('--no-publish');
+const onlyPitches = [
+  ...process.argv.filter((a) => a.startsWith('--pitch=')).map((a) => a.slice('--pitch='.length)),
+  ...(process.env.AUTO_ARTICLE_PITCHES ?? '').split(/[\s,]+/),
+].filter(Boolean);
 const db = createClient();
 const sydneyDay = (d = new Date()) => d.toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' });
 const allFives = (s: Pitch['score']) => !!s && DIMS.every((d) => Number(s[d]) === 5);
@@ -56,13 +62,15 @@ async function mark(id: string, patch: Partial<AutoMark>) {
 
 async function candidates(today: string) {
   const { data, error } = await db.from('pitches')
-    .select('id, headline, state, score, rank_value, trigger_rows')
+    .select('id, headline, state, score, rank_value, trigger_rows, metric_ids')
     .in('state', ELIGIBLE_STATES);
   if (error) throw new Error(error.message);
   const pitches = (data ?? []) as Pitch[];
 
-  const { data: storyRows } = await db.from('stories').select('pitch_id');
-  const hasStory = new Set((storyRows ?? []).map((s) => s.pitch_id).filter(Boolean));
+  const { data: storyRows } = await db.from('stories').select('pitch_id, status');
+  const hasStory = new Set((storyRows ?? [])
+    .filter((s) => !onlyPitches.length || s.status === 'published')
+    .map((s) => s.pitch_id).filter(Boolean));
 
   const { data: published } = await db.from('pitches').select('trigger_rows').eq('state', 'published');
   const publishedToday = (published ?? []).filter((p) => {
@@ -73,10 +81,16 @@ async function candidates(today: string) {
   const cutoff = Date.now() - RETRY_DAYS * 864e5;
   const fives = pitches.filter((p) => allFives(p.score));
   const eligible = fives
+    .filter((p) => !onlyPitches.length || onlyPitches.includes(p.id))
     .filter((p) => !hasStory.has(p.id))
-    .filter((p) => { const m = markOf(p); return !m || Date.parse(m.attempted_at) < cutoff; })
+    .filter((p) => { const m = markOf(p); return onlyPitches.length > 0 || !m || Date.parse(m.attempted_at) < cutoff; })
     .sort((a, b) => (b.rank_value ?? 0) - (a.rank_value ?? 0));
 
+  for (const p of fives.filter((f) => !eligible.includes(f))) {
+    const m = markOf(p);
+    const why = hasStory.has(p.id) ? 'already has a story' : m ? `tried ${m.day} (${m.outcome})` : 'filtered by --pitch';
+    log(`  skip  ${why.padEnd(30)} id ${p.id}  ${p.headline.slice(0, 70)}`);
+  }
   return { fives: fives.length, eligible, slots: Math.max(0, MAX_PER_DAY - publishedToday), publishedToday };
 }
 
@@ -106,6 +120,10 @@ async function runOne(p: Pitch, today: string): Promise<AutoMark> {
   log('  Writing article…');
   const draft = await publishStoryFromPitch(p.id, onEvent);
   log(`  Draft: /stories/${draft.slug} "${draft.title}"`);
+  const { data: written } = await db.from('stories').select('hook, body').eq('pitch_id', p.id).single();
+  const lede = (written?.body?.blocks ?? []).find((b: { type: string }) => b.type === 'paragraph') as { text?: string } | undefined;
+  log(`  Standfirst: ${written?.hook ?? ''}`);
+  if (lede?.text) log(`  Lede: ${lede.text.slice(0, 400)}`);
 
   if (!draft.check.ok) {
     log(`  Held for review (${draft.check.issues.length} issue(s)):`);
@@ -133,7 +151,10 @@ async function main() {
   const today = sydneyDay();
   const { fives, eligible, slots, publishedToday } = await candidates(today);
   log(`${fives} pitch(es) score all 5s; ${eligible.length} eligible; ${publishedToday} auto-published today; ${slots} slot(s) left.`);
-  for (const p of eligible) log(`  ${p.state.padEnd(9)} rank ${p.rank_value ?? '-'}  ${p.headline.slice(0, 90)}`);
+  for (const p of eligible) {
+    log(`  ${p.state.padEnd(9)} rank ${p.rank_value ?? '-'}  ${p.headline.slice(0, 90)}`);
+    log(`            id ${p.id}  metrics ${JSON.stringify((p as Pitch & { metric_ids?: string[] }).metric_ids ?? [])}`);
+  }
   if (dryRun || !slots || !eligible.length) {
     if (dryRun) log('Dry run: nothing written.');
     return;

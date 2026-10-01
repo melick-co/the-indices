@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { allowedNumbers, isSupported, numbersIn } from '../../agent/scripts/lib/figures.mjs';
+import { numbersIn } from '../../agent/scripts/lib/figures.mjs';
 import { loadObservations } from '@/lib/chart-from-data';
 import type { StoryBody, StoryChartBlock, StoryEvidence, StoryOneNumber } from '@/lib/story-types';
 
@@ -12,6 +12,35 @@ import type { StoryBody, StoryChartBlock, StoryEvidence, StoryOneNumber } from '
  */
 
 const HOME = 'AUS';
+// Pairwise changes are taken over Australia's most recent points only; long
+// monthly series would otherwise produce hundreds of thousands of candidates.
+const PAIR_WINDOW = 60;
+
+/**
+ * Allowed values, indexed for fast lookup. Close to the revision guard's rule:
+ * within about 0.05 (one-decimal rounding) or equal after rounding to an integer,
+ * against each value and its thousand/million/billion/percent rescalings.
+ * Values arrive as numbers; signs are dropped because numbersIn drops them.
+ */
+class Allowed {
+  private tenths = new Set<number>();
+  private ints = new Set<number>();
+  add(values: Iterable<number>) {
+    for (const raw of values) {
+      if (!Number.isFinite(raw)) continue;
+      const v = Math.abs(raw);
+      for (const a of [v, v / 1e3, v / 1e6, v / 1e9, v * 100]) {
+        this.tenths.add(Math.round(a * 20));
+        this.ints.add(Math.round(a));
+      }
+    }
+  }
+  has(n: number) {
+    if (Number.isInteger(n) && this.ints.has(n)) return true;
+    const k = Math.round(n * 20);
+    return this.tenths.has(k) || this.tenths.has(k - 1) || this.tenths.has(k + 1);
+  }
+}
 
 export type CheckableStory = {
   kicker: string;
@@ -34,7 +63,7 @@ type Obs = { entity: string; period: string; value: number };
 /** Values a reader could fairly derive from one metric's observations. */
 function derivedFrom(obs: Obs[]): number[] {
   const out: number[] = [];
-  const home = obs.filter((o) => o.entity === HOME).sort((a, b) => a.period.localeCompare(b.period));
+  const home = obs.filter((o) => o.entity === HOME).sort((a, b) => a.period.localeCompare(b.period)).slice(-PAIR_WINDOW);
   for (let i = 0; i < home.length; i++) {
     for (let j = i + 1; j < home.length; j++) {
       const a = home[i].value;
@@ -81,18 +110,18 @@ export async function factCheckStory(
   const ids = [...new Set(metricIds.filter(Boolean))];
   if (!ids.length) issues.push('story is not linked to any stored metric');
 
-  const allowed: number[] = [];
+  const allowed = new Allowed();
   for (const id of ids) {
     const obs = await loadObservations(db, id);
     if (!obs.length) issues.push(`metric ${id} has no observations`);
-    allowed.push(...allowedNumbers(obs.map((o) => o.value)));
-    allowed.push(...allowedNumbers(derivedFrom(obs)));
+    allowed.add(obs.map((o) => o.value));
+    allowed.add(derivedFrom(obs));
   }
 
   const unsupported: FactCheck['unsupported'] = [];
   for (const { where, text } of storyTexts(story)) {
     for (const n of numbersIn(text)) {
-      if (!isSupported(n, allowed)) unsupported.push({ where, value: n });
+      if (!allowed.has(n)) unsupported.push({ where, value: n });
     }
   }
   for (const u of unsupported) issues.push(`${u.where}: ${u.value} is not in the stored data`);

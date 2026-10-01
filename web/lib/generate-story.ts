@@ -4,6 +4,8 @@ import { CHARTER, MODEL } from '@/lib/research-agent';
 import { articleFromApprovedPitch, type StructuredStory } from '@/lib/article-from-pitch';
 import { bindStoryCharts } from '@/lib/chart-from-data';
 import { factCheckStory, type FactCheck } from '@/lib/fact-check';
+import { METRIC_ALIASES, loadKnownMetrics, normaliseMetricIds } from '../../agent/scripts/lib/metric-ids.mjs';
+import type { StoryChartBlock } from '@/lib/story-types';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -292,6 +294,17 @@ export async function publishStoryFromPitch(
   }
   // Charts take their values from the store, then every figure is checked against it.
   onEvent({ type: 'tool_start', name: 'check', label: 'Building charts from stored data and checking figures', at: new Date().toISOString() });
+  // Models still reach for old metric names (e.g. trimmed_mean_cpi); map them to real ids.
+  const known = await loadKnownMetrics(supabase);
+  const canonical = (id?: string) => (id ? (METRIC_ALIASES as Record<string, string>)[id] ?? id : id);
+  for (const b of story.body?.blocks ?? []) {
+    const c = b as StoryChartBlock;
+    if (c.type === 'chart' && c.data) {
+      c.data.metric_id = canonical(c.data.metric_id)!;
+      if (c.data.alt_metric_id) c.data.alt_metric_id = canonical(c.data.alt_metric_id);
+    }
+  }
+  story.metric_ids_used = normaliseMetricIds(story.metric_ids_used ?? [], known).linked;
   const bound = await bindStoryCharts(supabase, story.body?.blocks ?? []);
   story.body = { blocks: bound.blocks };
   const knownIds = new Set(metricIds);
