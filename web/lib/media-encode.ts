@@ -8,13 +8,16 @@ import { promisify } from 'node:util';
  * Web-sized encodes with ffmpeg (on the GitHub runner; see the articles job).
  * Generated media arrives large (a 2K hero PNG is ~7 MB, an 8s 1080p clip
  * ~23 MB); pages need a fraction of that. Without ffmpeg, the original is used.
+ * FFMPEG_PATH points at the binary (the workflow installs ffmpeg-static,
+ * because apt on the runners is unreliable); otherwise `ffmpeg` on PATH.
  */
 
 const run = promisify(execFile);
+const FFMPEG = process.env.FFMPEG_PATH?.trim() || 'ffmpeg';
 export const WEB_WIDTH = 1600;
 
 export async function hasFfmpeg(): Promise<boolean> {
-  try { await run('ffmpeg', ['-version']); return true; } catch { return false; }
+  try { await run(FFMPEG, ['-version']); return true; } catch { return false; }
 }
 
 /** JPEG at WEB_WIDTH (quality ~85). Returns the original if ffmpeg is unavailable or fails. */
@@ -26,7 +29,7 @@ export async function webImage(input: Buffer, contentType: string): Promise<{ da
     const src = join(dir, `in.${fallbackExt}`);
     const out = join(dir, 'out.jpg');
     await writeFile(src, input);
-    await run('ffmpeg', ['-y', '-i', src, '-vf', `scale='min(${WEB_WIDTH},iw)':-2`, '-q:v', '3', out]);
+    await run(FFMPEG, ['-y', '-i', src, '-vf', `scale='min(${WEB_WIDTH},iw)':-2`, '-q:v', '3', out]);
     return { data: await readFile(out), contentType: 'image/jpeg', ext: 'jpg' };
   } catch {
     return { data: input, contentType, ext: fallbackExt };
@@ -45,5 +48,13 @@ export async function webVideo(videoFile: string, audioFile: string | null, outF
   else args.push('-an');
   args.push('-vf', `scale='min(${WEB_WIDTH},iw)':-2`, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '25',
     '-pix_fmt', 'yuv420p', '-movflags', '+faststart', outFile);
-  await run('ffmpeg', args);
+  await run(FFMPEG, args);
+}
+
+/** Duration in seconds, read from ffmpeg's own stream info (no ffprobe needed). */
+export async function mediaDuration(file: string): Promise<number> {
+  // `ffmpeg -i <file>` with no output exits non-zero but prints the duration on stderr.
+  const stderr = await run(FFMPEG, ['-hide_banner', '-i', file]).then((r) => r.stderr, (e) => String(e.stderr ?? ''));
+  const m = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+  return m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : 0;
 }
