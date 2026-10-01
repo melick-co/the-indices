@@ -4,6 +4,8 @@
  *
  *   node scripts/scout-sources.mjs            # adopt verified series into series_registry
  *   node scripts/scout-sources.mjs --dry-run  # report decisions, write nothing
+ *   ... --retire=<metric_id>                  # stop loading an adopted series and free its aliases
+ *                                             # (repeatable, or SCOUT_RETIRE); retired series keep their data
  *   ... --id=<metric_id>                      # scout these ids instead of the demand list
  *                                             # (repeatable, or SCOUT_IDS, space/comma separated)
  *
@@ -37,6 +39,8 @@ const CANDIDATES_PER_PROVIDER = 20;
 const CODES_PER_DIMENSION = 40;
 const STRUCTURE = 'application/vnd.sdmx.structure+json';
 const dryRun = process.argv.includes('--dry-run');
+const retireIds = process.argv.filter((a) => a.startsWith('--retire=')).map((a) => a.slice(9))
+  .concat((process.env.SCOUT_RETIRE ?? '').split(/[\s,]+/)).filter(Boolean);
 const requestedIds = [
   ...process.argv.filter((a) => a.startsWith('--id=')).map((a) => a.slice(5)),
   ...(process.env.SCOUT_IDS ?? '').split(/[\s,]+/),
@@ -217,6 +221,20 @@ function rbaTitle(key, dims) {
   return title ?? k;
 }
 
+// A series whose latest Australian reading is older than this is not worth adopting.
+const MAX_AGE_YEARS = 3;
+
+/** Reject stale series: the newest period must be within MAX_AGE_YEARS. */
+function tooOld(result) {
+  if (!result.ok) return result;
+  const latest = result.sample?.map((r) => String(r.period)).sort().at(-1);
+  const year = Number(String(latest ?? '').slice(0, 4));
+  if (year && year < new Date().getFullYear() - MAX_AGE_YEARS) {
+    return { ok: false, why: `latest Australian reading is ${latest}; series is no longer current` };
+  }
+  return result;
+}
+
 // ---------- verification ----------
 
 async function verify(provider, choice, dims) {
@@ -359,7 +377,7 @@ is_series is false if the id names a one-off fact, a forecast or a policy target
     }
 
     const attemptVerify = async () => {
-      try { return await verify(pick.provider, choice, dims); }
+      try { return tooOld(await verify(pick.provider, choice, dims)); }
       catch (e) { return { ok: false, why: e.message }; }
     };
     let checked = await attemptVerify();
@@ -451,7 +469,23 @@ is_series is false if the id names a one-off fact, a forecast or a policy target
   return { outcome: 'adopted', metric_id: derivedId ?? metricId, note: `${pick.provider} ${pick.flow} ${choice.key ?? ''} | ${checked.label}`.slice(0, 500) };
 }
 
+async function retire(ids) {
+  for (const id of ids) {
+    const { data, error } = await db.from('series_registry')
+      .update({ status: 'retired', updated_at: new Date().toISOString(), last_error: 'retired by --retire' })
+      .eq('metric_id', id).select('metric_id, aliases');
+    if (error) log(`retire ${id}: ${error.message}`);
+    else if (!data?.length) log(`retire ${id}: not in the registry`);
+    else log(`Retired ${id}; aliases freed: ${(data[0].aliases ?? []).join(', ') || '(none)'}`);
+  }
+}
+
 async function main() {
+  if (retireIds.length) {
+    if (dryRun) { log(`Dry run: would retire ${retireIds.join(', ')}`); return; }
+    await retire(retireIds);
+    return;
+  }
   const known = await loadKnownMetrics(db);
   const targets = requestedIds.length
     ? requestedIds.map((id) => ({ id, pitches: 0, headlines: [] }))

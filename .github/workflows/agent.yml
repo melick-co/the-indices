@@ -18,7 +18,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, scout, scout-dry-run, scout-retire, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for. Space separated.'
@@ -244,7 +244,7 @@ jobs:
     # research suggested or pitches keep asking for, load them, re-link pitches. 03:00 UTC.
     if: >-
       github.event_name == 'workflow_dispatch' &&
-      (inputs.task == 'scout' || inputs.task == 'scout-dry-run') ||
+      (inputs.task == 'scout' || inputs.task == 'scout-dry-run' || inputs.task == 'scout-retire') ||
       github.event_name == 'schedule' && github.event.schedule == '0 3 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -262,9 +262,10 @@ jobs:
       - name: Scout sources
         run: node scripts/scout-sources.mjs ${{ inputs.task == 'scout-dry-run' && '--dry-run' || '' }}
         env:
-          SCOUT_IDS: ${{ inputs.pitch }}
+          SCOUT_IDS: ${{ inputs.task != 'scout-retire' && inputs.pitch || '' }}
+          SCOUT_RETIRE: ${{ inputs.task == 'scout-retire' && inputs.pitch || '' }}
       - name: Load adopted series
-        if: inputs.task != 'scout-dry-run'
+        if: inputs.task != 'scout-dry-run' && inputs.task != 'scout-retire'
         run: |
           node scripts/load-sources.mjs abs
           node scripts/load-sources.mjs oecd
