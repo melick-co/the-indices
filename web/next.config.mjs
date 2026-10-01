@@ -11,6 +11,11 @@ const nextConfig = {
         '../agent/scripts/lib/hot-sources.mjs',
         '../agent/EDITORIAL.md',
       ],
+      // The article writer reads the charter and the house news style.
+      '/api/foundry/pitch/[pitchId]/publish': [
+        '../agent/EDITORIAL.md',
+        '../agent/NEWS-STYLE.md',
+      ],
     },
   },
   async redirects() {

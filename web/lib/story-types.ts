@@ -9,17 +9,34 @@ export interface SourceRow {
   basis: string;
 }
 
+/** A numbered source note; body text cites it as [^n] (NEWS-STYLE.md §5). */
+export interface Footnote {
+  n: number;
+  /** Organisation, title, dataset or publication, date, page or section. */
+  text: string;
+  url?: string;
+}
+
 export interface StoryEvidence {
   table?: { head: string[]; rows: string[][] };
   sources: SourceRow[];
+  footnotes?: Footnote[];
 }
 
 export interface StoryOneNumber {
   value: string;
   label: string;
+  /** When set, value, period and comparison are computed from this stored series (hero stat card). */
+  metric_id?: string;
+  period?: string;
+  /** e.g. "up 0.6 pts on a year earlier"; computed, never written by the model. */
+  comparison?: string;
+  /** Direction of the change, for the ▲/▼ marker. */
+  direction?: 'up' | 'down' | 'flat';
+  footnote?: number;
 }
 
-export type ChartKind = 'bars' | 'rank_swap' | 'timeline';
+export type ChartKind = 'bars' | 'rank_swap' | 'timeline' | 'line';
 
 export type ChartSeriesPoint = {
   label: string;
@@ -48,7 +65,14 @@ export type ChartDataSpec = {
 export type StoryChartBlock = {
   type: 'chart';
   kind: ChartKind;
+  /** Takeaway headline ("Sales fell for a third straight quarter"), not the topic. */
   title?: string;
+  /** Units, timeframe and what is measured. */
+  subtitle?: string;
+  /** Screen-reader description of the takeaway. */
+  alt?: string;
+  /** Footnote the source line links to. */
+  footnote?: number;
   caption?: string;
   series: ChartSeriesPoint[];
   alt_series?: ChartSeriesPoint[];
@@ -59,11 +83,37 @@ export type StoryChartBlock = {
   bound?: { metric_id: string; period: string; alt_metric_id?: string; alt_period?: string };
 };
 
+/** Where a paragraph sits in the news structure (NEWS-STYLE.md §2). */
+export type ParagraphRole = 'lede' | 'nut' | 'evidence' | 'context' | 'to_be_sure' | 'whats_next' | 'kicker';
+
+/** A direct quote; runs only if verified word for word against source_url. */
+export type StoryQuoteBlock = {
+  type: 'quote';
+  text: string;
+  speaker: string;
+  /** Speaker's title and organisation, e.g. "Governor, Reserve Bank of Australia". */
+  title?: string;
+  /** Where and when it was said, e.g. "Monetary policy decision statement, 30 September 2026". */
+  said?: string;
+  source_url: string;
+  footnote?: number;
+  verified?: boolean;
+};
+
+export type StoryTimelineBlock = {
+  type: 'timeline';
+  title: string;
+  subtitle?: string;
+  events: { date: string; label: string; footnote?: number }[];
+};
+
 export type StoryBlock =
-  | { type: 'paragraph'; text: string }
+  | { type: 'paragraph'; text: string; role?: ParagraphRole }
   | { type: 'layers'; items: string[] }
   | { type: 'heading'; text: string }
   | { type: 'pull'; text: string }
+  | StoryQuoteBlock
+  | StoryTimelineBlock
   | StoryChartBlock;
 
 export interface StoryBody {

@@ -47,12 +47,36 @@ function btn(on: boolean): React.CSSProperties {
   };
 }
 
+/**
+ * Graphic anatomy (NEWS-STYLE.md §4.4): takeaway headline, subhead with units
+ * and timeframe, the chart, and a source line linked to its footnote. The alt
+ * text is the figure's accessible name.
+ */
+function ChartFrame({ chart, children, frameRef }: {
+  chart: StoryChartBlock;
+  children: React.ReactNode;
+  frameRef?: React.Ref<HTMLDivElement>;
+}) {
+  return (
+    <figure className="figure story-chart" ref={frameRef} aria-label={chart.alt ?? chart.title}>
+      {chart.title && <div className="story-chart-title">{chart.title}</div>}
+      {chart.subtitle && <div className="story-chart-subtitle">{chart.subtitle}</div>}
+      {children}
+      {(chart.caption || chart.footnote) && (
+        <figcaption className="figure-cap">
+          {chart.caption}
+          {chart.footnote ? <sup className="fn-ref"><a href={`#fn-${chart.footnote}`} aria-label={`Source ${chart.footnote}`}>{chart.footnote}</a></sup> : null}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
 function Bars({ chart }: { chart: StoryChartBlock }) {
   const max = Math.max(...chart.series.map((s) => Math.abs(s.value)), 1);
   const [ref, seen] = useInView<HTMLDivElement>();
   return (
-    <div className="figure story-chart" ref={ref}>
-      {chart.title && <div className="story-chart-title">{chart.title}</div>}
+    <ChartFrame chart={chart} frameRef={ref}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {chart.series.map((s, i) => (
           <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
@@ -73,8 +97,7 @@ function Bars({ chart }: { chart: StoryChartBlock }) {
           </div>
         ))}
       </div>
-      {chart.caption && <p className="figure-cap">{chart.caption}</p>}
-    </div>
+    </ChartFrame>
   );
 }
 
@@ -100,8 +123,7 @@ function RankSwap({ chart }: { chart: StoryChartBlock }) {
   const byLabel = new Map(active.map((s) => [s.label, s]));
 
   return (
-    <div className="figure story-chart">
-      {chart.title && <div className="story-chart-title">{chart.title}</div>}
+    <ChartFrame chart={chart}>
       <div style={{ display: 'flex', gap: '.6rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <button type="button" onClick={() => { if (timer.current) clearInterval(timer.current); setAlt(false); }} style={btn(!alt)}>
           {primaryLabel}
@@ -142,8 +164,7 @@ function RankSwap({ chart }: { chart: StoryChartBlock }) {
           );
         })}
       </div>
-      {chart.caption && <p className="figure-cap">{chart.caption}</p>}
-    </div>
+    </ChartFrame>
   );
 }
 
@@ -151,8 +172,7 @@ function Timeline({ chart }: { chart: StoryChartBlock }) {
   const max = Math.max(...chart.series.map((s) => Math.abs(s.value)), 1);
   const [ref, seen] = useInView<HTMLDivElement>();
   return (
-    <div className="figure story-chart" ref={ref}>
-      {chart.title && <div className="story-chart-title">{chart.title}</div>}
+    <ChartFrame chart={chart} frameRef={ref}>
       <div style={{
         display: 'flex', alignItems: 'flex-end', gap: 8, height: 140, paddingTop: 8,
       }}>
@@ -178,14 +198,47 @@ function Timeline({ chart }: { chart: StoryChartBlock }) {
           </div>
         ))}
       </div>
-      {chart.caption && <p className="figure-cap">{chart.caption}</p>}
-    </div>
+    </ChartFrame>
+  );
+}
+
+/**
+ * Change over time: a line that draws in when scrolled into view, with the
+ * first and latest values labelled directly and the latest point highlighted.
+ */
+function Line({ chart }: { chart: StoryChartBlock }) {
+  const [ref, seen] = useInView<HTMLDivElement>();
+  const pts = chart.series;
+  const W = 640, H = 220, padL = 8, padR = 64, padT = 18, padB = 26;
+  const vals = pts.map((p) => p.value);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const span = max - min || Math.abs(max) || 1;
+  const lo = min - span * 0.12, hi = max + span * 0.12;
+  const x = (i: number) => padL + (i * (W - padL - padR)) / Math.max(1, pts.length - 1);
+  const y = (v: number) => padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
+  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
+  const last = pts[pts.length - 1];
+  const first = pts[0];
+  return (
+    <ChartFrame chart={chart} frameRef={ref}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="story-line" role="img" aria-label={chart.alt ?? chart.title ?? ''}>
+        <line x1={padL} x2={W - padR} y1={H - padB} y2={H - padB} className="story-line-axis" />
+        <path d={d} pathLength={1} className={`story-line-path${seen ? ' drawn' : ''}`} />
+        <circle cx={x(0)} cy={y(first.value)} r={3} className="story-line-dot" />
+        <text x={x(0)} y={y(first.value) - 8} className="story-line-label">{formatNum(first.value)}</text>
+        <circle cx={x(pts.length - 1)} cy={y(last.value)} r={4.5} className={`story-line-dot key${seen ? ' shown' : ''}`} />
+        <text x={x(pts.length - 1) + 8} y={y(last.value) + 4} className={`story-line-label key${seen ? ' shown' : ''}`}>{formatNum(last.value)}</text>
+        <text x={x(0)} y={H - 8} className="story-line-tick">{first.label}</text>
+        <text x={x(pts.length - 1)} y={H - 8} textAnchor="end" className="story-line-tick">{last.label}</text>
+      </svg>
+    </ChartFrame>
   );
 }
 
 export default function StoryChart({ chart }: { chart: StoryChartBlock }) {
   if (!chart.series?.length) return null;
   if (chart.kind === 'rank_swap' && chart.alt_series?.length) return <RankSwap chart={chart} />;
+  if (chart.kind === 'line' && chart.series.length >= 2) return <Line chart={chart} />;
   if (chart.kind === 'timeline') return <Timeline chart={chart} />;
   return <Bars chart={chart} />;
 }

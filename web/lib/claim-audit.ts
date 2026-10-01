@@ -20,12 +20,15 @@ export type ClaimVerdict = { claim: string; verdict: 'supported' | 'unsupported'
 export type ClaimAudit = { ok: boolean; claims: ClaimVerdict[]; unsupported: ClaimVerdict[] };
 
 function articleText(story: CheckableStory) {
-  const parts = [`HEADLINE: ${story.title}`, `STANDFIRST: ${story.hook}`];
+  const parts = [`HEADLINE: ${story.title}`, `STANDFIRST: ${story.hook.replace(/\[\^\d+\]/g, '')}`];
   if (story.one_number) parts.push(`ONE NUMBER: ${story.one_number.value} (${story.one_number.label})`);
   for (const b of story.body.blocks) {
     if (b.type === 'layers') parts.push(...b.items.map((t) => `- ${t}`));
     else if (b.type === 'chart') parts.push(`[CHART: ${b.title ?? ''}]`);
-    else if ('text' in b) parts.push(b.text);
+    else if (b.type === 'timeline') parts.push(...b.events.map((e) => `- ${e.date}: ${e.label}`));
+    // Quotes are verified word for word against their source; their content is the speaker's, not a data claim.
+    else if (b.type === 'quote') parts.push(`[QUOTE from ${b.speaker}, verified against source; do not audit]`);
+    else if ('text' in b) parts.push(b.text.replace(/\[\^\d+\]/g, ''));
   }
   parts.push(`CAVEAT: ${story.caveat}`);
   for (const row of story.evidence?.table?.rows ?? []) parts.push(`TABLE: ${row.join(' | ')}`);
@@ -77,11 +80,11 @@ Respond ONLY with JSON:
  * checked again from scratch by the caller.
  */
 export async function reviseForChecks(
-  db: SupabaseClient, story: StructuredStory, issues: string[], metricIds: string[],
+  db: SupabaseClient, story: StructuredStory, issues: string[], metricIds: string[], newsStyle = '',
 ): Promise<StructuredStory> {
   const reference = await buildReference(db, metricIds, { history: HISTORY });
-  const prompt = `A data-journalism article failed its fact check. Rewrite it so it passes.
-
+  const prompt = `A data-journalism article failed its pre-publish checks (fact check and house news style). Rewrite it so it passes.
+${newsStyle ? `\n<house_news_style>\n${newsStyle}\n</house_news_style>\n` : ''}
 <reference>
 ${JSON.stringify(reference)}
 </reference>
@@ -99,9 +102,13 @@ Rules:
   in the rewritten article must be shown by it (simple arithmetic on listed values is fine).
 - Correct wrong figures to the reference value. Drop claims about series not in the reference, or
   state them without a number and attribute them in words. Do not add new figures from memory.
-- Keep the news structure (lede, nut graf, layers, chart, context, pull, what to watch), the chart
-  block's "data" spec (metric_id from the reference), and a headline that leads with the strongest
-  finding the reference supports. No em dashes.
+- Fix every "style:" finding to the house news style: headline 6-12 words as an active, present-tense
+  claim; deck 20-35 words; lede 35 words or fewer; nut graf by paragraph 4; "to_be_sure" and
+  "whats_next" paragraphs; 1-3 sentences per paragraph; [^n] after every figure with each n listed in
+  evidence.footnotes; every chart with title, subtitle, alt and footnote; a timeline when 3+ dated events.
+- Keep each paragraph's "role", every chart's "data" spec (metric_id from the reference), one_number's
+  metric_id, footnote numbering, and any quote block exactly as it is (quotes are verified separately).
+  Lead the headline with the strongest finding the reference supports. No em dashes.
 - List in metric_ids_used every metric_id whose values the copy quotes.
 
 Return ONLY the full article JSON in the same schema as article_json.`;

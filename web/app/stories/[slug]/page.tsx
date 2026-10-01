@@ -9,6 +9,13 @@ import ReelControls from '@/components/ReelControls';
 import { STORIES } from '@/content/stories';
 import { loadStoryBySlug } from '@/lib/stories-loader';
 import { clipsOf, resolveHeroImage } from '@/lib/story-art';
+import Footnoted from '@/components/Footnoted';
+import HeroStat from '@/components/HeroStat';
+
+/** Link text for a source URL; null if it is not a valid URL. */
+function hostOf(url: string): string | null {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return null; }
+}
 import Migration from './bodies/migration';
 import WageSpiral from './bodies/wage-spiral';
 
@@ -55,6 +62,13 @@ export default async function StoryPage({
         )}
         <div className="card-kicker">{story.kicker}</div>
         <h1>{story.title}</h1>
+        {story.body?.blocks?.length ? (
+          <>
+            {/* Deck and hero graphic directly under the headline (NEWS-STYLE.md §2.2-2.3). */}
+            <p className="story-deck"><Footnoted text={story.hook} /></p>
+            {story.oneNumber?.metric_id && <HeroStat one={story.oneNumber} />}
+          </>
+        ) : null}
         {clip ? (
           <figure className="story-hero-video">
             <video className="story-hero-art" src={clip.url} poster={art?.url} controls playsInline
@@ -90,6 +104,20 @@ export default async function StoryPage({
             {story.slug === 'wage-spiral' && <WageSpiral Figure={SpiralTimeline} />}
           </>
         )}
+
+        {story.evidence?.footnotes?.length ? (
+          <section className="story-sources" aria-labelledby="sources-heading">
+            <h2 id="sources-heading">Sources</h2>
+            <ol>
+              {[...story.evidence.footnotes].sort((a, b) => a.n - b.n).map((f) => (
+                <li key={f.n} id={`fn-${f.n}`} value={f.n}>
+                  {f.text}
+                  {f.url && hostOf(f.url) ? <> <a href={f.url} target="_blank" rel="noreferrer">{hostOf(f.url)}</a></> : null}
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
 
         <div className="caveat-box">
           <h3>Caveat</h3>

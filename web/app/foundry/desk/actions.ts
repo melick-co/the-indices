@@ -7,6 +7,7 @@ import type {
   HomeSection,
   SourceRow,
   StoryArt,
+  StoryBlock,
   StoryBody,
   StoryEvidence,
   StoryOneNumber,
@@ -209,12 +210,27 @@ function sanitiseEvidence(evidence: StoryEvidence): StoryEvidence {
 }
 
 function sanitiseBody(body: StoryBody): StoryBody {
-  const blocks = (body.blocks ?? []).map((block) => {
+  const blocks = (body.blocks ?? []).map((block): StoryBlock => {
     if (block.type === 'paragraph' || block.type === 'heading' || block.type === 'pull') {
       return { ...block, text: block.text ?? '' };
     }
     if (block.type === 'layers') {
       return { type: 'layers' as const, items: (block.items ?? []).map((t) => t ?? '') };
+    }
+    if (block.type === 'quote') {
+      return {
+        type: 'quote', text: (block.text ?? '').trim(), speaker: (block.speaker ?? '').trim(),
+        title: block.title?.trim() || undefined, said: block.said?.trim() || undefined,
+        source_url: (block.source_url ?? '').trim(), footnote: block.footnote,
+        verified: Boolean(block.verified),
+      };
+    }
+    if (block.type === 'timeline') {
+      return {
+        type: 'timeline', title: (block.title ?? '').trim(), subtitle: block.subtitle?.trim() || undefined,
+        events: (block.events ?? []).map((ev) => ({ date: (ev.date ?? '').trim(), label: (ev.label ?? '').trim(), footnote: ev.footnote }))
+          .filter((ev) => ev.date && ev.label),
+      };
     }
     const series = (block.series ?? []).map((p) => ({
       label: (p.label ?? '').trim(),
@@ -227,9 +243,13 @@ function sanitiseBody(body: StoryBody): StoryBody {
       highlight: Boolean(p.highlight),
     })).filter((p) => p.label && Number.isFinite(p.value));
     return {
+      // Keep the data spec, binding and anatomy so a desk save never drops them.
+      ...block,
       type: 'chart' as const,
-      kind: block.kind === 'rank_swap' || block.kind === 'timeline' ? block.kind : 'bars' as const,
+      kind: block.kind === 'rank_swap' || block.kind === 'timeline' || block.kind === 'line' ? block.kind : 'bars' as const,
       title: block.title?.trim() || undefined,
+      subtitle: block.subtitle?.trim() || undefined,
+      alt: block.alt?.trim() || undefined,
       caption: block.caption?.trim() || undefined,
       primary_label: block.primary_label?.trim() || undefined,
       alt_label: block.alt_label?.trim() || undefined,
