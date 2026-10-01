@@ -8,7 +8,7 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import './lib/load-env.mjs';
-import { METRIC_ALIASES, loadKnownMetrics, normaliseMetricIds, withUnlinked } from './lib/metric-ids.mjs';
+import { canonicalMetricId, loadKnownMetrics, normaliseMetricIds, withUnlinked } from './lib/metric-ids.mjs';
 
 const apply = process.argv.includes('--apply');
 const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -39,7 +39,8 @@ async function main() {
     changed++;
     for (const id of unlinked) unlinkedCount.set(id, (unlinkedCount.get(id) ?? 0) + 1);
     for (const id of [...(p.metric_ids ?? []), ...priorUnlinked, ...(p.resurface_metrics ?? [])]) {
-      if (known.has(METRIC_ALIASES[id])) remapped.set(`${id} -> ${METRIC_ALIASES[id]}`, (remapped.get(`${id} -> ${METRIC_ALIASES[id]}`) ?? 0) + 1);
+      const to = canonicalMetricId(id, known);
+      if (to !== id && known.has(to)) remapped.set(`${id} -> ${to}`, (remapped.get(`${id} -> ${to}`) ?? 0) + 1);
     }
     console.log(`${p.state.padEnd(9)} ${String(p.headline ?? '').slice(0, 60)}`);
     console.log(`          metric_ids ${JSON.stringify(p.metric_ids ?? [])} -> ${JSON.stringify(links.linked)}`);
