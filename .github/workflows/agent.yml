@@ -18,7 +18,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for. Space separated.'
@@ -278,10 +278,11 @@ jobs:
         run: node scripts/fix-metric-links.mjs --apply
 
   media-smoke:
-    # One small image and a voice line (optionally a 4s video) to confirm the ElevenLabs setup.
+    # One small image and a voice line (optionally a 4s video) to confirm the ElevenLabs setup;
+    # hero-media generates hero art and the narrated clip for one story (pitch input = slug).
     if: >-
       github.event_name == 'workflow_dispatch' &&
-      (inputs.task == 'media-smoke' || inputs.task == 'media-smoke-video')
+      (inputs.task == 'media-smoke' || inputs.task == 'media-smoke-video' || inputs.task == 'hero-media')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -292,9 +293,22 @@ jobs:
         with: { node-version: 22 }
       - run: npm ci --silent
       - name: ElevenLabs smoke test
+        if: inputs.task != 'hero-media'
         run: npx tsx --import ./scripts/node-shims.mjs scripts/elevenlabs-smoke.ts ${{ inputs.task == 'media-smoke-video' && '--video' || '' }}
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+      - name: Ensure ffmpeg
+        if: inputs.task == 'hero-media'
+        run: command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+      - name: Hero image and video for one story (pitch input = story slug)
+        if: inputs.task == 'hero-media'
+        run: npx tsx --import ./scripts/node-shims.mjs scripts/hero-media.ts --video
+        env:
+          HERO_SLUG: ${{ inputs.pitch }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
   sources:
     if: >-
