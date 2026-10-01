@@ -58,7 +58,10 @@ record or "highest/lowest since", a streak ("for 30 straight months"), a duratio
 between things. For each, decide:
 - "supported": the reference shows it, directly or by simple arithmetic on listed values (a change
   between two listed readings, a gap between two listed entities, a position in a listed ranking).
-  Streaks and "highest since" need the listed readings to cover the whole span.
+  Streaks and "highest since" need the listed readings to cover the whole span. "Highest since X"
+  means no reading after X is as high as the current one; the reading at X itself is normally higher
+  (that is why the run ends there), so a higher value at X supports the claim rather than refuting it.
+  Likewise "lowest since X".
 - "unsupported": anything else, including claims about series that are not in the reference,
   claims whose span is longer than the listed history, and figures attributed to other sources.
 
