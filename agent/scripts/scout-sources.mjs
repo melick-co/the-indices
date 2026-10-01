@@ -277,12 +277,15 @@ Respond ONLY with JSON: {"name":"...","unit":"...","basis":"...","direction":"hi
 
 Dimensions in key order (code = label):
 ${dims.map((d, i) => `${i + 1}. ${d.id}: ${d.codes.map((c) => `${c.id}=${c.name}`).join('; ')}`).join('\n')}
-${existing.length ? `\nSeries that actually exist for the item you chose (key | labels):\n${existing.map((k) => `${k.key} | ${k.label}`).join('\n')}\nPick one of these keys if it fits.\n` : ''}
+${existing.length ? `\nSeries that actually exist for the item you chose (key | labels):\n${existing.map((k) => `${k.key} | ${k.label}`).join('\n')}\nYou must return one of these keys exactly as listed, or null.\n` : ''}
 Requested: ${target.id} (${plan.meaning}). Return a corrected key using only listed codes, or null if this
 dataflow cannot provide it. If only an index exists and the request is a growth rate (ABS), pick the index
 and set derive_annual_change true.
 Respond ONLY with JSON: {"key":"..." | null,"measure":"OECD MEASURE code or null","derive_annual_change":true|false}`, 'scout key retry');
     if (!fixed.key) return { outcome: 'rejected', note: `${pick.flow}: ${checked.why}; no valid key` };
+    if (existing.length && !existing.some((k) => k.key === fixed.key)) {
+      return { outcome: 'rejected', note: `${pick.flow}: retry key ${fixed.key} is not one of the ${existing.length} series that exist` };
+    }
     choice = {
       ...choice, key: fixed.key, measure: fixed.measure ?? choice.measure,
       derive_annual_change: fixed.derive_annual_change ?? choice.derive_annual_change,
