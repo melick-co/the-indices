@@ -126,11 +126,19 @@ async function structureStory(
   pitch: Record<string, unknown>,
   researchText: string,
   metrics: Array<{ metric_id: string; name?: string; unit?: string | null }>,
+  catalogue: Array<{ metric_id: string; name?: string; unit?: string | null }>,
 ): Promise<StructuredStory> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
-  const available = metrics.map((m) => `- ${m.metric_id}: ${m.name ?? ''}${m.unit ? ` (${m.unit})` : ''}`).join('\n');
+  const line = (m: { metric_id: string; name?: string; unit?: string | null }) =>
+    `- ${m.metric_id}: ${m.name ?? ''}${m.unit ? ` (${m.unit})` : ''}`;
+  const linkedIds = new Set(metrics.map((m) => m.metric_id));
+  const available = [
+    ...metrics.map(line),
+    ...(catalogue.some((m) => !linkedIds.has(m.metric_id)) ? ['Other stored metrics:'] : []),
+    ...catalogue.filter((m) => !linkedIds.has(m.metric_id)).map(line),
+  ].join('\n');
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -155,7 +163,7 @@ ${JSON.stringify({
   metric_ids: pitch.metric_ids,
 })}
 
-Stored metrics you can chart and quote (metric_id: name):
+Stored metrics you can chart and quote (metric_id: name). Linked to this pitch first, then everything else in the store. Use these exact ids:
 ${available || '(none linked; use search_metrics findings from the research notes)'}
 
 Research notes:
@@ -174,16 +182,16 @@ Return JSON matching this schema exactly:
   },
   "body": {
     "blocks": [
-      { "type": "paragraph", "text": "LEDE: who/what/when, the newsworthy finding and its number, in one or two sentences" },
-      { "type": "paragraph", "text": "NUT GRAF: why it matters now and what it changes for readers" },
-      { "type": "layers", "items": ["layer 1: the data that shifts the picture", "layer 2", "layer 3"] },
+      { "type": "paragraph", "text": "..." },
+      { "type": "paragraph", "text": "..." },
+      { "type": "layers", "items": ["...", "...", "..."] },
       { "type": "chart", "kind": "bars|rank_swap|timeline", "title": "what the chart shows",
         "data": { "metric_id": "one of the stored metric_ids", "mode": "latest_by_entity|timeline",
                   "entities": ["AUS","NZL","CAN"], "entity": "AUS", "last": 12, "alt_metric_id": "for rank_swap only" } },
-      { "type": "heading", "text": "section heading" },
-      { "type": "paragraph", "text": "context and supporting data" },
-      { "type": "pull", "text": "the corrected frame in one line" },
-      { "type": "paragraph", "text": "what the caveat means and what to watch next (next release, next decision)" }
+      { "type": "heading", "text": "..." },
+      { "type": "paragraph", "text": "..." },
+      { "type": "pull", "text": "..." },
+      { "type": "paragraph", "text": "..." }
     ]
   },
   "metric_ids_used": ["every stored metric_id whose values the copy quotes"],
@@ -193,7 +201,7 @@ Return JSON matching this schema exactly:
 }
 
 Rules:
-- Standard news structure: lede, nut graf, then supporting detail in the layered sequence from EDITORIAL.md, then caveat and what to watch. Short paragraphs. No em dashes.
+- Standard news structure, in the block order shown: paragraph 1 is the lede (who, what, when, and the newsworthy finding with its number, in one or two sentences); paragraph 2 is the nut graf (why it matters now and what it changes for readers); the layers are the data that shifts the picture, in the sequence from EDITORIAL.md; then a section heading, context and supporting data, a pull line with the corrected frame, and a closing paragraph on the caveat and what to watch next (next release, next decision). Write the copy itself, never labels like "Lede:". Short paragraphs. No em dashes.
 - Headline: attention-grabbing because the finding is surprising, never because it withholds it. No questions, no "you won't believe", no puns that hide the number.
 - Every number in the copy must be a stored value (or a change between stored periods, a gap to a peer, or a rank) for a metric in metric_ids_used. Do not quote figures that exist only in web search results: name the claim without its number instead. Unsupported numbers stop the article from publishing.
 - Charts: give "data" with a stored metric_id and leave out "series"; values are filled from the store. latest_by_entity compares countries at Australia's latest period; timeline shows one entity over time. For rank_swap give alt_metric_id (for example absolute vs per person).
@@ -256,6 +264,8 @@ export async function publishStoryFromPitch(
   const metrics = await loadMetricContext(metricIds);
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   let story: StructuredStory;
+  // Metrics the research step actually read; the copy may quote these.
+  const queried = new Set<string>();
 
   if (!apiKey) {
     onEvent({
@@ -276,11 +286,15 @@ export async function publishStoryFromPitch(
         intent: 'investigate',
         userPrompt: researchPrompt,
         priorMessages: [],
-        onEvent,
+        onEvent: (e) => {
+          if (e.type === 'tool_start' && e.name === 'query_data' && e.detail) queried.add(e.detail);
+          onEvent(e);
+        },
       });
 
       onEvent({ type: 'tool_start', name: 'structure', label: 'Writing the article', at: new Date().toISOString() });
-      story = await structureStory(pitch, researchText, metrics);
+      const { data: catalogue } = await supabase.from('metrics').select('metric_id, name, unit').order('metric_id');
+      story = await structureStory(pitch, researchText, metrics, catalogue ?? []);
     } catch (err) {
       onEvent({
         type: 'tool_start',
@@ -305,10 +319,17 @@ export async function publishStoryFromPitch(
     }
   }
   story.metric_ids_used = normaliseMetricIds(story.metric_ids_used ?? [], known).linked;
+  const unlabel = (t: string) => t.replace(/^\s*(?:lede|nut graf|layer \d+|context|closing)\s*:\s*/i, '');
+  story.body = {
+    blocks: (story.body?.blocks ?? []).map((b) =>
+      b.type === 'layers' ? { ...b, items: b.items.map(unlabel) }
+        : 'text' in b && typeof b.text === 'string' ? { ...b, text: unlabel(b.text) } : b),
+  };
   const bound = await bindStoryCharts(supabase, story.body?.blocks ?? []);
   story.body = { blocks: bound.blocks };
   const knownIds = new Set(metricIds);
   for (const id of story.metric_ids_used ?? []) knownIds.add(id);
+  for (const id of normaliseMetricIds([...queried], known).linked) knownIds.add(id);
   for (const id of bound.chartMetricIds) knownIds.add(id);
   const check = await factCheckStory(supabase, story, [...knownIds]);
   check.issues.unshift(...bound.issues);
