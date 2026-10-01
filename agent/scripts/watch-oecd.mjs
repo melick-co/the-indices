@@ -19,7 +19,7 @@ const DATA = 'application/vnd.sdmx.data+json;version=1.0';
 
 // The OECD API rate-limits per hour (429) and fails intermittently (500) on
 // requests that succeed later, so retry with backoff, honouring Retry-After.
-async function oecdFetch(path, accept = STRUCTURE, attempts = 6) {
+async function oecdFetch(path, accept = STRUCTURE, attempts = 5) {
   for (let i = 1; ; i++) {
     const res = await fetch(`${BASE}${path}`, {
       headers: { 'user-agent': UA, accept },
@@ -31,8 +31,11 @@ async function oecdFetch(path, accept = STRUCTURE, attempts = 6) {
     }
     const retryable = res.status >= 500 || res.status === 429;
     if (!retryable || i >= attempts) throw new Error(`OECD ${res.status}: ${text.slice(0, 200)}`);
+    // Cap the wait: Retry-After can be an hour, and the nightly job has other sources to load.
     const after = Number(res.headers.get('retry-after'));
-    await new Promise((r) => setTimeout(r, after > 0 ? after * 1000 : 5000 * 2 ** (i - 1)));
+    const wait = Math.min(after > 0 ? after * 1000 : 5000 * 2 ** (i - 1), 60000);
+    console.log(`  OECD ${res.status}; retry ${i}/${attempts - 1} in ${Math.round(wait / 1000)}s`);
+    await new Promise((r) => setTimeout(r, wait));
   }
 }
 
