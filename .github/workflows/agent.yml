@@ -230,7 +230,10 @@ jobs:
       - run: npm install @supabase/supabase-js --no-save --silent
         working-directory: agent
       - name: Ensure ffmpeg (hero video muxing)
-        run: command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+        # Never block the articles: without ffmpeg, media is published unencoded and unnarrated.
+        continue-on-error: true
+        timeout-minutes: 4
+        run: command -v ffmpeg >/dev/null || (sudo apt-get update -qq -o Acquire::Retries=2 && sudo apt-get install -y -qq --no-install-recommends ffmpeg)
       - name: Write and publish articles
         run: npx tsx --import ./scripts/node-shims.mjs scripts/auto-articles.ts ${{ inputs.task == 'articles-dry-run' && '--dry-run' || inputs.task == 'articles-draft' && '--no-publish' || '' }}
         env:
@@ -299,7 +302,9 @@ jobs:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
       - name: Ensure ffmpeg
         if: inputs.task == 'hero-media'
-        run: command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+        continue-on-error: true
+        timeout-minutes: 4
+        run: command -v ffmpeg >/dev/null || (sudo apt-get update -qq -o Acquire::Retries=2 && sudo apt-get install -y -qq --no-install-recommends ffmpeg)
       - name: Hero image and video for one story (pitch input = story slug)
         if: inputs.task == 'hero-media'
         run: npx tsx --import ./scripts/node-shims.mjs scripts/hero-media.ts --video
