@@ -1,13 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createTextToImage, isMediaConfigured, waitForTask } from '@/lib/elevenlabs-client';
 import { STORY_ART_BUCKET, attachGeneratedArt } from '@/lib/story-art';
+import { webImage } from '@/lib/media-encode';
 
 /**
  * Generate a landscape hero still for a story with ElevenLabs (Gemini 3 Pro
  * Image) and attach it. The image is illustration, not evidence: no text,
  * numbers, charts, real people or logos, so it can never be read as a data
  * claim or a news photo. Output URLs expire within an hour, so the file is
- * copied into the story-art bucket.
+ * copied into the story-art bucket, re-encoded for the web (~7 MB PNG to a
+ * few hundred KB JPEG).
  */
 
 export function heroPrompt(story: { title: string; hook: string; kicker: string }) {
@@ -33,11 +35,11 @@ export async function generateHeroImage(
 
   const img = await fetch(src);
   if (!img.ok) { log(`Hero image download failed (${img.status}).`); return null; }
-  const contentType = img.headers.get('content-type')?.split(';')[0] ?? task.contentType ?? 'image/png';
-  const ext = contentType.includes('jpeg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png';
-  const path = `auto/${story.slug}-${Date.now()}.${ext}`;
+  const original = img.headers.get('content-type')?.split(';')[0] ?? task.contentType ?? 'image/png';
+  const web = await webImage(Buffer.from(await img.arrayBuffer()), original);
+  const path = `auto/${story.slug}-${Date.now()}.${web.ext}`;
   const { error: upErr } = await db.storage.from(STORY_ART_BUCKET)
-    .upload(path, Buffer.from(await img.arrayBuffer()), { contentType, upsert: false });
+    .upload(path, web.data, { contentType: web.contentType, upsert: false });
   if (upErr) { log(`Hero image upload failed: ${upErr.message}`); return null; }
   const url = db.storage.from(STORY_ART_BUCKET).getPublicUrl(path).data.publicUrl;
 
@@ -48,6 +50,6 @@ export async function generateHeroImage(
     art, hero_image_url: url, hero_image_alt: alt, updated_at: new Date().toISOString(),
   }).eq('slug', story.slug);
   if (error) { log(`Hero image save failed: ${error.message}`); return null; }
-  log(`Hero image attached: ${url}`);
+  log(`Hero image attached (${Math.round(web.data.length / 1024)} KB ${web.contentType}): ${url}`);
   return { url, generationId: task.id.replace(/^image:/, '') };
 }

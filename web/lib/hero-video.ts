@@ -7,6 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createVideo, isMediaConfigured, synthesizeSpeech, waitForTask, type ImageRef } from '@/lib/elevenlabs-client';
 import { heroPrompt } from '@/lib/hero-image';
 import { attachGeneratedArt } from '@/lib/story-art';
+import { hasFfmpeg, webVideo } from '@/lib/media-encode';
 
 /**
  * The day's hero story gets an 8-second narrated clip: a Veo 3.1 Fast video
@@ -86,18 +87,21 @@ export async function generateHeroVideo(
     }
 
     let outFile = videoFile;
-    if (audioFile) {
+    if (!audioFile) log('  No voiceover fits; publishing the clip without narration.');
+    if (await hasFfmpeg()) {
       outFile = join(dir, 'hero.mp4');
-      await run('ffmpeg', ['-y', '-i', videoFile, '-i', audioFile, '-map', '0:v:0', '-map', '1:a:0',
-        '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k', '-af', 'apad', '-shortest', outFile]);
-    } else {
-      log('  No voiceover fits; publishing the clip without narration.');
+      await webVideo(videoFile, audioFile, outFile);
+    } else if (audioFile) {
+      log('  ffmpeg unavailable; publishing the clip without narration.');
+      audioFile = null;
+      narration = null;
     }
 
     const path = `hero/${story.slug}-${Date.now()}.mp4`;
     const { error: upErr } = await db.storage.from(BUCKET)
       .upload(path, await readFile(outFile), { contentType: 'video/mp4', upsert: false });
     if (upErr) { log(`Hero video upload failed: ${upErr.message}`); return null; }
+    const size = (await readFile(outFile)).length;
     const url = db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 
     const { data: row } = await db.from('stories').select('art').eq('slug', story.slug).maybeSingle();
@@ -108,7 +112,7 @@ export async function generateHeroVideo(
     });
     const { error } = await db.from('stories').update({ art, updated_at: new Date().toISOString() }).eq('slug', story.slug);
     if (error) { log(`Hero video save failed: ${error.message}`); return null; }
-    log(`Hero video attached${narration ? ' with voiceover' : ''}: ${url}`);
+    log(`Hero video attached${narration ? ' with voiceover' : ''} (${(size / 1048576).toFixed(1)} MB): ${url}`);
     return { url, narrated: Boolean(narration) };
   } finally {
     await rm(dir, { recursive: true, force: true });
