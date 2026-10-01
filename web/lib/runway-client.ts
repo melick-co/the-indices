@@ -124,6 +124,8 @@ export function clipRunwayDuration(seconds: number): number {
 export async function createTextToImage(opts: {
   promptText: string;
   seed?: number;
+  /** Defaults to the reel's portrait ratio; article heroes pass a landscape one. */
+  ratio?: string;
 }): Promise<RunwayTask> {
   return readJson<RunwayTask>(
     await runwayFetch('/v1/text_to_image', {
@@ -131,7 +133,7 @@ export async function createTextToImage(opts: {
       body: JSON.stringify({
         model: RUNWAY_IMAGE_MODEL,
         promptText: opts.promptText,
-        ratio: RUNWAY_IMAGE_RATIO,
+        ratio: opts.ratio ?? RUNWAY_IMAGE_RATIO,
         ...(typeof opts.seed === 'number' ? { seed: opts.seed } : {}),
       }),
     }),

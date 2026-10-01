@@ -1,0 +1,163 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ChartSeriesPoint, StoryBlock, StoryChartBlock } from '@/lib/story-types';
+
+/**
+ * Fill story chart series from stored observations.
+ * The model chooses what to chart (metric, mode, entities); this code supplies
+ * every value, so a published chart can only show numbers that are in the store.
+ */
+
+const HOME = 'AUS';
+const MAX_BARS = 10;
+const DEFAULT_TIMELINE = 12;
+
+type Obs = { entity: string; period: string; value: number };
+type MetricMeta = { metric_id: string; name: string; unit: string | null; source_org: string | null; source_dataset: string | null };
+
+export type BindResult = { chart: StoryChartBlock; ok: boolean; issue?: string };
+
+/** All observations for a metric, paged past PostgREST's 1000-row cap. */
+export async function loadObservations(db: SupabaseClient, metricId: string): Promise<Obs[]> {
+  const out: Obs[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await db.from('observations')
+      .select('entity, period, value')
+      .eq('metric_id', metricId)
+      .order('period', { ascending: true })
+      .range(from, from + 999);
+    if (error) throw new Error(`observations for ${metricId}: ${error.message}`);
+    for (const o of data ?? []) out.push({ entity: String(o.entity).trim(), period: String(o.period), value: Number(o.value) });
+    if ((data?.length ?? 0) < 1000) return out;
+  }
+}
+
+async function loadMeta(db: SupabaseClient, metricId: string): Promise<MetricMeta | null> {
+  const { data } = await db.from('metrics')
+    .select('metric_id, name, unit, source_org, source_dataset')
+    .eq('metric_id', metricId).maybeSingle();
+  return data as MetricMeta | null;
+}
+
+let entityNames: Map<string, string> | null = null;
+async function nameOf(db: SupabaseClient, code: string): Promise<string> {
+  if (!entityNames) {
+    const { data } = await db.from('entities').select('code, name');
+    entityNames = new Map((data ?? []).map((e) => [e.code.trim(), e.name]));
+  }
+  return entityNames.get(code) ?? code;
+}
+
+/** The period to compare countries on: Australia's latest, else the period most entities share. */
+function comparisonPeriod(obs: Obs[]): string | null {
+  const home = obs.filter((o) => o.entity === HOME).map((o) => o.period).sort();
+  if (home.length) return home[home.length - 1];
+  const counts = new Map<string, number>();
+  for (const o of obs) counts.set(o.period, (counts.get(o.period) ?? 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1] || b[0].localeCompare(a[0]))[0]?.[0] ?? null;
+}
+
+async function entitySeries(
+  db: SupabaseClient, obs: Obs[], period: string, entities?: string[],
+): Promise<ChartSeriesPoint[]> {
+  let rows = obs.filter((o) => o.period === period);
+  if (entities?.length) {
+    const want = new Set(entities.map((e) => e.toUpperCase()));
+    rows = rows.filter((o) => want.has(o.entity));
+  } else {
+    const sorted = [...rows].sort((a, b) => b.value - a.value);
+    const top = sorted.slice(0, MAX_BARS);
+    const home = sorted.find((o) => o.entity === HOME);
+    if (home && !top.includes(home)) top[top.length - 1] = home;
+    rows = top;
+  }
+  rows.sort((a, b) => b.value - a.value);
+  return Promise.all(rows.map(async (o) => ({
+    label: await nameOf(db, o.entity),
+    value: o.value,
+    ...(o.entity === HOME ? { highlight: true } : {}),
+  })));
+}
+
+function sourceLine(meta: MetricMeta | null, period: string) {
+  const org = meta?.source_org ?? 'Source';
+  return `Source: ${org}${meta?.source_dataset ? `, ${meta.source_dataset}` : ''}, ${period}.`;
+}
+
+export async function bindChart(db: SupabaseClient, chart: StoryChartBlock): Promise<BindResult> {
+  const spec = chart.data;
+  if (!spec?.metric_id) return { chart, ok: false, issue: 'chart has no data spec, so its values cannot be traced' };
+
+  const [obs, meta] = await Promise.all([loadObservations(db, spec.metric_id), loadMeta(db, spec.metric_id)]);
+  if (!obs.length) return { chart, ok: false, issue: `chart metric ${spec.metric_id} has no observations` };
+
+  if (spec.mode === 'timeline') {
+    const entity = (spec.entity ?? HOME).toUpperCase();
+    const own = obs.filter((o) => o.entity === entity).sort((a, b) => a.period.localeCompare(b.period));
+    const recent = own.slice(-Math.max(2, spec.last ?? DEFAULT_TIMELINE));
+    if (recent.length < 2) return { chart, ok: false, issue: `not enough ${entity} history for ${spec.metric_id}` };
+    const last = recent[recent.length - 1];
+    return {
+      ok: true,
+      chart: {
+        ...chart,
+        kind: 'timeline',
+        series: recent.map((o, i) => ({ label: o.period, value: o.value, ...(i === recent.length - 1 ? { highlight: true } : {}) })),
+        alt_series: undefined,
+        caption: chart.caption?.trim() || sourceLine(meta, `${recent[0].period} to ${last.period}`),
+        bound: { metric_id: spec.metric_id, period: last.period },
+      },
+    };
+  }
+
+  const period = comparisonPeriod(obs);
+  if (!period) return { chart, ok: false, issue: `no comparable period for ${spec.metric_id}` };
+  const series = await entitySeries(db, obs, period, spec.entities);
+  if (series.length < 2) return { chart, ok: false, issue: `fewer than two entities for ${spec.metric_id} at ${period}` };
+
+  let alt: Pick<StoryChartBlock, 'alt_series'> & { bound?: Partial<NonNullable<StoryChartBlock['bound']>> } = {};
+  if (chart.kind === 'rank_swap' && spec.alt_metric_id) {
+    const altObs = await loadObservations(db, spec.alt_metric_id);
+    const altPeriod = comparisonPeriod(altObs);
+    const labels = new Set(series.map((s) => s.label));
+    const altSeries = altPeriod
+      ? (await entitySeries(db, altObs, altPeriod, spec.entities)).filter((s) => labels.has(s.label))
+      : [];
+    if (altSeries.length < 2) {
+      return { chart, ok: false, issue: `alt metric ${spec.alt_metric_id} does not cover the charted entities` };
+    }
+    alt = { alt_series: altSeries, bound: { alt_metric_id: spec.alt_metric_id, alt_period: altPeriod! } };
+  }
+
+  return {
+    ok: true,
+    chart: {
+      ...chart,
+      kind: chart.kind === 'rank_swap' && alt.alt_series ? 'rank_swap' : 'bars',
+      series,
+      alt_series: alt.alt_series,
+      caption: chart.caption?.trim() || sourceLine(meta, period),
+      bound: { metric_id: spec.metric_id, period, ...alt.bound },
+    },
+  };
+}
+
+/** Bind every chart block in a story body. Unbindable charts are dropped and reported. */
+export async function bindStoryCharts(
+  db: SupabaseClient, blocks: StoryBlock[],
+): Promise<{ blocks: StoryBlock[]; issues: string[]; chartMetricIds: string[] }> {
+  const out: StoryBlock[] = [];
+  const issues: string[] = [];
+  const chartMetricIds: string[] = [];
+  for (const block of blocks) {
+    if (block.type !== 'chart') { out.push(block); continue; }
+    const res = await bindChart(db, block as StoryChartBlock);
+    if (res.ok) {
+      out.push(res.chart);
+      chartMetricIds.push(res.chart.bound!.metric_id);
+      if (res.chart.bound!.alt_metric_id) chartMetricIds.push(res.chart.bound!.alt_metric_id);
+    } else {
+      issues.push(res.issue!);
+    }
+  }
+  return { blocks: out, issues, chartMetricIds };
+}

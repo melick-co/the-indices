@@ -2,6 +2,11 @@ import { createClient } from '@/lib/supabase-server';
 import { runFoundryTurn, type FoundryEvent } from '@/lib/foundry-agent';
 import { CHARTER, MODEL } from '@/lib/research-agent';
 import { articleFromApprovedPitch, type StructuredStory } from '@/lib/article-from-pitch';
+import { bindStoryCharts } from '@/lib/chart-from-data';
+import { factCheckStory, type FactCheck } from '@/lib/fact-check';
+import { auditClaims, reviseForChecks } from '@/lib/claim-audit';
+import { METRIC_ALIASES, loadKnownMetrics, normaliseMetricIds } from '../../agent/scripts/lib/metric-ids.mjs';
+import type { StoryChartBlock } from '@/lib/story-types';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -12,6 +17,8 @@ export type PublishResult = {
   previewUrl: string;
   status: 'draft' | 'published';
   generation_note: string;
+  /** Publish gate: every figure traces to stored data and every chart was built from it. */
+  check: FactCheck;
 };
 
 export type GoLiveResult = {
@@ -20,6 +27,9 @@ export type GoLiveResult = {
   storyUrl: string;
   status: 'published';
 };
+
+/** Revision rounds a held article gets before it is left for the editor. */
+const MAX_REVISIONS = 2;
 
 const PUBLISH_SYSTEM = `${CHARTER}
 
@@ -119,9 +129,20 @@ Write up findings in prose with explicit source citations. Be specific with numb
 async function structureStory(
   pitch: Record<string, unknown>,
   researchText: string,
+  metrics: Array<{ metric_id: string; name?: string; unit?: string | null }>,
+  catalogue: Array<{ metric_id: string; name?: string; unit?: string | null }>,
 ): Promise<StructuredStory> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
+
+  const line = (m: { metric_id: string; name?: string; unit?: string | null }) =>
+    `- ${m.metric_id}: ${m.name ?? ''}${m.unit ? ` (${m.unit})` : ''}`;
+  const linkedIds = new Set(metrics.map((m) => m.metric_id));
+  const available = [
+    ...metrics.map(line),
+    ...(catalogue.some((m) => !linkedIds.has(m.metric_id)) ? ['Other stored metrics:'] : []),
+    ...catalogue.filter((m) => !linkedIds.has(m.metric_id)).map(line),
+  ].join('\n');
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -132,8 +153,8 @@ async function structureStory(
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 8000,
-      system: 'Convert research into a publishable Caveat story. Respond ONLY with valid JSON.',
+      max_tokens: 16000,
+      system: 'Convert research into a publishable Caveat news article. Respond ONLY with valid JSON.',
       messages: [{
         role: 'user',
         content: `Approved pitch brief:
@@ -146,14 +167,17 @@ ${JSON.stringify({
   metric_ids: pitch.metric_ids,
 })}
 
+Stored metrics you can chart and quote (metric_id: name). Linked to this pitch first, then everything else in the store. Use these exact ids:
+${available || '(none linked; use search_metrics findings from the research notes)'}
+
 Research notes:
 ${researchText.slice(0, 12000)}
 
 Return JSON matching this schema exactly:
 {
   "kicker": "Topic · Frame check (short label)",
-  "title": "finding not topic, AU English, under 120 chars",
-  "hook": "one-line why-now for the card",
+  "title": "news headline: the finding, with its number when it lands; active verb; under 90 chars; AU English",
+  "hook": "one-line standfirst for the card: why this matters now",
   "caveat": "hostile reader objection, specific",
   "one_number": { "value": "the headline number", "label": "what it measures" },
   "evidence": {
@@ -162,39 +186,38 @@ Return JSON matching this schema exactly:
   },
   "body": {
     "blocks": [
-      { "type": "paragraph", "text": "opening frame" },
-      { "type": "layers", "items": ["layer 1 shift", "layer 2 shift", "layer 3 shift"] },
-      { "type": "chart", "kind": "bars|rank_swap|timeline", "title": "optional",
-        "caption": "source line",
-        "primary_label": "Absolute",
-        "alt_label": "Per person",
-        "series": [{ "label": "Australia", "value": 8.8, "highlight": true }],
-        "alt_series": [{ "label": "Australia", "value": 14, "highlight": true }]
-      },
-      { "type": "heading", "text": "optional section heading" },
       { "type": "paragraph", "text": "..." },
-      { "type": "pull", "text": "pull quote with the corrected frame" },
-      { "type": "paragraph", "text": "closing" }
+      { "type": "paragraph", "text": "..." },
+      { "type": "layers", "items": ["...", "...", "..."] },
+      { "type": "chart", "kind": "bars|rank_swap|timeline", "title": "what the chart shows",
+        "data": { "metric_id": "one of the stored metric_ids", "mode": "latest_by_entity|timeline",
+                  "entities": ["AUS","NZL","CAN"], "entity": "AUS", "last": 12, "alt_metric_id": "for rank_swap only" } },
+      { "type": "heading", "text": "..." },
+      { "type": "paragraph", "text": "..." },
+      { "type": "pull", "text": "..." },
+      { "type": "paragraph", "text": "..." }
     ]
   },
+  "metric_ids_used": ["every stored metric_id whose values the copy quotes"],
   "slug_hint": "3-5 word slug from topic",
   "generation_note": "one line on what the story does",
   "frame_check": true if this corrects a widely shared frame (denominator flip, viral claim check, rank surprise, two-truths gap) else false
 }
 
 Rules:
-- All sources must be tier 1 or 2. No tier 3 headline claims.
-- body.blocks must follow the layered story structure from EDITORIAL.md.
-- Use only block types: paragraph, layers, heading, pull, chart.
-- Include exactly one chart block. Prefer rank_swap when chart_hint implies a denominator flip;
-  timeline for sequences over time; bars otherwise.
-- Chart series values must be numbers drawn from the evidence. Highlight Australia when present.
+- Standard news structure, in the block order shown: paragraph 1 is the lede (who, what, when, and the newsworthy finding with its number, in one or two sentences); paragraph 2 is the nut graf (why it matters now and what it changes for readers); the layers are the data that shifts the picture, in the sequence from EDITORIAL.md; then a section heading, context and supporting data, a pull line with the corrected frame, and a closing paragraph on the caveat and what to watch next (next release, next decision). Write the copy itself, never labels like "Lede:". Short paragraphs. No em dashes.
+- Headline: attention-grabbing because the finding is surprising, never because it withholds it. No questions, no "you won't believe", no puns that hide the number.
+- Every number in the copy must be a stored value (or a change between stored periods, a gap to a peer, or a rank) for a metric in metric_ids_used. Do not quote figures that exist only in web search results: name the claim without its number instead. Unsupported numbers stop the article from publishing.
+- Charts: give "data" with a stored metric_id and leave out "series"; values are filled from the store. latest_by_entity compares countries at Australia's latest period; timeline shows one entity over time. For rank_swap give alt_metric_id (for example absolute vs per person).
+- Include exactly one chart block.
+- All sources must be tier 1 or 2.
 - Prefer frame_check true for Caveat's core archetypes.`,
       }],
     }),
   });
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const body = await res.json();
+  if (body.stop_reason === 'max_tokens') throw new Error('Article JSON was cut off at max_tokens');
   const raw = (body.content ?? [])
     .filter((c: { type: string }) => c.type === 'text')
     .map((c: { text: string }) => c.text)
@@ -219,9 +242,19 @@ async function loadMetricContext(metricIds: string[]) {
   }));
 }
 
+export type PublishOptions = {
+  /**
+   * Run the claim audit and revision rounds. Off by default: the Foundry's
+   * "Approve and write" runs on Vercel with a 300s limit and an editor reviews
+   * the draft anyway. The daily auto-articles job turns this on.
+   */
+  audit?: boolean;
+};
+
 export async function publishStoryFromPitch(
   pitchId: string,
   onEvent: (event: FoundryEvent) => void,
+  opts: PublishOptions = {},
 ): Promise<PublishResult> {
   const supabase = createClient();
 
@@ -245,6 +278,8 @@ export async function publishStoryFromPitch(
   const metrics = await loadMetricContext(metricIds);
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   let story: StructuredStory;
+  // Metrics the research step actually read; the copy may quote these.
+  const queried = new Set<string>();
 
   if (!apiKey) {
     onEvent({
@@ -265,11 +300,15 @@ export async function publishStoryFromPitch(
         intent: 'investigate',
         userPrompt: researchPrompt,
         priorMessages: [],
-        onEvent,
+        onEvent: (e) => {
+          if (e.type === 'tool_start' && e.name === 'query_data' && e.detail) queried.add(e.detail);
+          onEvent(e);
+        },
       });
 
       onEvent({ type: 'tool_start', name: 'structure', label: 'Writing the article', at: new Date().toISOString() });
-      story = await structureStory(pitch, researchText);
+      const { data: catalogue } = await supabase.from('metrics').select('metric_id, name, unit').order('metric_id');
+      story = await structureStory(pitch, researchText, metrics, catalogue ?? []);
     } catch (err) {
       onEvent({
         type: 'tool_start',
@@ -281,6 +320,73 @@ export async function publishStoryFromPitch(
       story.generation_note = `${story.generation_note} (${err instanceof Error ? err.message : 'research failed'})`;
     }
   }
+  // Charts take their values from the store, then every figure is checked against it.
+  onEvent({ type: 'tool_start', name: 'check', label: 'Building charts from stored data and checking figures', at: new Date().toISOString() });
+  // Models still reach for old metric names (e.g. trimmed_mean_cpi); map them to real ids.
+  const known = await loadKnownMetrics(supabase);
+  const canonical = (id?: string) => (id ? (METRIC_ALIASES as Record<string, string>)[id] ?? id : id);
+  const unlabel = (t: string) => t.replace(/^\s*(?:lede|nut graf|layer \d+|context|closing)\s*:\s*/i, '');
+
+  /** Normalise ids, build charts from the store, then check figures and audit claims. */
+  const checkStory = async (draft: StructuredStory) => {
+    for (const b of draft.body?.blocks ?? []) {
+      const c = b as StoryChartBlock;
+      if (c.type === 'chart' && c.data) {
+        c.data.metric_id = canonical(c.data.metric_id)!;
+        if (c.data.alt_metric_id) c.data.alt_metric_id = canonical(c.data.alt_metric_id);
+      }
+    }
+    draft.metric_ids_used = normaliseMetricIds(draft.metric_ids_used ?? [], known).linked;
+    draft.body = {
+      blocks: (draft.body?.blocks ?? []).map((b) =>
+        b.type === 'layers' ? { ...b, items: b.items.map(unlabel) }
+          : 'text' in b && typeof b.text === 'string' ? { ...b, text: unlabel(b.text) } : b),
+    };
+    const bound = await bindStoryCharts(supabase, draft.body.blocks);
+    draft.body = { blocks: bound.blocks };
+    const ids = new Set(metricIds);
+    for (const id of draft.metric_ids_used ?? []) ids.add(id);
+    for (const id of normaliseMetricIds([...queried], known).linked) ids.add(id);
+    for (const id of bound.chartMetricIds) ids.add(id);
+    const result = await factCheckStory(supabase, draft, [...ids]);
+    result.issues.unshift(...bound.issues);
+    result.ok = result.ok && bound.issues.length === 0;
+
+    // Figures exist in the data; now check each claim uses them truthfully.
+    if (result.ok && apiKey && opts.audit) {
+      onEvent({ type: 'tool_start', name: 'audit', label: 'Auditing every claim against stored data', at: new Date().toISOString() });
+      try {
+        const audit = await auditClaims(supabase, draft, [...ids]);
+        result.claims = audit.claims;
+        for (const c of audit.unsupported) result.issues.push(`claim not supported by stored data: "${c.claim}" (${c.evidence})`);
+        result.ok = audit.ok;
+      } catch (e) {
+        result.ok = false;
+        result.issues.push(`claim audit failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    return { check: result, ids };
+  };
+
+  let { check, ids: checkedIds } = await checkStory(story);
+
+  // Up to MAX_REVISIONS rounds: correct or drop what the checks could not support, then check again.
+  const rounds = opts.audit ? MAX_REVISIONS : 0;
+  for (let round = 1; !check.ok && apiKey && story.body.blocks.length && round <= rounds; round++) {
+    onEvent({ type: 'tool_start', name: 'revise', label: `Revision ${round}: ${check.issues.length} unsupported item(s)`, at: new Date().toISOString() });
+    try {
+      const revised = await reviseForChecks(supabase, story, check.issues, [...checkedIds]);
+      const next = await checkStory(revised);
+      story = revised;
+      check = next.check;
+      checkedIds = next.ids;
+    } catch (e) {
+      check.issues.push(`revision ${round} failed: ${e instanceof Error ? e.message : String(e)}`);
+      break;
+    }
+  }
+  if (!check.ok && rounds) check.issues.unshift(`unsupported after ${rounds} revision round(s):`);
+
   const slug = existing?.slug ?? await uniqueSlug(story.slug_hint || story.title);
   const now = new Date().toISOString();
   const today = now.slice(0, 10);
@@ -323,7 +429,8 @@ export async function publishStoryFromPitch(
   await supabase.from('pitch_feedback').insert({
     pitch_id: pitchId,
     action: 'comment',
-    comment: `Article ready to edit: /foundry/desk/${slug} — ${story.generation_note}`,
+    comment: `Article ready to edit: /foundry/desk/${slug} — ${story.generation_note}` +
+      (check.ok ? ' Fact check passed.' : ` Fact check held it: ${check.issues.slice(0, 8).join('; ')}`),
   });
 
   onEvent({
@@ -341,6 +448,7 @@ export async function publishStoryFromPitch(
     previewUrl: `/stories/${slug}?preview=1`,
     status: 'draft',
     generation_note: story.generation_note,
+    check,
   };
 }
 

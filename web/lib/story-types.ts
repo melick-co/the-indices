@@ -27,6 +27,24 @@ export type ChartSeriesPoint = {
   highlight?: boolean;
 };
 
+/**
+ * Where a chart's numbers come from. When present, series values are filled
+ * from stored observations by lib/chart-from-data.ts, never typed by a model.
+ */
+export type ChartDataSpec = {
+  metric_id: string;
+  /** latest_by_entity: one bar per country at the latest period; timeline: one entity over time. */
+  mode: 'latest_by_entity' | 'timeline';
+  /** ISO3 codes to include (latest_by_entity). Defaults to the top values plus Australia. */
+  entities?: string[];
+  /** Entity for a timeline. Defaults to AUS. */
+  entity?: string;
+  /** Number of most recent periods for a timeline. Defaults to 12. */
+  last?: number;
+  /** Second metric for rank_swap, compared on the same entities. */
+  alt_metric_id?: string;
+};
+
 export type StoryChartBlock = {
   type: 'chart';
   kind: ChartKind;
@@ -36,6 +54,9 @@ export type StoryChartBlock = {
   alt_series?: ChartSeriesPoint[];
   primary_label?: string;
   alt_label?: string;
+  data?: ChartDataSpec;
+  /** Set when series were filled from the store: which metric(s) and period(s). */
+  bound?: { metric_id: string; period: string; alt_metric_id?: string; alt_period?: string };
 };
 
 export type StoryBlock =

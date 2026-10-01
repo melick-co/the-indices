@@ -6,6 +6,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { callClaudeJson, splitOnTruncation } from './claude.mjs';
+import { allowedNumbers, isSupported, numbersIn } from './figures.mjs';
+
+export { allowedNumbers, numbersIn };
 
 const ACTIVE_STATES = ['pitched', 'approved', 'candidate', 'watchlist'];
 const BATCH_SIZE = 6;
@@ -32,7 +35,9 @@ const HISTORY = 4;
  * series the full table at that period with Australia's rank already computed.
  * Metrics with no observations are marked missing rather than sent empty.
  */
-export async function buildReference(db, metricIds) {
+/** @param {{ history?: number }} [opts] how many Australian readings to include per metric */
+export async function buildReference(db, metricIds, opts = {}) {
+  const historyLength = opts.history ?? HISTORY;
   const out = {};
   for (const mid of metricIds) {
     const { data: meta } = await db.from('metrics')
@@ -42,7 +47,7 @@ export async function buildReference(db, metricIds) {
       .select('period, value, status')
       .eq('metric_id', mid).eq('entity', HOME)
       .order('period', { ascending: false })
-      .limit(HISTORY);
+      .limit(historyLength);
     if (!meta || !home?.length) {
       out[mid] = { missing: true, note: 'No Australian observations in the database. Do not cite a figure for this.' };
       continue;
@@ -80,52 +85,10 @@ export function rankEntities(rows, period) {
   };
 }
 
-// Numbers a revision may use without coming from the reference or the pitch itself.
-const YEAR = (n) => Number.isInteger(n) && n >= 1900 && n <= 2100;
-
-// Words that introduce an identifier rather than a figure: "ABS 6345.0", "cat. no. 5206.0", "Table D2".
-const IDENT_BEFORE = /(?:\bABS|\bcat(?:alogue)?\.?(?:\s*no\.?)?|\btable|\bseries(?:\s*id)?)\s*$/i;
-
-export function numbersIn(text) {
-  const out = [];
-  const src = String(text ?? '');
-  const re = /(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*(%|pp|per ?cent|bps?|basis points)?/gi;
-  for (const m of src.matchAll(re)) {
-    const n = Number((m[1] + (m[2] ?? '')).replace(/,/g, ''));
-    const unit = m[3];
-    const before = src.slice(Math.max(0, m.index - 16), m.index);
-    // Digits inside a code are not figures: "A2325846C", "Q2", "D2".
-    if (/[A-Za-z]$/.test(before)) continue;
-    if (!unit && IDENT_BEFORE.test(before)) continue;
-    // ABS catalogue numbers are written "6345.0".
-    if (!unit && /^\d{4}$/.test(m[1]) && m[2] === '.0' && !/\$\s*$/.test(before)) continue;
-    // Small bare integers are counts ("three hikes", "5 suburbs"); years are dates.
-    if (!unit && Number.isInteger(n) && n <= 12) continue;
-    if (YEAR(n) && !unit) continue;
-    out.push(n);
-  }
-  return out;
-}
-
-/** Every number in the source material, plus thousand/million/billion rescalings. */
-export function allowedNumbers(...sources) {
-  const set = [];
-  for (const src of sources) {
-    for (const n of numbersIn(typeof src === 'string' ? src : JSON.stringify(src ?? ''))) {
-      set.push(n, n / 1e3, n / 1e6, n / 1e9, n * 100);
-    }
-  }
-  return set;
-}
-
-function supported(n, allowed) {
-  return allowed.some((a) => Math.abs(a - n) < 0.051 || Math.round(a) === n);
-}
-
 /** Figures in the revised copy that appear in neither the reference nor the original pitch. */
 export function unsupportedFigures(revision, allowed) {
   const text = COPY_FIELDS.map((f) => revision[f] ?? '').join(' ');
-  return [...new Set(numbersIn(text).filter((n) => !supported(n, allowed)))];
+  return [...new Set(numbersIn(text).filter((n) => !isSupported(n, allowed)))];
 }
 
 function buildRevisePrompt(charter, pitches, reference) {
