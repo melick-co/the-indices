@@ -106,6 +106,12 @@ export async function loadAbs(db = createDb()) {
   const scouted = (await loadRegistry(db, 'abs')).map((r) => ({
     metric_id: r.metric_id, name: r.name, dataflow: r.flow, dataKey: r.key, lastN: 40,
     unit: r.unit, basis: r.basis, direction: r.direction, category: r.category, source_id: 'scout_registry',
+    ...(r.derive?.metric_id ? {
+      derive: {
+        metric_id: r.derive.metric_id, name: r.derive.name, unit: 'percent', basis: r.derive.basis,
+        direction: r.direction, category: r.category, lag: r.derive.lag,
+      },
+    } : {}),
   }));
   for (const s of [...ABS_SERIES, ...scouted]) {
     try {

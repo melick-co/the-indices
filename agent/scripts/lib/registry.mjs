@@ -6,7 +6,7 @@
  */
 export async function loadRegistry(db, provider) {
   const { data, error } = await db.from('series_registry')
-    .select('metric_id, provider, flow, key, measure, name, unit, basis, direction, category')
+    .select('metric_id, provider, flow, key, measure, name, unit, basis, direction, category, derive')
     .eq('provider', provider).eq('status', 'active');
   if (error) return [];
   return data ?? [];

@@ -133,6 +133,33 @@ async function dimensionsOf(provider, flow, terms) {
   });
 }
 
+/**
+ * ABS structures list every code, not which combinations exist. Keep the most
+ * specific dimension of a failed key (the one with the most codes, e.g. the CPI
+ * item), wildcard the rest, and list the series that really exist.
+ */
+async function existingAbsKeys(flow, key, dims) {
+  const parts = String(key ?? '').split('.');
+  if (parts.length !== dims.length) return [];
+  const anchor = dims.reduce((best, d, i) => (d.total > dims[best].total ? i : best), 0);
+  const probe = parts.map((p, i) => (i === anchor ? p : '')).join('.');
+  try {
+    const json = await absFetch(`/data/ABS,${flow}/${probe}?lastNObservations=1&format=jsondata`);
+    const root = json?.data ?? json;
+    const ds = root?.dataSets?.[0];
+    const sdims = (root?.structures?.[0] ?? json?.structure)?.dimensions?.series ?? [];
+    return Object.keys(ds?.series ?? {}).slice(0, 30).map((k) => {
+      const idx = k.split(':').map(Number);
+      return {
+        key: idx.map((n, i) => sdims[i]?.values?.[n]?.id ?? '').join('.'),
+        label: idx.map((n, i) => sdims[i]?.values?.[n]?.name ?? '?').join(' | '),
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 // ---------- verification ----------
 
 async function verify(provider, choice, dims) {
@@ -221,7 +248,9 @@ Respond ONLY with JSON:
  "name":"short series name","unit":"e.g. percent, index, persons, AUD million, percent of GDP",
  "basis":"what exactly is measured: coverage, adjustment, frequency",
  "direction":"higher_is_more_pressure|higher_is_less_pressure|neutral","category":"prices|labour|housing|fiscal|output|productivity|people|households|other",
- "metric_id":"snake_case id for the store; end in _au if Australia only"}`, 'scout key');
+ "metric_id":"snake_case id for the store; end in _au if Australia only",
+ "derive_annual_change": false}
+${pick.provider === 'abs' ? 'ABS only: if the request is a growth rate but the dataflow publishes this item only as an index, choose the index series and set derive_annual_change true; the store will compute change on the same period a year earlier.' : ''}`, 'scout key');
     choice = { ...choice, ...keyAnswer };
   } else {
     const meta = await ask(`${context}
@@ -238,22 +267,29 @@ Respond ONLY with JSON: {"name":"...","unit":"...","basis":"...","direction":"hi
   let checked = await attemptVerify();
   // One retry for a key the provider rejects or that matches several series.
   if (!checked.ok && pick.provider !== 'wb') {
+    const existing = pick.provider === 'abs' ? await existingAbsKeys(pick.flow, choice.key, dims) : [];
     const fixed = await ask(`The SDMX key ${choice.key} for ${pick.provider} dataflow ${pick.flow} failed: ${checked.why}
 
 Dimensions in key order (code = label):
 ${dims.map((d, i) => `${i + 1}. ${d.id}: ${d.codes.map((c) => `${c.id}=${c.name}`).join('; ')}`).join('\n')}
-
+${existing.length ? `\nSeries that actually exist for the item you chose (key | labels):\n${existing.map((k) => `${k.key} | ${k.label}`).join('\n')}\nPick one of these keys if it fits.\n` : ''}
 Requested: ${target.id} (${plan.meaning}). Return a corrected key using only listed codes, or null if this
-dataflow cannot provide it. Respond ONLY with JSON: {"key":"..." | null,"measure":"OECD MEASURE code or null"}`, 'scout key retry');
+dataflow cannot provide it. If only an index exists and the request is a growth rate (ABS), pick the index
+and set derive_annual_change true.
+Respond ONLY with JSON: {"key":"..." | null,"measure":"OECD MEASURE code or null","derive_annual_change":true|false}`, 'scout key retry');
     if (!fixed.key) return { outcome: 'rejected', note: `${pick.flow}: ${checked.why}; no valid key` };
-    choice = { ...choice, key: fixed.key, measure: fixed.measure ?? choice.measure };
+    choice = {
+      ...choice, key: fixed.key, measure: fixed.measure ?? choice.measure,
+      derive_annual_change: fixed.derive_annual_change ?? choice.derive_annual_change,
+    };
     checked = await attemptVerify();
   }
   if (!checked.ok) return { outcome: 'rejected', note: `${pick.provider} ${pick.flow} ${choice.key ?? ''}: ${checked.why}` };
 
+  const derive = pick.provider === 'abs' && choice.derive_annual_change === true;
   const confirm = await ask(`Requested: ${target.id}
 Meaning: ${plan.meaning}
-
+${derive ? 'The store will convert this index to annual % change (each period vs the same period a year earlier); judge the match after that conversion.\n' : ''}
 Fetched series (${pick.provider} ${pick.flow} ${choice.key ?? ''}):
 Labels: ${checked.label}
 Recent Australian values: ${JSON.stringify(checked.sample)}
@@ -264,14 +300,23 @@ same form (level vs growth rate), plausible values? If it differs in any of thes
 Respond ONLY with JSON: {"match":true|false,"why":"..."}`, 'scout confirm');
   if (!confirm.match) return { outcome: 'rejected', note: `${pick.flow} ${choice.key ?? ''}: ${confirm.why}` };
 
-  let metricId = String(choice.metric_id ?? target.id).toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 60);
-  while (known.has(metricId)) metricId = `${metricId}_2`;
+  const clean = (id) => String(id).toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 60);
+  const unique = (id) => { let out = id; while (known.has(out)) out = `${out}_2`; return out; };
+  // With derivation the stored series is the index; the requested id links to the derived change.
+  const derivedId = derive ? unique(clean(choice.metric_id ?? target.id)) : null;
+  const metricId = derive ? unique(`${derivedId.replace(/_annual(_change)?/, '')}_index`) : unique(clean(choice.metric_id ?? target.id));
+  const lag = String(choice.key ?? '').endsWith('.M') ? 12 : 4;
 
   const row = {
     metric_id: metricId, provider: pick.provider, flow: pick.flow, key: choice.key ?? null,
     measure: choice.measure ?? null, name: choice.name, unit: choice.unit, basis: choice.basis,
     direction: ['higher_is_more_pressure', 'higher_is_less_pressure'].includes(choice.direction) ? choice.direction : 'neutral',
     category: choice.category ?? 'other', aliases: [target.id], status: 'active',
+    derive: derive ? {
+      metric_id: derivedId, lag,
+      name: `${String(choice.name ?? target.id).replace(/,?\s*index$/i, '')}, annual change`,
+      basis: `Derived: ${choice.basis}, change on the same period a year earlier`,
+    } : null,
     requested_by: { id: target.id, pitches: target.pitches, headlines: target.headlines },
     scout_note: `${plan.meaning} | picked: ${pick.why} | confirmed: ${confirm.why}`.slice(0, 2000),
     verified_at: new Date().toISOString(),
@@ -281,7 +326,8 @@ Respond ONLY with JSON: {"match":true|false,"why":"..."}`, 'scout confirm');
     if (error) return { outcome: 'failed', note: `registry insert: ${error.message}` };
   }
   known.add(metricId);
-  return { outcome: 'adopted', metric_id: metricId, note: `${pick.provider} ${pick.flow} ${choice.key ?? ''} | ${checked.label}`.slice(0, 500) };
+  if (derivedId) known.add(derivedId);
+  return { outcome: 'adopted', metric_id: derivedId ?? metricId, note: `${pick.provider} ${pick.flow} ${choice.key ?? ''} | ${checked.label}`.slice(0, 500) };
 }
 
 async function main() {

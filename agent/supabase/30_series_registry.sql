@@ -16,6 +16,9 @@ create table if not exists series_registry (
                 check (direction in ('higher_is_more_pressure', 'higher_is_less_pressure', 'neutral')),
   category      text not null default 'other',
   aliases       text[] not null default '{}',
+  -- ABS only: also store annual % change derived from this index series
+  -- {"metric_id","name","basis","lag"} (lag 4 quarterly, 12 monthly). Aliases point at it.
+  derive        jsonb,
   status        text not null default 'active' check (status in ('active', 'failed', 'retired')),
   requested_by  jsonb,              -- the unlinked pitch ids and counts that motivated it
   scout_note    text,

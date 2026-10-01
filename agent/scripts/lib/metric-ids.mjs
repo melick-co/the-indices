@@ -101,7 +101,8 @@ export async function loadKnownMetrics(db) {
   const known = /** @type {Set<string> & { aliases: Record<string, string> }} */ (new Set((data ?? []).map((m) => m.metric_id)));
   known.aliases = {};
   // The registry may not exist yet (migration 30); links then use the static aliases only.
-  const { data: reg } = await db.from('series_registry').select('metric_id, aliases').eq('status', 'active');
-  for (const r of reg ?? []) for (const a of r.aliases ?? []) known.aliases[a] = r.metric_id;
+  const { data: reg } = await db.from('series_registry').select('metric_id, aliases, derive').eq('status', 'active');
+  // A derived series (annual change from an index) is what the requested id meant.
+  for (const r of reg ?? []) for (const a of r.aliases ?? []) known.aliases[a] = r.derive?.metric_id ?? r.metric_id;
   return known;
 }
