@@ -4,7 +4,7 @@ import { CHARTER, MODEL } from '@/lib/research-agent';
 import { articleFromApprovedPitch, type StructuredStory } from '@/lib/article-from-pitch';
 import { bindStoryCharts } from '@/lib/chart-from-data';
 import { factCheckStory, type FactCheck } from '@/lib/fact-check';
-import { auditClaims } from '@/lib/claim-audit';
+import { auditClaims, reviseForChecks } from '@/lib/claim-audit';
 import { METRIC_ALIASES, loadKnownMetrics, normaliseMetricIds } from '../../agent/scripts/lib/metric-ids.mjs';
 import type { StoryChartBlock } from '@/lib/story-types';
 import { readFileSync } from 'node:fs';
@@ -312,41 +312,63 @@ export async function publishStoryFromPitch(
   // Models still reach for old metric names (e.g. trimmed_mean_cpi); map them to real ids.
   const known = await loadKnownMetrics(supabase);
   const canonical = (id?: string) => (id ? (METRIC_ALIASES as Record<string, string>)[id] ?? id : id);
-  for (const b of story.body?.blocks ?? []) {
-    const c = b as StoryChartBlock;
-    if (c.type === 'chart' && c.data) {
-      c.data.metric_id = canonical(c.data.metric_id)!;
-      if (c.data.alt_metric_id) c.data.alt_metric_id = canonical(c.data.alt_metric_id);
-    }
-  }
-  story.metric_ids_used = normaliseMetricIds(story.metric_ids_used ?? [], known).linked;
   const unlabel = (t: string) => t.replace(/^\s*(?:lede|nut graf|layer \d+|context|closing)\s*:\s*/i, '');
-  story.body = {
-    blocks: (story.body?.blocks ?? []).map((b) =>
-      b.type === 'layers' ? { ...b, items: b.items.map(unlabel) }
-        : 'text' in b && typeof b.text === 'string' ? { ...b, text: unlabel(b.text) } : b),
-  };
-  const bound = await bindStoryCharts(supabase, story.body?.blocks ?? []);
-  story.body = { blocks: bound.blocks };
-  const knownIds = new Set(metricIds);
-  for (const id of story.metric_ids_used ?? []) knownIds.add(id);
-  for (const id of normaliseMetricIds([...queried], known).linked) knownIds.add(id);
-  for (const id of bound.chartMetricIds) knownIds.add(id);
-  const check = await factCheckStory(supabase, story, [...knownIds]);
-  check.issues.unshift(...bound.issues);
-  check.ok = check.ok && bound.issues.length === 0;
 
-  // Figures exist in the data; now check each claim uses them truthfully.
-  if (check.ok && apiKey) {
-    onEvent({ type: 'tool_start', name: 'audit', label: 'Auditing every claim against stored data', at: new Date().toISOString() });
+  /** Normalise ids, build charts from the store, then check figures and audit claims. */
+  const checkStory = async (draft: StructuredStory) => {
+    for (const b of draft.body?.blocks ?? []) {
+      const c = b as StoryChartBlock;
+      if (c.type === 'chart' && c.data) {
+        c.data.metric_id = canonical(c.data.metric_id)!;
+        if (c.data.alt_metric_id) c.data.alt_metric_id = canonical(c.data.alt_metric_id);
+      }
+    }
+    draft.metric_ids_used = normaliseMetricIds(draft.metric_ids_used ?? [], known).linked;
+    draft.body = {
+      blocks: (draft.body?.blocks ?? []).map((b) =>
+        b.type === 'layers' ? { ...b, items: b.items.map(unlabel) }
+          : 'text' in b && typeof b.text === 'string' ? { ...b, text: unlabel(b.text) } : b),
+    };
+    const bound = await bindStoryCharts(supabase, draft.body.blocks);
+    draft.body = { blocks: bound.blocks };
+    const ids = new Set(metricIds);
+    for (const id of draft.metric_ids_used ?? []) ids.add(id);
+    for (const id of normaliseMetricIds([...queried], known).linked) ids.add(id);
+    for (const id of bound.chartMetricIds) ids.add(id);
+    const result = await factCheckStory(supabase, draft, [...ids]);
+    result.issues.unshift(...bound.issues);
+    result.ok = result.ok && bound.issues.length === 0;
+
+    // Figures exist in the data; now check each claim uses them truthfully.
+    if (result.ok && apiKey) {
+      onEvent({ type: 'tool_start', name: 'audit', label: 'Auditing every claim against stored data', at: new Date().toISOString() });
+      try {
+        const audit = await auditClaims(supabase, draft, [...ids]);
+        result.claims = audit.claims;
+        for (const c of audit.unsupported) result.issues.push(`claim not supported by stored data: "${c.claim}" (${c.evidence})`);
+        result.ok = audit.ok;
+      } catch (e) {
+        result.ok = false;
+        result.issues.push(`claim audit failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    return { check: result, ids };
+  };
+
+  let { check, ids: checkedIds } = await checkStory(story);
+
+  // One revision round: correct or drop what the checks could not support, then check again.
+  if (!check.ok && apiKey && story.body.blocks.length) {
+    onEvent({ type: 'tool_start', name: 'revise', label: `Revising ${check.issues.length} unsupported item(s) against stored data`, at: new Date().toISOString() });
     try {
-      const audit = await auditClaims(supabase, story, [...knownIds]);
-      check.claims = audit.claims;
-      for (const c of audit.unsupported) check.issues.push(`claim not supported by stored data: "${c.claim}" (${c.evidence})`);
-      check.ok = audit.ok;
+      const revised = await reviseForChecks(supabase, story, check.issues, [...checkedIds]);
+      const second = await checkStory(revised);
+      story = revised;
+      check = second.check;
+      checkedIds = second.ids;
+      if (!check.ok) check.issues.unshift('still unsupported after one revision:');
     } catch (e) {
-      check.ok = false;
-      check.issues.push(`claim audit failed: ${e instanceof Error ? e.message : String(e)}`);
+      check.issues.push(`revision failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 

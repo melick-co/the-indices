@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { callClaudeJson } from '../../agent/scripts/lib/claude.mjs';
 import { buildReference } from '../../agent/scripts/lib/revise-pitches.mjs';
 import type { CheckableStory } from '@/lib/fact-check';
+import type { StructuredStory } from '@/lib/article-from-pitch';
 
 /**
  * Second publish gate. The figure check proves each number exists in the
@@ -66,4 +67,42 @@ Respond ONLY with JSON:
   const claims = (result.claims ?? []).filter((c) => c && typeof c.claim === 'string');
   const unsupported = claims.filter((c) => c.verdict !== 'supported');
   return { ok: unsupported.length === 0, claims, unsupported };
+}
+
+/**
+ * Rewrite a held article so every claim rests on the stored reference:
+ * correct wrong figures, drop or de-number claims about series we do not
+ * hold, keep the structure and the strength of the headline. The result is
+ * checked again from scratch by the caller.
+ */
+export async function reviseForChecks(
+  db: SupabaseClient, story: StructuredStory, issues: string[], metricIds: string[],
+): Promise<StructuredStory> {
+  const reference = await buildReference(db, metricIds, { history: HISTORY });
+  const prompt = `A data-journalism article failed its fact check. Rewrite it so it passes.
+
+<reference>
+${JSON.stringify(reference)}
+</reference>
+
+<fact_check_findings>
+${issues.map((i) => `- ${i}`).join('\n')}
+</fact_check_findings>
+
+<article_json>
+${JSON.stringify(story)}
+</article_json>
+
+Rules:
+- The reference is the only admissible data. Every figure, change, rank, record, streak or comparison
+  in the rewritten article must be shown by it (simple arithmetic on listed values is fine).
+- Correct wrong figures to the reference value. Drop claims about series not in the reference, or
+  state them without a number and attribute them in words. Do not add new figures from memory.
+- Keep the news structure (lede, nut graf, layers, chart, context, pull, what to watch), the chart
+  block's "data" spec (metric_id from the reference), and a headline that leads with the strongest
+  finding the reference supports. No em dashes.
+- List in metric_ids_used every metric_id whose values the copy quotes.
+
+Return ONLY the full article JSON in the same schema as article_json.`;
+  return await callClaudeJson(prompt, { label: 'article revision' }) as StructuredStory;
 }
