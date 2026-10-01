@@ -142,22 +142,27 @@ async function existingAbsKeys(flow, key, dims) {
   const parts = String(key ?? '').split('.');
   if (parts.length !== dims.length) return [];
   const anchor = dims.reduce((best, d, i) => (d.total > dims[best].total ? i : best), 0);
-  const probe = parts.map((p, i) => (i === anchor ? p : '')).join('.');
-  try {
-    const json = await absFetch(`/data/ABS,${flow}/${probe}?lastNObservations=1&format=jsondata`);
-    const root = json?.data ?? json;
-    const ds = root?.dataSets?.[0];
-    const sdims = (root?.structures?.[0] ?? json?.structure)?.dimensions?.series ?? [];
-    return Object.keys(ds?.series ?? {}).slice(0, 30).map((k) => {
-      const idx = k.split(':').map(Number);
-      return {
-        key: idx.map((n, i) => sdims[i]?.values?.[n]?.id ?? '').join('.'),
-        label: idx.map((n, i) => sdims[i]?.values?.[n]?.name ?? '?').join(' | '),
-      };
-    });
-  } catch {
-    return [];
+  // Codelists can repeat a label (CPI has two "Rents" codes, only one with data): try each.
+  const label = dims[anchor].codes.find((c) => c.id === parts[anchor])?.name;
+  const codes = [...new Set([parts[anchor], ...dims[anchor].codes.filter((c) => label && c.name === label).map((c) => c.id)])];
+  const out = [];
+  for (const code of codes.slice(0, 4)) {
+    const probe = parts.map((p, i) => (i === anchor ? code : '')).join('.');
+    try {
+      const json = await absFetch(`/data/ABS,${flow}/${probe}?lastNObservations=1&format=jsondata`);
+      const root = json?.data ?? json;
+      const ds = root?.dataSets?.[0];
+      const sdims = (root?.structures?.[0] ?? json?.structure)?.dimensions?.series ?? [];
+      for (const k of Object.keys(ds?.series ?? {}).slice(0, 30)) {
+        const idx = k.split(':').map(Number);
+        out.push({
+          key: idx.map((n, i) => sdims[i]?.values?.[n]?.id ?? '').join('.'),
+          label: idx.map((n, i) => sdims[i]?.values?.[n]?.name ?? '?').join(' | '),
+        });
+      }
+    } catch { /* this code has no series */ }
   }
+  return out;
 }
 
 // ---------- verification ----------
