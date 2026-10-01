@@ -9,10 +9,9 @@
 
 /**
  * Only exact matches: same measure, same basis. Deliberately absent because the
- * store's series is a different measure: gross_government_debt_pct_gdp (the
- * store holds central, not general, government debt),
- * household_debt_disposable_income (OECD or RBA basis?), headline_cpi (index or
- * change?).
+ * store's series is a different measure: household_debt_disposable_income (OECD
+ * or RBA basis?), headline_cpi (index or change?). government_debt_gdp is
+ * central government only; general government debt is gov_gross_debt_gdp.
  */
 export const METRIC_ALIASES = {
   cash_rate: 'cash_rate_au',
@@ -47,6 +46,9 @@ export const METRIC_ALIASES = {
   labour_productivity: 'gdp_per_hour_worked_annual_au',
   labour_productivity_growth: 'gdp_per_hour_worked_annual_au',
   market_sector_labour_productivity: 'market_gva_per_hour_annual_au',
+  government_spending_pct_gdp: 'gov_expenditure_gdp',
+  gross_government_debt_pct_gdp: 'gov_gross_debt_gdp',
+  tax_to_gdp_ratio: 'tax_revenue_gdp',
   labour_productivity_index: 'gdp_per_hour_worked_index_au',
 };
 

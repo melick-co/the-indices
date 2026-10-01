@@ -16,7 +16,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, refresh, metric-links, metric-links-apply, both]
         default: both
 
 permissions:
@@ -184,6 +184,23 @@ jobs:
       - run: npm install @supabase/supabase-js --no-save --silent
       - name: Repair pitch metric links
         run: node scripts/fix-metric-links.mjs ${{ inputs.task == 'metric-links-apply' && '--apply' || '' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+  oecd:
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'oecd'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run: { working-directory: agent }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm install @supabase/supabase-js --no-save --silent
+      - name: OECD only
+        run: node scripts/load-sources.mjs oecd
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
