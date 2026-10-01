@@ -443,9 +443,10 @@ Return JSON:
   "verdict": "publishable" | "needs_work" | "killed" | null,
   "follow_ups": [{ "prompt": "actionable next step", "intent": "investigate|brainstorm|refine|precedents" }],
   "branches": [{ "label": "unexpected insight worth forking" }],
-  "source_suggestions": [{ "action": "register_data_source|register_rss_feed", "summary": "...", "payload": { "url": "...", "name": "...", "org": "...", "tier": 1, "cadence": "monthly", "why": "..." } }]
+  "source_suggestions": [{ "action": "register_data_source|register_rss_feed", "summary": "...", "payload": { "url": "...", "name": "...", "org": "...", "tier": 1, "cadence": "monthly", "series": "the specific recurring statistic, e.g. 'ABS CPI rents, annual change, Australia'", "why": "..." } }]
 }
-Give 2-4 follow_ups. branches only if genuinely surprising. source_suggestions only for tier 1/2 sources explicitly worth farming.`,
+Give 2-4 follow_ups. branches only if genuinely surprising. source_suggestions only for tier 1/2 sources explicitly worth farming.
+For register_data_source, suggest one when the research cites a credible recurring statistic that Caveat's store does not hold, and name it in payload.series; the source scout will try to load it.`,
       }],
     }),
   });

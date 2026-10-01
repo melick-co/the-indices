@@ -12,7 +12,7 @@ on:
     - cron: '0 2 * * *'
     - cron: '0 14 * * *'
     - cron: '0 22 * * *'
-    - cron: '0 3 * * 0'
+    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       task:
@@ -240,12 +240,12 @@ jobs:
           RUNWAYML_API_SECRET: ${{ secrets.RUNWAYML_API_SECRET }}
 
   scout:
-    # Weekly source scout (agent/scripts/scout-sources.mjs): adopt official series
-    # pitches keep asking for, load them, and re-link pitches. Sundays 03:00 UTC.
+    # Daily source scout (agent/scripts/scout-sources.mjs): adopt official series that
+    # research suggested or pitches keep asking for, load them, re-link pitches. 03:00 UTC.
     if: >-
       github.event_name == 'workflow_dispatch' &&
       (inputs.task == 'scout' || inputs.task == 'scout-dry-run') ||
-      github.event_name == 'schedule' && github.event.schedule == '0 3 * * 0'
+      github.event_name == 'schedule' && github.event.schedule == '0 3 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     defaults:
