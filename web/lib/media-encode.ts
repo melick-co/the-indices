@@ -43,12 +43,22 @@ export async function webImage(input: Buffer, contentType: string): Promise<{ da
  * (padded with silence to the video's length, never cutting the picture).
  */
 export async function webVideo(videoFile: string, audioFile: string | null, outFile: string): Promise<void> {
+  // Pin the output to the picture's length. `apad` with `-shortest` alone produced a
+  // 47-minute file (8s of video, endless silence) with a real voiceover.
+  const length = await mediaDuration(videoFile);
+  if (!(length > 0)) throw new Error(`could not read the clip's duration from ${videoFile}`);
   const args = ['-y', '-i', videoFile];
-  if (audioFile) args.push('-i', audioFile, '-map', '0:v:0', '-map', '1:a:0', '-af', 'apad', '-shortest', '-c:a', 'aac', '-b:a', '128k');
-  else args.push('-an');
-  args.push('-vf', `scale='min(${WEB_WIDTH},iw)':-2`, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '25',
-    '-pix_fmt', 'yuv420p', '-movflags', '+faststart', outFile);
+  if (audioFile) {
+    args.push('-i', audioFile, '-map', '0:v:0', '-map', '1:a:0',
+      '-af', `apad=whole_dur=${length.toFixed(3)}`, '-c:a', 'aac', '-b:a', '128k');
+  } else {
+    args.push('-an');
+  }
+  args.push('-t', length.toFixed(3), '-vf', `scale='min(${WEB_WIDTH},iw)':-2`, '-c:v', 'libx264', '-preset', 'veryfast',
+    '-crf', '25', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', outFile);
   await run(FFMPEG, args);
+  const out = await mediaDuration(outFile);
+  if (Math.abs(out - length) > 0.5) throw new Error(`encoded clip is ${out}s, expected ${length}s`);
 }
 
 /** Duration in seconds, read from ffmpeg's own stream info (no ffprobe needed). */
