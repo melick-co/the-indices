@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase-server';
 import { runFoundryTurn, type FoundryEvent } from '@/lib/foundry-agent';
 import { CHARTER, MODEL } from '@/lib/research-agent';
 import { articleFromApprovedPitch, type StructuredStory } from '@/lib/article-from-pitch';
+import { bindStoryCharts } from '@/lib/chart-from-data';
+import { factCheckStory, type FactCheck } from '@/lib/fact-check';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -12,6 +14,8 @@ export type PublishResult = {
   previewUrl: string;
   status: 'draft' | 'published';
   generation_note: string;
+  /** Publish gate: every figure traces to stored data and every chart was built from it. */
+  check: FactCheck;
 };
 
 export type GoLiveResult = {
@@ -119,9 +123,12 @@ Write up findings in prose with explicit source citations. Be specific with numb
 async function structureStory(
   pitch: Record<string, unknown>,
   researchText: string,
+  metrics: Array<{ metric_id: string; name?: string; unit?: string | null }>,
 ): Promise<StructuredStory> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
+
+  const available = metrics.map((m) => `- ${m.metric_id}: ${m.name ?? ''}${m.unit ? ` (${m.unit})` : ''}`).join('\n');
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -132,8 +139,8 @@ async function structureStory(
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 8000,
-      system: 'Convert research into a publishable Caveat story. Respond ONLY with valid JSON.',
+      max_tokens: 16000,
+      system: 'Convert research into a publishable Caveat news article. Respond ONLY with valid JSON.',
       messages: [{
         role: 'user',
         content: `Approved pitch brief:
@@ -146,14 +153,17 @@ ${JSON.stringify({
   metric_ids: pitch.metric_ids,
 })}
 
+Stored metrics you can chart and quote (metric_id: name):
+${available || '(none linked; use search_metrics findings from the research notes)'}
+
 Research notes:
 ${researchText.slice(0, 12000)}
 
 Return JSON matching this schema exactly:
 {
   "kicker": "Topic · Frame check (short label)",
-  "title": "finding not topic, AU English, under 120 chars",
-  "hook": "one-line why-now for the card",
+  "title": "news headline: the finding, with its number when it lands; active verb; under 90 chars; AU English",
+  "hook": "one-line standfirst for the card: why this matters now",
   "caveat": "hostile reader objection, specific",
   "one_number": { "value": "the headline number", "label": "what it measures" },
   "evidence": {
@@ -162,39 +172,38 @@ Return JSON matching this schema exactly:
   },
   "body": {
     "blocks": [
-      { "type": "paragraph", "text": "opening frame" },
-      { "type": "layers", "items": ["layer 1 shift", "layer 2 shift", "layer 3 shift"] },
-      { "type": "chart", "kind": "bars|rank_swap|timeline", "title": "optional",
-        "caption": "source line",
-        "primary_label": "Absolute",
-        "alt_label": "Per person",
-        "series": [{ "label": "Australia", "value": 8.8, "highlight": true }],
-        "alt_series": [{ "label": "Australia", "value": 14, "highlight": true }]
-      },
-      { "type": "heading", "text": "optional section heading" },
-      { "type": "paragraph", "text": "..." },
-      { "type": "pull", "text": "pull quote with the corrected frame" },
-      { "type": "paragraph", "text": "closing" }
+      { "type": "paragraph", "text": "LEDE: who/what/when, the newsworthy finding and its number, in one or two sentences" },
+      { "type": "paragraph", "text": "NUT GRAF: why it matters now and what it changes for readers" },
+      { "type": "layers", "items": ["layer 1: the data that shifts the picture", "layer 2", "layer 3"] },
+      { "type": "chart", "kind": "bars|rank_swap|timeline", "title": "what the chart shows",
+        "data": { "metric_id": "one of the stored metric_ids", "mode": "latest_by_entity|timeline",
+                  "entities": ["AUS","NZL","CAN"], "entity": "AUS", "last": 12, "alt_metric_id": "for rank_swap only" } },
+      { "type": "heading", "text": "section heading" },
+      { "type": "paragraph", "text": "context and supporting data" },
+      { "type": "pull", "text": "the corrected frame in one line" },
+      { "type": "paragraph", "text": "what the caveat means and what to watch next (next release, next decision)" }
     ]
   },
+  "metric_ids_used": ["every stored metric_id whose values the copy quotes"],
   "slug_hint": "3-5 word slug from topic",
   "generation_note": "one line on what the story does",
   "frame_check": true if this corrects a widely shared frame (denominator flip, viral claim check, rank surprise, two-truths gap) else false
 }
 
 Rules:
-- All sources must be tier 1 or 2. No tier 3 headline claims.
-- body.blocks must follow the layered story structure from EDITORIAL.md.
-- Use only block types: paragraph, layers, heading, pull, chart.
-- Include exactly one chart block. Prefer rank_swap when chart_hint implies a denominator flip;
-  timeline for sequences over time; bars otherwise.
-- Chart series values must be numbers drawn from the evidence. Highlight Australia when present.
+- Standard news structure: lede, nut graf, then supporting detail in the layered sequence from EDITORIAL.md, then caveat and what to watch. Short paragraphs. No em dashes.
+- Headline: attention-grabbing because the finding is surprising, never because it withholds it. No questions, no "you won't believe", no puns that hide the number.
+- Every number in the copy must be a stored value (or a change between stored periods, a gap to a peer, or a rank) for a metric in metric_ids_used. Do not quote figures that exist only in web search results: name the claim without its number instead. Unsupported numbers stop the article from publishing.
+- Charts: give "data" with a stored metric_id and leave out "series"; values are filled from the store. latest_by_entity compares countries at Australia's latest period; timeline shows one entity over time. For rank_swap give alt_metric_id (for example absolute vs per person).
+- Include exactly one chart block.
+- All sources must be tier 1 or 2.
 - Prefer frame_check true for Caveat's core archetypes.`,
       }],
     }),
   });
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const body = await res.json();
+  if (body.stop_reason === 'max_tokens') throw new Error('Article JSON was cut off at max_tokens');
   const raw = (body.content ?? [])
     .filter((c: { type: string }) => c.type === 'text')
     .map((c: { text: string }) => c.text)
@@ -269,7 +278,7 @@ export async function publishStoryFromPitch(
       });
 
       onEvent({ type: 'tool_start', name: 'structure', label: 'Writing the article', at: new Date().toISOString() });
-      story = await structureStory(pitch, researchText);
+      story = await structureStory(pitch, researchText, metrics);
     } catch (err) {
       onEvent({
         type: 'tool_start',
@@ -281,6 +290,17 @@ export async function publishStoryFromPitch(
       story.generation_note = `${story.generation_note} (${err instanceof Error ? err.message : 'research failed'})`;
     }
   }
+  // Charts take their values from the store, then every figure is checked against it.
+  onEvent({ type: 'tool_start', name: 'check', label: 'Building charts from stored data and checking figures', at: new Date().toISOString() });
+  const bound = await bindStoryCharts(supabase, story.body?.blocks ?? []);
+  story.body = { blocks: bound.blocks };
+  const knownIds = new Set(metricIds);
+  for (const id of story.metric_ids_used ?? []) knownIds.add(id);
+  for (const id of bound.chartMetricIds) knownIds.add(id);
+  const check = await factCheckStory(supabase, story, [...knownIds]);
+  check.issues.unshift(...bound.issues);
+  check.ok = check.ok && bound.issues.length === 0;
+
   const slug = existing?.slug ?? await uniqueSlug(story.slug_hint || story.title);
   const now = new Date().toISOString();
   const today = now.slice(0, 10);
@@ -323,7 +343,8 @@ export async function publishStoryFromPitch(
   await supabase.from('pitch_feedback').insert({
     pitch_id: pitchId,
     action: 'comment',
-    comment: `Article ready to edit: /foundry/desk/${slug} — ${story.generation_note}`,
+    comment: `Article ready to edit: /foundry/desk/${slug} — ${story.generation_note}` +
+      (check.ok ? ' Fact check passed.' : ` Fact check held it: ${check.issues.slice(0, 8).join('; ')}`),
   });
 
   onEvent({
@@ -341,6 +362,7 @@ export async function publishStoryFromPitch(
     previewUrl: `/stories/${slug}?preview=1`,
     status: 'draft',
     generation_note: story.generation_note,
+    check,
   };
 }
 

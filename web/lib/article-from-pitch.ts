@@ -11,6 +11,8 @@ export type StructuredStory = {
   slug_hint: string;
   generation_note: string;
   frame_check: boolean;
+  /** metric_ids whose stored values the copy quotes; the fact check loads these. */
+  metric_ids_used?: string[];
 };
 
 function asText(value: unknown): string {

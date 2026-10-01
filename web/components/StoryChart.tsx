@@ -4,6 +4,29 @@ import { useEffect, useRef, useState } from 'react';
 import type { StoryChartBlock } from '@/lib/story-types';
 
 const ROW = 28;
+const GROW = 'cubic-bezier(.22,.61,.36,1)';
+
+/**
+ * True once the chart has scrolled into view (immediately when motion is
+ * reduced or IntersectionObserver is unavailable), so bars grow in as the
+ * reader reaches them.
+ */
+function useInView<T extends Element>() {
+  const ref = useRef<T | null>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === 'undefined'
+      || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setSeen(true); return; }
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setSeen(true); io.disconnect(); }
+    }, { threshold: 0.3 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return [ref, seen] as const;
+}
 
 function formatNum(n: number) {
   if (Number.isInteger(n)) return n.toLocaleString('en-AU');
@@ -26,23 +49,26 @@ function btn(on: boolean): React.CSSProperties {
 
 function Bars({ chart }: { chart: StoryChartBlock }) {
   const max = Math.max(...chart.series.map((s) => Math.abs(s.value)), 1);
+  const [ref, seen] = useInView<HTMLDivElement>();
   return (
-    <div className="figure story-chart">
+    <div className="figure story-chart" ref={ref}>
       {chart.title && <div className="story-chart-title">{chart.title}</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {chart.series.map((s) => (
+        {chart.series.map((s, i) => (
           <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
             <span style={{
               width: '9rem', fontSize: '.82rem', fontWeight: s.highlight ? 600 : 400, flexShrink: 0,
             }}>{s.label}</span>
             <span style={{
               height: 14, borderRadius: 2,
-              width: `${Math.max(2, (Math.abs(s.value) / max) * 58)}%`,
+              width: seen ? `${Math.max(2, (Math.abs(s.value) / max) * 58)}%` : '0%',
               background: s.highlight ? 'var(--pen)' : 'var(--ink)',
+              transition: `width .8s ${GROW} ${i * 70}ms`,
             }} />
             <span style={{
               fontFamily: 'IBM Plex Mono, monospace', fontSize: '.7rem',
               color: 'var(--ink-soft)', fontVariantNumeric: 'tabular-nums',
+              opacity: seen ? 1 : 0, transition: `opacity .4s ease ${i * 70 + 500}ms`,
             }}>{formatNum(s.value)}</span>
           </div>
         ))}
@@ -123,25 +149,30 @@ function RankSwap({ chart }: { chart: StoryChartBlock }) {
 
 function Timeline({ chart }: { chart: StoryChartBlock }) {
   const max = Math.max(...chart.series.map((s) => Math.abs(s.value)), 1);
+  const [ref, seen] = useInView<HTMLDivElement>();
   return (
-    <div className="figure story-chart">
+    <div className="figure story-chart" ref={ref}>
       {chart.title && <div className="story-chart-title">{chart.title}</div>}
       <div style={{
         display: 'flex', alignItems: 'flex-end', gap: 8, height: 140, paddingTop: 8,
       }}>
-        {chart.series.map((s) => (
+        {chart.series.map((s, i) => (
           <div key={s.label} style={{
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
             gap: 6, height: '100%', justifyContent: 'flex-end',
           }}>
-            <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '.65rem', color: 'var(--ink-soft)' }}>
+            <span style={{
+              fontFamily: 'IBM Plex Mono, monospace', fontSize: '.65rem', color: 'var(--ink-soft)',
+              opacity: seen ? 1 : 0, transition: `opacity .4s ease ${i * 60 + 450}ms`,
+            }}>
               {formatNum(s.value)}
             </span>
             <span style={{
               width: '100%', maxWidth: 36,
-              height: `${Math.max(4, (Math.abs(s.value) / max) * 100)}%`,
+              height: seen ? `${Math.max(4, (Math.abs(s.value) / max) * 100)}%` : '0%',
               background: s.highlight ? 'var(--pen)' : 'var(--ink)',
               borderRadius: 2,
+              transition: `height .7s ${GROW} ${i * 60}ms`,
             }} />
             <span style={{ fontSize: '.7rem', color: 'var(--ink-faint)', textAlign: 'center' }}>{s.label}</span>
           </div>

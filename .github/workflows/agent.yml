@@ -11,12 +11,13 @@ on:
     - cron: '30 20 * * *'
     - cron: '0 2 * * *'
     - cron: '0 14 * * *'
+    - cron: '0 22 * * *'
   workflow_dispatch:
     inputs:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
 
 permissions:
@@ -204,6 +205,33 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+  articles:
+    # Daily auto-articles from all-5 pitches (web/scripts/auto-articles.ts).
+    # 22:00 UTC is 8am Sydney, after the morning daily taste run.
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.task == 'articles' || inputs.task == 'articles-dry-run') ||
+      github.event_name == 'schedule' && github.event.schedule == '0 22 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run: { working-directory: web }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm ci --silent
+      - run: npm install @supabase/supabase-js --no-save --silent
+        working-directory: agent
+      - name: Write and publish articles
+        run: npx tsx --import ./scripts/node-shims.mjs scripts/auto-articles.ts ${{ inputs.task == 'articles-dry-run' && '--dry-run' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RUNWAYML_API_SECRET: ${{ secrets.RUNWAYML_API_SECRET }}
 
   sources:
     if: >-
