@@ -28,6 +28,9 @@ export type GoLiveResult = {
   status: 'published';
 };
 
+/** Revision rounds a held article gets before it is left for the editor. */
+const MAX_REVISIONS = 2;
+
 const PUBLISH_SYSTEM = `${CHARTER}
 
 You are writing a PUBLISHABLE Caveat story from an approved pitch brief. This is not a pitch
@@ -357,20 +360,21 @@ export async function publishStoryFromPitch(
 
   let { check, ids: checkedIds } = await checkStory(story);
 
-  // One revision round: correct or drop what the checks could not support, then check again.
-  if (!check.ok && apiKey && story.body.blocks.length) {
-    onEvent({ type: 'tool_start', name: 'revise', label: `Revising ${check.issues.length} unsupported item(s) against stored data`, at: new Date().toISOString() });
+  // Up to MAX_REVISIONS rounds: correct or drop what the checks could not support, then check again.
+  for (let round = 1; !check.ok && apiKey && story.body.blocks.length && round <= MAX_REVISIONS; round++) {
+    onEvent({ type: 'tool_start', name: 'revise', label: `Revision ${round}: ${check.issues.length} unsupported item(s)`, at: new Date().toISOString() });
     try {
       const revised = await reviseForChecks(supabase, story, check.issues, [...checkedIds]);
-      const second = await checkStory(revised);
+      const next = await checkStory(revised);
       story = revised;
-      check = second.check;
-      checkedIds = second.ids;
-      if (!check.ok) check.issues.unshift('still unsupported after one revision:');
+      check = next.check;
+      checkedIds = next.ids;
     } catch (e) {
-      check.issues.push(`revision failed: ${e instanceof Error ? e.message : String(e)}`);
+      check.issues.push(`revision ${round} failed: ${e instanceof Error ? e.message : String(e)}`);
+      break;
     }
   }
+  if (!check.ok) check.issues.unshift(`unsupported after ${MAX_REVISIONS} revision round(s):`);
 
   const slug = existing?.slug ?? await uniqueSlug(story.slug_hint || story.title);
   const now = new Date().toISOString();

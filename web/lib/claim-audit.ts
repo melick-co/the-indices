@@ -13,7 +13,8 @@ import type { StructuredStory } from '@/lib/article-from-pitch';
  * claim. Any claim it cannot support from the reference holds the story.
  */
 
-const HISTORY = 40;
+// Long enough for "highest since" and streak claims on monthly and decision-date series.
+const HISTORY = 120;
 
 export type ClaimVerdict = { claim: string; verdict: 'supported' | 'unsupported'; evidence: string };
 export type ClaimAudit = { ok: boolean; claims: ClaimVerdict[]; unsupported: ClaimVerdict[] };
