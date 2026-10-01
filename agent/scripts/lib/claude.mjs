@@ -12,16 +12,22 @@ export class TruncatedError extends Error {
   constructor(label) { super(`${label}: reply hit max_tokens`); this.name = 'TruncatedError'; }
 }
 
-/** Parse a JSON reply, tolerating ```json fences or a sentence around the object. */
+/**
+ * Parse a JSON reply, tolerating ```json fences, a sentence around the object,
+ * and invalid backslash escapes (e.g. "\_T" in an SDMX key).
+ */
 export function parseJsonReply(text, label = 'claude') {
   const clean = String(text ?? '').replace(/```(?:json)?/g, '').trim();
-  try { return JSON.parse(clean); } catch { /* try the outermost object below */ }
   const start = clean.indexOf('{');
   const end = clean.lastIndexOf('}');
-  if (start >= 0 && end > start) {
-    try { return JSON.parse(clean.slice(start, end + 1)); } catch { /* fall through */ }
+  const object = start >= 0 && end > start ? clean.slice(start, end + 1) : clean;
+  const repaired = object.replace(/\\(?!["\\/bfnrtu])/g, '');
+  let lastError;
+  for (const candidate of [clean, object, repaired]) {
+    try { return JSON.parse(candidate); } catch (e) { lastError = e; }
   }
-  throw new Error(`${label}: reply was not valid JSON (${clean.slice(0, 80)}…)`);
+  const tail = clean.length > 160 ? ` … ${clean.slice(-80)}` : '';
+  throw new Error(`${label}: reply was not valid JSON: ${lastError?.message} (${clean.slice(0, 80)}${tail})`);
 }
 
 /**

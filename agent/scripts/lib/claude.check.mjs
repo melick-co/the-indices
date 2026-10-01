@@ -5,6 +5,8 @@ import { TruncatedError, callClaudeJson, parseJsonReply, splitOnTruncation } fro
 assert.deepEqual(parseJsonReply('```json\n{"a":1}\n```'), { a: 1 });
 assert.deepEqual(parseJsonReply('Here is the verdict:\n{"a":{"b":2}}\nDone.'), { a: { b: 2 } });
 assert.throws(() => parseJsonReply('{"a":"cut off', 'taste verdict'), /taste verdict: reply was not valid JSON/);
+// Invalid escapes (models write SDMX keys like ".Y.\_T.") are repaired.
+assert.deepEqual(parseJsonReply('{"key":".Y.\\_T.M","n":"a\\"b"}'), { key: '.Y._T.M', n: 'a"b' });
 
 const reply = (body, ok = true, status = 200) => async () => ({
   ok, status, json: async () => body, text: async () => JSON.stringify(body),
