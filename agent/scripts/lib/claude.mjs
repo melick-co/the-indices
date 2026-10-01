@@ -16,14 +16,36 @@ export class TruncatedError extends Error {
  * Parse a JSON reply, tolerating ```json fences, a sentence around the object,
  * and invalid backslash escapes (e.g. "\_T" in an SDMX key).
  */
+/** The first complete {...} in text, respecting strings; null if none closes. */
+function firstObject(text) {
+  const start = text.indexOf('{');
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (ch === '\\') i++;
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') inString = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}' && --depth === 0) return text.slice(start, i + 1);
+  }
+  return null;
+}
+
 export function parseJsonReply(text, label = 'claude') {
   const clean = String(text ?? '').replace(/```(?:json)?/g, '').trim();
   const start = clean.indexOf('{');
   const end = clean.lastIndexOf('}');
   const object = start >= 0 && end > start ? clean.slice(start, end + 1) : clean;
   const repaired = object.replace(/\\(?!["\\/bfnrtu])/g, '');
+  // Replies that add a second object or a note after the JSON: take the first object.
+  const first = firstObject(clean);
+  const candidates = [clean, object, repaired];
+  if (first) candidates.push(first, first.replace(/\\(?!["\\/bfnrtu])/g, ''));
   let lastError;
-  for (const candidate of [clean, object, repaired]) {
+  for (const candidate of candidates) {
     try { return JSON.parse(candidate); } catch (e) { lastError = e; }
   }
   const tail = clean.length > 160 ? ` … ${clean.slice(-80)}` : '';
