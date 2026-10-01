@@ -329,7 +329,7 @@ is_series is false if the id names a one-off fact, a forecast or a policy target
   ${{
       abs: 'Build an SDMX key: one code per dimension joined by dots, in the order above. ABS: specify every dimension so the key returns exactly ONE series, for Australia as a whole, quarterly or monthly. Prefer original or seasonally adjusted headline series and, when the request is a growth rate, the "change from corresponding period of previous year" measure.',
       oecd: 'Build an SDMX key: one code per dimension joined by dots, in the order above. OECD: leave REF_AREA empty (all countries) and fix every other dimension so each country has one series. Use annual frequency unless the request implies otherwise.',
-      bis: 'Build an SDMX key: one code per dimension joined by dots, in the order above. BIS: leave REF_AREA empty (all countries) and fix every other dimension so each country has one series. Prefer quarterly.',
+      bis: 'Build an SDMX key: one code per dimension joined by dots, in the order above. BIS: leave the country dimension (REF_AREA, BORROWERS_CTY or similar) empty for all countries and fix every other dimension so each country has one series. Prefer quarterly.',
       imf: 'Build an SDMX key: one code per dimension joined by dots, in the order above. IMF: put * for COUNTRY (all countries) and fix every other dimension so each country has one series. Prefer ratios to GDP or percentages over amounts in national currency.',
       rba: 'RBA: the key is the exact Title of ONE column from the COLUMN list above: the text before "=", copied character for character.',
     }[pick.provider]}

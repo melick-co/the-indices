@@ -125,8 +125,10 @@ export function wildcardOf(provider) {
 export async function fetchRows(provider, flow, key, startPeriod = '2000') {
   const p = PROVIDERS[provider];
   const json = await getJson(p.dataUrl(p.base, flow, key, startPeriod), p.dataAccept);
+  // Country dimension names vary by dataflow (BIS: REF_AREA, BORROWERS_CTY, ...).
+  const areaOf = (dims) => dims[p.areaDim] ?? Object.entries(dims).find(([k]) => /AREA|CTY|COUNTRY/.test(k))?.[1];
   return parseSdmxSeries(json)
-    .map((r) => ({ ...r, entity: p.toIso3(r.dims[p.areaDim]) }))
+    .map((r) => ({ ...r, entity: p.toIso3(areaOf(r.dims)) }))
     // "2015", "2015-Q1" and "2015-01" all compare correctly as strings against a year.
     .filter((r) => r.entity && Number.isFinite(r.value) && r.period >= startPeriod);
 }
