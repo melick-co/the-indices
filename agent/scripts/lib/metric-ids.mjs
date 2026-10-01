@@ -9,11 +9,10 @@
 
 /**
  * Only exact matches: same measure, same basis. Deliberately absent because the
- * store's series is a different measure: labour_productivity and
- * market_sector_labour_productivity (level or growth?),
- * gross_government_debt_pct_gdp (the store holds central, not general, government
- * debt), household_debt_disposable_income (OECD or RBA basis?), headline_cpi
- * (index or change?).
+ * store's series is a different measure: gross_government_debt_pct_gdp (the
+ * store holds central, not general, government debt),
+ * household_debt_disposable_income (OECD or RBA basis?), headline_cpi (index or
+ * change?).
  */
 export const METRIC_ALIASES = {
   cash_rate: 'cash_rate_au',
@@ -44,7 +43,10 @@ export const METRIC_ALIASES = {
   wage_price_index_public_sector: 'wpi_public_annual_au',
   trimmed_mean_cpi: 'trimmed_mean_cpi_au',
   gdp_growth_quarterly: 'gdp_growth_qoq_au',
+  // Unqualified "labour productivity" means the annual growth rate, as stories quote it.
+  labour_productivity: 'gdp_per_hour_worked_annual_au',
   labour_productivity_growth: 'gdp_per_hour_worked_annual_au',
+  market_sector_labour_productivity: 'market_gva_per_hour_annual_au',
   labour_productivity_index: 'gdp_per_hour_worked_index_au',
 };
 
