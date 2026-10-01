@@ -134,7 +134,7 @@ async function structurePitchUpdate(
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 2000,
+      max_tokens: 6000,
       system: 'Convert research into a strengthened pitch brief. Respond ONLY with valid JSON.',
       messages: [{
         role: 'user',
@@ -170,11 +170,14 @@ Return JSON:
   });
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const body = await res.json();
+  if (body.stop_reason === 'max_tokens') throw new Error('Strengthened pitch JSON was cut off at max_tokens');
   const raw = (body.content ?? [])
     .filter((c: { type: string }) => c.type === 'text')
     .map((c: { text: string }) => c.text)
     .join('\n');
-  return JSON.parse(raw.replace(/```json|```/g, '').trim());
+  // Take the JSON object itself, ignoring any fence or note around it.
+  const text = raw.replace(/```json|```/g, '').trim();
+  return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
 }
 
 export async function strengthenPitch(

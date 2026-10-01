@@ -25,6 +25,30 @@ const words = (t: string) => t.replace(MARKER, '').trim().split(/\s+/).filter(Bo
 const sentences = (t: string) => t.replace(MARKER, '').split(/(?<=[.!?])\s+(?=[A-Z"'“‘(])/).filter((x) => x.trim());
 const paragraphs = (blocks: StoryBlock[]) => blocks.filter((b): b is Extract<StoryBlock, { type: 'paragraph' }> => b.type === 'paragraph');
 
+/** Split raw text (footnote markers kept) into sentences, on the same boundaries as `sentences`. */
+const rawSentences = (t: string) => t.split(/(?<=[.!?](?:\[\^\d+\])*)\s+(?=[A-Z"'“‘(])/).filter((x) => x.trim());
+
+/**
+ * Paragraphs of more than three sentences are split into consecutive paragraphs of at most three
+ * (NEWS-STYLE.md 3), so a mechanical length rule never holds a story. Lede and nut graf keep their
+ * role on the first part only; the remainder becomes context.
+ */
+export function splitLongParagraphs(blocks: StoryBlock[]): StoryBlock[] {
+  return blocks.flatMap((b) => {
+    if (b.type !== 'paragraph') return [b];
+    const ss = rawSentences(b.text);
+    if (ss.length <= 3) return [b];
+    const parts = Math.ceil(ss.length / 3);
+    const size = Math.ceil(ss.length / parts);
+    const out: StoryBlock[] = [];
+    for (let i = 0; i < ss.length; i += size) {
+      const role = i === 0 || (b.role !== 'lede' && b.role !== 'nut') ? b.role : 'context';
+      out.push({ ...b, text: ss.slice(i, i + size).join(' '), ...(role ? { role } : {}) });
+    }
+    return out;
+  });
+}
+
 /** Footnote numbers cited anywhere in a text. */
 const cited = (t: string) => [...t.matchAll(MARKER)].map((m) => Number(m[1]));
 

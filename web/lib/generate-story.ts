@@ -3,7 +3,7 @@ import { runFoundryTurn, type FoundryEvent } from '@/lib/foundry-agent';
 import { CHARTER, MODEL } from '@/lib/research-agent';
 import { articleFromApprovedPitch, type StructuredStory } from '@/lib/article-from-pitch';
 import { bindOneNumber, bindStoryCharts } from '@/lib/chart-from-data';
-import { checkStyle, verifyQuotes } from '@/lib/style-check';
+import { checkStyle, splitLongParagraphs, verifyQuotes } from '@/lib/style-check';
 import { factCheckStory, type FactCheck } from '@/lib/fact-check';
 import { auditClaims, reviseForChecks } from '@/lib/claim-audit';
 import { canonicalMetricId, loadKnownMetrics, normaliseMetricIds } from '../../agent/scripts/lib/metric-ids.mjs';
@@ -373,7 +373,7 @@ export async function publishStoryFromPitch(
     // Quotes run only if found word for word on their source page; unverifiable ones are removed.
     const quotes = await verifyQuotes(draft.body.blocks);
     for (const d of quotes.dropped) onEvent({ type: 'tool_result', name: 'quotes', label: `Quote removed: ${d}`, at: new Date().toISOString() });
-    const bound = await bindStoryCharts(supabase, quotes.blocks);
+    const bound = await bindStoryCharts(supabase, splitLongParagraphs(quotes.blocks));
     draft.body = { blocks: bound.blocks };
     if (draft.one_number?.metric_id) draft.one_number.metric_id = canonical(draft.one_number.metric_id);
     const hero = await bindOneNumber(supabase, draft.one_number);
@@ -389,16 +389,18 @@ export async function publishStoryFromPitch(
     const style = checkStyle(draft);
     result.issues.push(...style.issues.map((i) => `style: ${i}`));
     result.warnings = style.warnings;
-    result.ok = result.ok && bound.issues.length === 0 && !hero.issue && style.ok;
+    const figuresOk = result.ok && bound.issues.length === 0 && !hero.issue;
+    result.ok = figuresOk && style.ok;
 
-    // Figures exist in the data; now check each claim uses them truthfully.
-    if (result.ok && apiKey && opts.audit) {
+    // Figures exist in the data; now check each claim uses them truthfully. Runs even when only
+    // style failed, so a held draft reaches the editor with its claims already audited.
+    if (figuresOk && apiKey && opts.audit) {
       onEvent({ type: 'tool_start', name: 'audit', label: 'Auditing every claim against stored data', at: new Date().toISOString() });
       try {
         const audit = await auditClaims(supabase, draft, [...ids]);
         result.claims = audit.claims;
         for (const c of audit.unsupported) result.issues.push(`claim not supported by stored data: "${c.claim}" (${c.evidence})`);
-        result.ok = audit.ok;
+        result.ok = result.ok && audit.ok;
       } catch (e) {
         result.ok = false;
         result.issues.push(`claim audit failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -410,9 +412,11 @@ export async function publishStoryFromPitch(
   let { check, ids: checkedIds } = await checkStory(story);
 
   // Up to MAX_REVISIONS rounds: correct or drop what the checks could not support, then check again.
-  const rounds = opts.audit ? MAX_REVISIONS : 0;
+  // One extra round is allowed when only style items remain (a long deck, say): cheap and usually enough.
+  const styleOnly = () => check.issues.every((i) => i.startsWith('style:'));
+  let rounds = opts.audit ? MAX_REVISIONS : 0;
   for (let round = 1; !check.ok && apiKey && story.body.blocks.length && round <= rounds; round++) {
-    onEvent({ type: 'tool_start', name: 'revise', label: `Revision ${round}: ${check.issues.length} unsupported item(s)`, at: new Date().toISOString() });
+    onEvent({ type: 'tool_start', name: 'revise', label: `Revision ${round}: ${check.issues.length} item(s) to fix`, at: new Date().toISOString() });
     try {
       const revised = await reviseForChecks(supabase, story, check.issues, [...checkedIds], loadNewsStyle());
       const next = await checkStory(revised);
@@ -423,8 +427,9 @@ export async function publishStoryFromPitch(
       check.issues.push(`revision ${round} failed: ${e instanceof Error ? e.message : String(e)}`);
       break;
     }
+    if (round === rounds && rounds === MAX_REVISIONS && !check.ok && styleOnly()) rounds++;
   }
-  if (!check.ok && rounds) check.issues.unshift(`unsupported after ${rounds} revision round(s):`);
+  if (!check.ok && rounds) check.issues.unshift(`not fixed after ${rounds} revision round(s):`);
 
   const slug = existing?.slug ?? await uniqueSlug(story.slug_hint || story.title);
   const now = new Date().toISOString();

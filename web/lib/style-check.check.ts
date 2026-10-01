@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { checkStyle } from './style-check';
+import { checkStyle, splitLongParagraphs } from './style-check';
 import type { StoryBlock } from './story-types';
 
 const good = {
@@ -34,4 +34,16 @@ for (const expected of [/headline is 1 words/, /deck is 2 words/, /lede is \d+ w
   assert.ok(bad.issues.some((i) => expected.test(i)), `expected ${expected}; got:\n${bad.issues.join('\n')}`);
 }
 assert.ok(checkStyle({ ...good, title: 'A Revolutionary Shift Hits the Housing Market This Year' }).issues.some((i) => /hype word/.test(i)));
+
+// Long paragraphs split into parts of at most three sentences, markers kept with their sentence.
+const split = splitLongParagraphs([
+  { type: 'paragraph', role: 'lede', text: 'Credit hit A$2,568 billion.[^1] Values fell. Rates rose to 4.60%.[^2] Borrowers are squeezed.' },
+  { type: 'paragraph', role: 'evidence', text: 'A. B. C. D. E.' },
+] as StoryBlock[]) as Extract<StoryBlock, { type: 'paragraph' }>[];
+assert.deepEqual(split.map((p) => [p.role, p.text]), [
+  ['lede', 'Credit hit A$2,568 billion.[^1] Values fell.'],
+  ['context', 'Rates rose to 4.60%.[^2] Borrowers are squeezed.'],
+  ['evidence', 'A. B. C.'],
+  ['evidence', 'D. E.'],
+]);
 console.log('style-check.check: ok');
