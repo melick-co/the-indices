@@ -2,6 +2,7 @@
  * Rank RSS items into top news topics for 1-day and 7-day windows.
  */
 import { readFileSync } from 'node:fs';
+import { callClaudeJson } from './claude.mjs';
 import { detectTrends } from './trend-detect.mjs';
 import { sydneyDate, toSydneyDate, sydneyDateRange, priorSydneyDate } from './sydney-time.mjs';
 
@@ -59,33 +60,11 @@ export async function rankRssWithClaude(items, windowLabel) {
     .replace('{window_label}', windowLabel)
     .replace('{JSON: headlines}', JSON.stringify(headlines));
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2500,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-    signal: AbortSignal.timeout(120000),
-  });
-
-  const body = await res.json();
-  if (!res.ok) {
-    console.warn(`Claude trending topics ${res.status} — falling back to mechanical ranking`);
-    return null;
-  }
-
-  const text = (body.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join('');
   let parsed;
   try {
-    parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
-  } catch {
-    console.warn('Unparseable Claude trending topics response — falling back to mechanical ranking');
+    parsed = await callClaudeJson(prompt, { label: 'trending topics', apiKey, timeoutMs: 180000 });
+  } catch (e) {
+    console.warn(`${e.message} — falling back to mechanical ranking`);
     return null;
   }
 

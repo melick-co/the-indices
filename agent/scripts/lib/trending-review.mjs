@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadKnownMetrics, normaliseMetricIds, withUnlinked } from './metric-ids.mjs';
+import { callClaudeJson, splitOnTruncation } from './claude.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 
@@ -123,25 +124,6 @@ function loadPrompt() {
   return readFileSync(join(__dir, '../../taste/trending-review-prompt.md'), 'utf8');
 }
 
-async function callClaude(prompt) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-  if (!res.ok) throw new Error(`anthropic ${res.status}: ${await res.text()}`);
-  const body = await res.json();
-  const text = (body.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join('');
-  return JSON.parse(text.replace(/```json|```/g, '').trim());
-}
 
 async function latestSnapshot(db, source, region, windowType) {
   const { data, error } = await db.from('trending_snapshots')
@@ -359,15 +341,19 @@ export async function runTrendingReview(opts = {}) {
 
   emit(`Reviewing ${topics.length} topics against ${pitches.length} pitches (${periodEnd}).`);
 
-  const prompt = loadPrompt()
+  const promptFor = (batch) => loadPrompt()
     .replace('{EDITORIAL.md}', loadCharter())
     .replace('{period_end}', periodEnd ?? '')
     .replace('{JSON: pitches}', JSON.stringify(pitches.map(compactPitch)))
-    .replace('{JSON: topics}', JSON.stringify(topics))
+    .replace('{JSON: topics}', JSON.stringify(batch))
     .replace('{max_new}', String(MAX_NEW))
     .replace('{max_attach}', String(MAX_ATTACH));
 
-  const verdict = await callClaude(prompt);
+  // One decision per topic, so a cut-off reply can be retried on half the topics.
+  // applyDecisions enforces MAX_NEW / MAX_ATTACH across all batches.
+  const decisions = await splitOnTruncation(topics, async (batch) =>
+    (await callClaudeJson(promptFor(batch), { label: 'trending review' })).decisions ?? []);
+  const verdict = { decisions };
   const applied = await applyDecisions(db, {
     topics,
     pitches,

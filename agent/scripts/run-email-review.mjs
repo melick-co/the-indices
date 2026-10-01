@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import './lib/load-env.mjs';
+import { callClaudeJson } from './lib/claude.mjs';
 
 const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY,
   { auth: { persistSession: false } });
@@ -28,25 +29,10 @@ async function reviewEmail(email, topics, pitches, news) {
     .replace('{body}', body)
     .replace('{max_suggestions}', String(MAX_SUGGESTIONS));
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 3000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-  const raw = await res.json();
-  const text = (raw.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join('');
   try {
-    return JSON.parse(text.replace(/```json|```/g, '').trim());
-  } catch {
-    console.error('unparseable email review for', email.id);
+    return await callClaudeJson(prompt, { label: `email review ${email.id}` });
+  } catch (e) {
+    console.error(e.message);
     return { suggestions: [] };
   }
 }

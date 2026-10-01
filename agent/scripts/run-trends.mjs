@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import './lib/load-env.mjs';
+import { callClaudeJson } from './lib/claude.mjs';
 import { detectTrends } from './lib/trend-detect.mjs';
 import { loadKnownMetrics, normaliseMetricIds, withUnlinked } from './lib/metric-ids.mjs';
 
@@ -105,24 +106,9 @@ async function hypothesize() {
       JSON.stringify(payload))
     .replace('{max_hypotheses}', String(MAX_HYPOTHESES));
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-  const body = await res.json();
-  const text = (body.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join('');
   let verdict;
-  try { verdict = JSON.parse(text.replace(/```json|```/g, '').trim()); }
-  catch { console.error('unparseable trend verdict'); return { hypothesized: 0, linked: 0, archived: 0 }; }
+  try { verdict = await callClaudeJson(prompt, { label: 'trend verdict' }); }
+  catch (e) { console.error(e.message); return { hypothesized: 0, linked: 0, archived: 0 }; }
 
   let hypothesized = 0;
   let linked = 0;

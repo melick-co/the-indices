@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { callClaudeJson, splitOnTruncation } from './claude.mjs';
 
 const ACTIVE_STATES = ['pitched', 'approved', 'candidate', 'watchlist'];
 const BATCH_SIZE = 6;
@@ -175,44 +176,11 @@ Respond ONLY with valid JSON, no markdown:
 {"revisions":[{"id":"...","revised":true,"headline":"...","hook":"...","mechanism":"...","caveat":"...","chart_hint":"...","revision_note":"..."},{"id":"...","revised":false,"revision_note":"unchanged"}]}`;
 }
 
-async function callClaude(prompt) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 16000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-  if (!res.ok) throw new Error(`anthropic ${res.status}: ${await res.text()}`);
-  const body = await res.json();
-  if (body.stop_reason === 'max_tokens') throw new TruncatedError();
-  const text = (body.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join('');
-  return JSON.parse(text.replace(/```json|```/g, '').trim());
-}
-
-class TruncatedError extends Error {
-  constructor() { super('response hit max_tokens'); }
-}
 
 /** Revise one batch; if the reply is cut off, split the batch and try each half. */
-async function reviseBatch(charter, batch, reference) {
-  try {
-    const verdict = await callClaude(buildRevisePrompt(charter, batch, reference));
-    return verdict.revisions ?? [];
-  } catch (e) {
-    if (!(e instanceof TruncatedError) || batch.length < 2) throw e;
-    const mid = Math.ceil(batch.length / 2);
-    return [
-      ...(await reviseBatch(charter, batch.slice(0, mid), reference)),
-      ...(await reviseBatch(charter, batch.slice(mid), reference)),
-    ];
-  }
+function reviseBatch(charter, batch, reference) {
+  return splitOnTruncation(batch, async (part) =>
+    (await callClaudeJson(buildRevisePrompt(charter, part, reference), { label: 'pitch revision' })).revisions ?? []);
 }
 
 /**
