@@ -21,7 +21,7 @@ on:
         options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
-        description: 'articles only: pitch id(s), space separated, to run regardless of the retry window'
+        description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for. Space separated.'
         required: false
         default: ''
 
@@ -261,6 +261,8 @@ jobs:
       - run: npm install @supabase/supabase-js --no-save --silent
       - name: Scout sources
         run: node scripts/scout-sources.mjs ${{ inputs.task == 'scout-dry-run' && '--dry-run' || '' }}
+        env:
+          SCOUT_IDS: ${{ inputs.pitch }}
       - name: Load adopted series
         if: inputs.task != 'scout-dry-run'
         run: |

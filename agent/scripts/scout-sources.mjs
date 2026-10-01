@@ -4,6 +4,8 @@
  *
  *   node scripts/scout-sources.mjs            # adopt verified series into series_registry
  *   node scripts/scout-sources.mjs --dry-run  # report decisions, write nothing
+ *   ... --id=<metric_id>                      # scout these ids instead of the demand list
+ *                                             # (repeatable, or SCOUT_IDS, space/comma separated)
  *
  * Demand comes from pitches' trigger_rows.unlinked_metrics (ids the model asked
  * for that the store does not hold). For the most-requested ids it:
@@ -30,6 +32,10 @@ const CANDIDATES_PER_PROVIDER = 20;
 const CODES_PER_DIMENSION = 40;
 const STRUCTURE = 'application/vnd.sdmx.structure+json';
 const dryRun = process.argv.includes('--dry-run');
+const requestedIds = [
+  ...process.argv.filter((a) => a.startsWith('--id=')).map((a) => a.slice(5)),
+  ...(process.env.SCOUT_IDS ?? '').split(/[\s,]+/),
+].filter(Boolean);
 const isMain = process.argv[1]?.endsWith('scout-sources.mjs');
 const db = isMain ? createDb() : null;
 const log = (m) => console.log(m);
@@ -159,9 +165,9 @@ async function verify(provider, choice, dims) {
 
 async function scout(target, known) {
   const ask = (prompt, label) => callClaudeJson(prompt, { label, maxTokens: 4000 });
-  const context = `Requested metric id: ${target.id}
-Asked for by ${target.pitches} pitch(es), e.g.:
-${target.headlines.map((h) => `- ${h}`).join('\n')}`;
+  const context = target.headlines.length
+    ? `Requested metric id: ${target.id}\nAsked for by ${target.pitches} pitch(es), e.g.:\n${target.headlines.map((h) => `- ${h}`).join('\n')}`
+    : `Requested metric id: ${target.id} (requested by an editor)`;
 
   const plan = await ask(`${context}
 
@@ -279,7 +285,9 @@ Respond ONLY with JSON: {"match":true|false,"why":"..."}`, 'scout confirm');
 
 async function main() {
   const known = await loadKnownMetrics(db);
-  const targets = (await demand(known)).slice(0, MAX_TARGETS);
+  const targets = requestedIds.length
+    ? requestedIds.map((id) => ({ id, pitches: 0, headlines: [] }))
+    : (await demand(known)).slice(0, MAX_TARGETS);
   if (!targets.length) { log('No unlinked series in demand.'); return; }
   log(`Scouting ${targets.length} requested series${dryRun ? ' (dry run)' : ''}:`);
   for (const t of targets) log(`  ${String(t.pitches).padStart(3)}  ${t.id}`);
