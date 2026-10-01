@@ -62,7 +62,7 @@ export async function rbaColumns(file) {
   const ids = row('Series ID');
   return titles.map((t, i) => ({
     id: t,
-    name: `${t} | ${freq[i] ?? ''} | ${type[i] ?? ''} | ${units[i] ?? ''} | ${ids[i] ?? ''}`,
+    name: `${freq[i] ?? ''} | ${type[i] ?? ''} | ${units[i] ?? ''} | ${ids[i] ?? ''}`,
     cadence: cadenceOf(freq[i]),
   })).filter((c) => c.id);
 }

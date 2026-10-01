@@ -209,6 +209,14 @@ async function existingAbsKeys(flow, key, dims) {
   return out;
 }
 
+/** RBA column picked as "Title=description" (how the list shows it): keep the Title. */
+function rbaTitle(key, dims) {
+  const k = String(key ?? '');
+  if (dims[0]?.codes.some((c) => c.id === k)) return k;
+  const title = dims[0]?.codes.find((c) => k.startsWith(`${c.id}=`))?.id;
+  return title ?? k;
+}
+
 // ---------- verification ----------
 
 async function verify(provider, choice, dims) {
@@ -293,7 +301,8 @@ Pick the single dataflow most likely to contain exactly this measure for Austral
 - ABS: Australian prices, labour, output, population, housing activity.
 - RBA tables: Australian interest and lending rates, credit, housing finance, household finances.
 - OECD, World Bank, IMF: cross-country comparisons. IMF for government finance statistics.
-- BIS: cross-country property prices, debt service ratios, credit-to-GDP.
+- BIS: cross-country property prices (WS_SPP, the standard selected series), household debt service
+  ratios (WS_DSR), credit-to-GDP gaps (WS_CREDIT_GAP).
 If none fits, say so.
 Respond ONLY with JSON: {"provider":"abs|oecd|wb|rba|bis|imf|none","flow":"exact flow id from the list","why":"..."}`, 'scout pick');
   if (!pick.provider || pick.provider === 'none' || !candidates[pick.provider]?.some((c) => c.flow === pick.flow)) {
@@ -316,7 +325,7 @@ ${{
     oecd: 'Build an SDMX key: one code per dimension joined by dots, in the order above. OECD: leave REF_AREA empty (all countries) and fix every other dimension so each country has one series. Use annual frequency unless the request implies otherwise.',
     bis: 'Build an SDMX key: one code per dimension joined by dots, in the order above. BIS: leave REF_AREA empty (all countries) and fix every other dimension so each country has one series. Prefer quarterly.',
     imf: 'Build an SDMX key: one code per dimension joined by dots, in the order above. IMF: put * for COUNTRY (all countries) and fix every other dimension so each country has one series. Prefer ratios to GDP or percentages over amounts in national currency.',
-    rba: 'RBA: the key is the exact Title of ONE column from the COLUMN list above (copy it character for character).',
+    rba: 'RBA: the key is the exact Title of ONE column from the COLUMN list above: the text before "=", copied character for character.',
   }[pick.provider]}
 Also describe the series for the store.
 
@@ -330,6 +339,7 @@ Respond ONLY with JSON:
 ${pick.provider === 'abs' ? 'ABS only: if the request is a growth rate but the dataflow publishes this item only as an index, choose the index series and set derive_annual_change true; the store will compute change on the same period a year earlier.' : ''}`, 'scout key');
     choice = { ...choice, ...keyAnswer };
     if (pick.provider === 'rba') {
+      choice.key = rbaTitle(choice.key, dims);
       const col = dims[0].codes.find((c) => c.id === choice.key);
       if (!col) return { outcome: 'rejected', note: `${pick.flow}: "${choice.key}" is not a column of this table` };
       choice.measure = col.cadence;
@@ -361,6 +371,7 @@ and set derive_annual_change true.
 Respond ONLY with JSON: {"key":"..." | null,"measure":"OECD MEASURE code or null","derive_annual_change":true|false}`, 'scout key retry');
     if (!fixed.key) return { outcome: 'rejected', note: `${pick.flow}: ${checked.why}; no valid key` };
     if (pick.provider === 'rba') {
+      fixed.key = rbaTitle(fixed.key, dims);
       const col = dims[0].codes.find((c) => c.id === fixed.key);
       if (!col) return { outcome: 'rejected', note: `${pick.flow}: retry "${fixed.key}" is not a column of this table` };
       fixed.measure = col.cadence;
