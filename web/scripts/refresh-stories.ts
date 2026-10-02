@@ -7,6 +7,7 @@
  *   ... --show <slug>     # print the pending revision's copy, with deck and lede word counts
  *   ... --edit <slug>     # apply REVISION_EDITS (JSON [{find, replace}]) to the revision (or to a new revision of the
  *                         # live copy, for corrections), then re-check it. --apply takes REVISION_NOTE as the update note.
+ *                         # REVISION_METRICS adds metric ids the copy quotes (space separated).
  *   ... --recheck <slug>  # re-run every check on the revision as it stands
  *   ... --sources <slug>  # read-only: check the live article's sourced statements against its source documents
  *   ... --discard <slug>  # drop the pending revision; the live article is untouched
@@ -83,7 +84,11 @@ async function main() {
           const existing = await loadRevisionContent(slug).catch(() => null);
           if (!existing) { await startRevisionFromLive(slug); log('  Started a revision from the live copy.'); }
           const { content } = existing ?? await loadRevisionContent(slug);
-          await saveRevisionContent(slug, editContent(content, edits));
+          const edited = editContent(content, edits);
+          // REVISION_METRICS adds stored series the copy quotes, so the re-check audits against them.
+          const extra = (process.env.REVISION_METRICS ?? '').split(/[\s,]+/).filter(Boolean);
+          if (extra.length) edited.metric_ids_used = [...new Set([...(edited.metric_ids_used ?? []), ...extra])];
+          await saveRevisionContent(slug, edited);
           log(`  Applied ${edits.length} edit(s) to the revision.`);
         }
         const check = await recheckRevision(slug);

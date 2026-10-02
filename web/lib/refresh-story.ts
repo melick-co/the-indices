@@ -8,13 +8,20 @@ import { loadPendingRevision } from '@/lib/stories-loader';
 
 /** The article fields a revision replaces. Placement, art and dates are left alone. */
 const CONTENT_COLS = ['kicker', 'title', 'hook', 'caveat', 'one_number', 'evidence', 'body', 'frame_check'] as const;
-type Content = Record<(typeof CONTENT_COLS)[number], unknown>;
+// A revision also keeps the metric ids its copy quotes, so a re-check audits against the same series.
+type Content = Record<(typeof CONTENT_COLS)[number], unknown> & { metric_ids_used?: string[] };
 
 export const DEFAULT_UPDATE_NOTE =
   'Rewritten in our news format, with every figure re-checked against the latest official data.';
 
 const pick = (row: Record<string, unknown>): Content =>
   Object.fromEntries(CONTENT_COLS.map((k) => [k, row[k]])) as Content;
+
+/** Revision content: the article fields plus the metric ids its copy quotes. */
+const pickRevision = (row: Record<string, unknown>): Content => ({
+  ...pick(row),
+  ...(Array.isArray(row.metric_ids_used) && row.metric_ids_used.length ? { metric_ids_used: row.metric_ids_used as string[] } : {}),
+});
 
 /** Plain text of an article body, for the writer's brief. */
 function bodyText(blocks: StoryBlock[]): string {
@@ -70,6 +77,7 @@ export async function refreshStory(
     evidence: story.evidence,
     body: story.body,
     frame_check: Boolean(story.frame_check),
+    metric_ids_used: story.metric_ids_used ?? [],
   };
   const now = new Date().toISOString();
   await db.from('story_revisions').update({ status: 'discarded', resolved_at: now })
@@ -133,10 +141,10 @@ async function pitchMetricIds(pitchId: string | null): Promise<string[]> {
  */
 async function recheck(content: Content, pitchId: string | null): Promise<{ content: Content; check: StoredCheck }> {
   const db = createClient();
-  const draft = { ...(content as unknown as StructuredStory), slug_hint: '', generation_note: '', metric_ids_used: [] };
+  const draft = { ...(content as unknown as StructuredStory), slug_hint: '', generation_note: '', metric_ids_used: content.metric_ids_used ?? [] };
   const { check } = await checkStory(db, draft, { metricIds: await pitchMetricIds(pitchId), audit: true });
   return {
-    content: pick(draft as unknown as Record<string, unknown>),
+    content: pickRevision(draft as unknown as Record<string, unknown>),
     check: { ok: check.ok, issues: check.issues, warnings: check.warnings ?? [], checked_at: new Date().toISOString() },
   };
 }
@@ -147,7 +155,14 @@ export async function saveRevisionContent(slug: string, content: Content) {
   const pending = await loadPendingRevision(row.story_id);
   if (!pending) throw new Error(`/stories/${slug} has no pending revision`);
   const { error } = await createClient().from('story_revisions')
-    .update({ content: pick(content as Record<string, unknown>), check: { ...(pending.check ?? {}), ok: false, stale: true } })
+    // Keep the metric ids the revision already quotes when the editor's copy does not carry them (desk saves).
+    .update({
+      content: pickRevision({
+        metric_ids_used: (pending.content as Record<string, unknown>).metric_ids_used,
+        ...(content as Record<string, unknown>),
+      }),
+      check: { ...(pending.check ?? {}), ok: false, stale: true },
+    })
     .eq('revision_id', pending.revision_id);
   if (error) throw new Error(error.message);
 }
