@@ -4387,3 +4387,16 @@ html:has(.site-shell--ops) body {
   .mast-top { padding: 14px 16px 16px; }
   .mast-monogram { font-size: 120px; }
 }
+
+/* News Desk check results (Re-check). */
+.desk-check {
+  margin: 0 0 var(--spacing-21);
+  padding: 10px 14px;
+  border-left: 3px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+.desk-check.is-ok { border-left-color: #2f6b3a; }
+.desk-check.is-held { border-left-color: #8a2a2a; }
+.desk-check ul { margin: 6px 0 0; padding-left: 18px; }
+.desk-check-warnings { color: var(--ink-soft); }

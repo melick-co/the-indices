@@ -14,7 +14,15 @@ import type {
   StoryChartBlock,
 } from '@/lib/story-types';
 import { clipsOf, resolveHeroImage } from '@/lib/story-art';
-import { saveStoryCopy, setStoryStatus, attachRenderToStory, type DeskRender, type StoryCopyPayload } from '../actions';
+import {
+  saveStoryCopy, setStoryStatus, attachRenderToStory, saveRevisionCopy, recheckStory, applyStoryRevision,
+  discardStoryRevision, type DeskRender, type StoryCopyPayload,
+} from '../actions';
+
+/** A check result as the desk shows it (lib/refresh-story.ts StoredCheck). */
+type DeskCheck = { ok: boolean; issues: string[]; warnings?: string[]; stale?: boolean } | null;
+/** A published story's pending refresh: its last check, and whether the editor is editing it. */
+export type DeskRevision = { check: DeskCheck; createdAt: string; editing: boolean };
 
 const BLOCK_TYPES: Array<StoryBlock['type']> = ['paragraph', 'layers', 'heading', 'pull', 'chart'];
 const CHART_KINDS: ChartKind[] = ['bars', 'rank_swap', 'timeline'];
@@ -42,11 +50,17 @@ function emptySource(): SourceRow {
   return { metric: '', org: '', tier: 1, url: '', period: '', basis: '' };
 }
 
-export default function StoryEditor({ story, renders = [] }: { story: Story; renders?: DeskRender[] }) {
+export default function StoryEditor({ story, renders = [], revision = null }: {
+  story: Story; renders?: DeskRender[]; revision?: DeskRevision | null;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [check, setCheck] = useState<DeskCheck>(revision?.check ?? null);
+  const editingRevision = Boolean(revision?.editing);
+  // Re-check works on a draft, or on a published story's pending revision; never on live copy.
+  const recheckTarget = editingRevision ? 'revision' as const : story.status === 'draft' ? 'draft' as const : null;
 
   const [kicker, setKicker] = useState(story.kicker);
   const [title, setTitle] = useState(story.title);
@@ -68,9 +82,9 @@ export default function StoryEditor({ story, renders = [] }: { story: Story; ren
   );
 
   const readOnlyCopy = Boolean(story.staticBody);
-  const previewHref = story.status === 'draft'
-    ? `/stories/${story.slug}?preview=1`
-    : `/stories/${story.slug}`;
+  const previewHref = editingRevision
+    ? `/stories/${story.slug}?revision=1`
+    : story.status === 'draft' ? `/stories/${story.slug}?preview=1` : `/stories/${story.slug}`;
   const resolved = resolveHeroImage({
     title, heroImageUrl: heroImageUrl || null, heroImageAlt: heroImageAlt || null, art: story.art,
   });
@@ -82,7 +96,7 @@ export default function StoryEditor({ story, renders = [] }: { story: Story; ren
     title,
     hook,
     caveat,
-    oneNumber: { value: oneValue, label: oneLabel },
+    oneNumber: { ...story.oneNumber, value: oneValue, label: oneLabel },
     frameCheck,
     published,
     body: { blocks },
@@ -103,6 +117,13 @@ export default function StoryEditor({ story, renders = [] }: { story: Story; ren
     setOk(null);
     start(async () => {
       try {
+        if (editingRevision) {
+          await saveRevisionCopy(story.slug, payload);
+          setCheck((c) => (c ? { ...c, ok: false, stale: true } : c));
+          setOk('Saved to the revision. Re-check before applying.');
+          router.refresh();
+          return;
+        }
         const result = await saveStoryCopy(story.slug, payload);
         setOk(result.staticBody
           ? 'Saved image and placement. Copy for this story is edited in the repo.'
@@ -128,6 +149,80 @@ export default function StoryEditor({ story, renders = [] }: { story: Story; ren
       }
     });
   }
+
+  function recheck() {
+    if (!recheckTarget) return;
+    setErr(null);
+    setOk(null);
+    start(async () => {
+      try {
+        const result = await recheckStory(story.slug, payload, recheckTarget);
+        setCheck(result);
+        setOk(result.ok ? 'Passed every check.' : `Held: ${result.issues.length} item(s) to fix.`);
+        router.refresh();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : 'Re-check failed');
+      }
+    });
+  }
+
+  function applyRevision() {
+    const force = !check?.ok;
+    if (force && !window.confirm('This revision has not passed every check. Put it live anyway?')) return;
+    setErr(null);
+    setOk(null);
+    start(async () => {
+      try {
+        await applyStoryRevision(story.slug, force);
+        router.push(`/foundry/desk/${story.slug}`);
+        router.refresh();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : 'Apply failed');
+      }
+    });
+  }
+
+  function discardRevision() {
+    if (!window.confirm('Discard this revision? The live article stays as it is.')) return;
+    start(async () => {
+      try {
+        await discardStoryRevision(story.slug);
+        router.push(`/foundry/desk/${story.slug}`);
+        router.refresh();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : 'Discard failed');
+      }
+    });
+  }
+
+  const actionButtons = (
+    <>
+      <button type="button" className="studio-btn-outline" disabled={pending} onClick={save}>
+        {pending ? 'Working…' : 'Save'}
+      </button>
+      {recheckTarget && !readOnlyCopy && (
+        <button type="button" className="studio-btn-outline" disabled={pending} onClick={recheck}
+          title="Save, then run every publishing check on this copy without rewriting it">
+          {pending ? 'Checking…' : 'Re-check'}
+        </button>
+      )}
+      {story.status === 'draft' && !readOnlyCopy && (
+        <button type="button" className="studio-btn-accent" disabled={pending} onClick={publish}>
+          {pending ? 'Working…' : 'Publish'}
+        </button>
+      )}
+      {editingRevision && (
+        <>
+          <button type="button" className="studio-btn-accent" disabled={pending} onClick={applyRevision}>
+            {check?.ok ? 'Apply revision' : 'Apply anyway'}
+          </button>
+          <button type="button" className="studio-btn-outline" disabled={pending} onClick={discardRevision}>
+            Discard revision
+          </button>
+        </>
+      )}
+    </>
+  );
 
   async function uploadFile(file: File) {
     setUploading(true);
@@ -161,24 +256,49 @@ export default function StoryEditor({ story, renders = [] }: { story: Story; ren
         <h1 className="section-head" style={{ borderBottom: 'none', marginBottom: 0 }}>{title || story.slug}</h1>
         <div className="desk-row-actions">
           <Link href={previewHref} className="studio-link">
-            {story.status === 'draft' ? 'Preview draft' : 'View story'}
+            {editingRevision ? 'Preview revision' : story.status === 'draft' ? 'Preview draft' : 'View story'}
           </Link>
           <Link href={`/stories/${story.slug}/reel`} className="studio-link">Reel</Link>
-          <button type="button" className="studio-btn-outline" disabled={pending} onClick={save}>
-            {pending ? 'Saving…' : 'Save'}
-          </button>
-          {story.status === 'draft' && !readOnlyCopy && (
-            <button type="button" className="studio-btn-accent" disabled={pending} onClick={publish}>
-              {pending ? 'Publishing…' : 'Publish'}
-            </button>
-          )}
-          {story.status === 'published' && (
+          {actionButtons}
+          {story.status === 'published' && !editingRevision && (
             <span className="desk-row-meta">Published</span>
           )}
         </div>
       </div>
       {err && <p className="desk-error">{err}</p>}
       {ok && <p className="desk-ok">{ok}</p>}
+
+      {revision && !editingRevision && (
+        <div className="caveat-box">
+          <h3>A refreshed version is waiting</h3>
+          <p style={{ marginBottom: 0 }}>
+            {revision.check?.ok ? 'It passed every check.' : 'It was held by the checks.'}{' '}
+            <Link href={`/stories/${story.slug}?revision=1`}>Preview it</Link>
+            {' · '}
+            <Link href={`/foundry/desk/${story.slug}?revision=1`}>Fix and re-check it</Link>
+            . The live article does not change until it is applied.
+          </p>
+        </div>
+      )}
+      {editingRevision && (
+        <p className="desk-row-meta">
+          Editing the pending revision. The live article does not change until you apply it.
+        </p>
+      )}
+      {check && (recheckTarget || editingRevision) && (
+        <div className={`desk-check ${check.ok ? 'is-ok' : 'is-held'}`}>
+          <strong>
+            {check.stale ? 'Edited since the last check. Re-check before applying.'
+              : check.ok ? 'Passed every check.' : 'Held by the checks:'}
+          </strong>
+          {!check.ok && !check.stale && (
+            <ul>{check.issues.filter((i) => !/^not fixed after/.test(i)).map((i) => <li key={i}>{i}</li>)}</ul>
+          )}
+          {!!check.warnings?.length && (
+            <ul className="desk-check-warnings">{check.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
+          )}
+        </div>
+      )}
 
       {readOnlyCopy && (
         <div className="caveat-box">
@@ -459,14 +579,7 @@ export default function StoryEditor({ story, renders = [] }: { story: Story; ren
       )}
 
       <div className="desk-row-actions" style={{ marginTop: 'var(--spacing-42)' }}>
-        <button type="button" className="studio-btn-outline" disabled={pending} onClick={save}>
-          {pending ? 'Saving…' : 'Save'}
-        </button>
-        {story.status === 'draft' && !readOnlyCopy && (
-          <button type="button" className="studio-btn-accent" disabled={pending} onClick={publish}>
-            {pending ? 'Publishing…' : 'Publish'}
-          </button>
-        )}
+        {actionButtons}
         <Link href="/foundry/desk" className="studio-link">Back to desk</Link>
       </div>
     </div>
