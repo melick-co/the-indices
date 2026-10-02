@@ -67,7 +67,10 @@ between things. For each, decide:
 - "unsupported": anything else, including claims about series that are not in the reference,
   claims whose span is longer than the listed history, and figures attributed to other sources.
 
-Dates, release names and plain descriptions without quantities are not claims to audit.
+Dates (including scheduled release and meeting dates), release names, plain descriptions without
+quantities, and reports of what an institution said or published (minutes, statements, speeches) are
+not claims to audit: they are sourced by the article's footnotes, not by the reference. Only list a
+claim if it states or implies a quantity.
 
 For each claim, write the evidence first, then decide the verdict from it: if the evidence shows the
 claim holds, the verdict is "supported". Wording or framing you would prefer is not grounds for
