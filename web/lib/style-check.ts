@@ -55,6 +55,17 @@ const cited = (t: string) => [...t.matchAll(MARKER)].map((m) => Number(m[1]));
 // Figures: money, percentages, decimals, or integers of 10+ that are not years or days of the month.
 const FIGURE = /(?:A\$|US\$|\$)\s?\d|\d[\d,]*(?:\.\d+)?\s?(?:%|per cent|pts?\b|bn\b|billion|million)|\b\d+\.\d+\b|\b(?!(?:19|20)\d{2}\b)\d{2,}[\d,]*\b(?!\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec))/i;
 
+// Reported speech and sourced facts: what an institution said, published or has scheduled. The claim audit
+// does not check these against stored data, so each must link to its source through a footnote.
+const ATTRIBUTION = /\b(?:said|says|told|minutes|statement|announced|flagged|signall?ed|warned|identified|confirmed|stated|reported|scheduled|due (?:for|on)|meets on|meeting on|released|publishe[sd]|according to)\b/i;
+
+/** Sentences that report what a source said, published or scheduled but carry no footnote marker. */
+function unsourcedAttributions(text: string): string[] {
+  return rawSentences(text)
+    .filter((sentence) => !/\[\^\d+\]/.test(sentence) && ATTRIBUTION.test(sentence))
+    .map((sentence) => sentence.slice(0, 90));
+}
+
 /** Sentences that state a figure but carry no footnote marker. */
 function unsourcedFigures(text: string): string[] {
   return text
@@ -152,6 +163,15 @@ export function checkStyle(story: Checkable): StyleCheck {
     story.one_number?.footnote ?? 0,
   ].filter(Boolean));
   for (const n of used) if (!notes.has(n)) issues.push(`footnote [^${n}] is cited but missing from Sources`);
+  // Every cited source links to the page it came from (house rule, Oct 2026).
+  for (const f of story.evidence?.footnotes ?? []) {
+    if (used.has(f.n) && !/^https?:\/\//.test(f.url ?? '')) issues.push(`footnote [^${f.n}] has no link to its source`);
+  }
+  const unattributed = [
+    ...paras.flatMap((p) => unsourcedAttributions(p.text)),
+    ...blocks.flatMap((b) => (b.type === 'layers' ? b.items.flatMap(unsourcedAttributions) : [])),
+  ];
+  for (const s of unattributed.slice(0, 6)) issues.push(`sourced statement without a footnote link: "${s}…"`);
   for (const n of notes) if (!used.has(n)) warnings.push(`footnote ${n} is never cited`);
   const unsourced = [
     ...paras.flatMap((p) => unsourcedFigures(p.text)),

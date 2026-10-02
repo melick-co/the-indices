@@ -67,7 +67,10 @@ between things. For each, decide:
 - "unsupported": anything else, including claims about series that are not in the reference,
   claims whose span is longer than the listed history, and figures attributed to other sources.
 
-Dates, release names and plain descriptions without quantities are not claims to audit.
+Dates (including scheduled release and meeting dates), release names, plain descriptions without
+quantities, and reports of what an institution said or published (minutes, statements, speeches) are
+not claims to audit: they are sourced by the article's footnotes, not by the reference. Only list a
+claim if it states or implies a quantity.
 
 For each claim, write the evidence first, then decide the verdict from it: if the evidence shows the
 claim holds, the verdict is "supported". Wording or framing you would prefer is not grounds for
@@ -114,7 +117,8 @@ Rules:
 - Fix every "style:" finding to the house news style: headline 6-12 words as an active, present-tense
   claim; deck 20-35 words; lede 35 words or fewer; nut graf by paragraph 4; "to_be_sure" and
   "whats_next" paragraphs; 1-3 sentences per paragraph; [^n] after every figure with each n listed in
-  evidence.footnotes; every chart with title, subtitle, alt and footnote; a timeline when 3+ dated events.
+  evidence.footnotes; [^n] on every sentence reporting what a source said, published or scheduled, pointing
+  at a footnote with that page's url (cite an existing footnote that covers it, or cut the claim); every chart with title, subtitle, alt and footnote; a timeline when 3+ dated events.
 - Keep each paragraph's "role", every chart's "data" spec (metric_id from the reference), one_number's
   metric_id, footnote numbering, and any quote block exactly as it is (quotes are verified separately).
   Lead the headline with the strongest finding the reference supports. No em dashes.

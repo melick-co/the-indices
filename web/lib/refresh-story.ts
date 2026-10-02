@@ -182,3 +182,44 @@ export async function recheckDraft(slug: string): Promise<StoredCheck> {
   if (error) throw new Error(error.message);
   return check;
 }
+
+/** A find-and-replace on a revision's copy (headline, deck, paragraphs, chart and timeline text). */
+export type CopyEdit = { find: string; replace: string };
+
+/** Apply exact-text edits to every copy field of a revision's content. Each edit must match somewhere. */
+export function editContent(content: Content, edits: CopyEdit[]): Content {
+  const next = JSON.parse(JSON.stringify(content)) as Record<string, unknown>;
+  const hits = new Map<CopyEdit, number>(edits.map((e) => [e, 0]));
+  const edit = (t: unknown) => {
+    if (typeof t !== 'string') return t;
+    let out = t;
+    for (const e of edits) {
+      if (out.includes(e.find)) { hits.set(e, (hits.get(e) ?? 0) + 1); out = out.split(e.find).join(e.replace); }
+    }
+    return out;
+  };
+  for (const k of ['kicker', 'title', 'hook', 'caveat'] as const) next[k] = edit(next[k]);
+  const one = next.one_number as Record<string, unknown> | null;
+  if (one) one.label = edit(one.label);
+  const blocks = ((next.body as { blocks?: Record<string, unknown>[] })?.blocks) ?? [];
+  for (const b of blocks) {
+    for (const k of ['text', 'title', 'subtitle', 'alt', 'caption']) if (k in b) b[k] = edit(b[k]);
+    if (Array.isArray(b.items)) b.items = b.items.map(edit);
+    if (Array.isArray(b.events)) for (const ev of b.events as Record<string, unknown>[]) ev.label = edit(ev.label);
+  }
+  // A paragraph edited down to nothing is removed (an editor deleting a duplicate, say).
+  (next.body as { blocks: Record<string, unknown>[] }).blocks = blocks.filter((b) => b.type !== 'paragraph' || String(b.text ?? '').trim());
+  const table = (next.evidence as { table?: { rows: unknown[][] } })?.table;
+  if (table) table.rows = table.rows.map((r) => r.map(edit));
+  const missed = edits.filter((e) => !hits.get(e));
+  if (missed.length) throw new Error(`edit text not found: ${missed.map((e) => JSON.stringify(e.find)).join(', ')}`);
+  return next as Content;
+}
+
+/** A pending revision's content (for review from the command line). */
+export async function loadRevisionContent(slug: string) {
+  const row = await loadPublished(slug);
+  const pending = await loadPendingRevision(row.story_id);
+  if (!pending) throw new Error(`/stories/${slug} has no pending revision`);
+  return { content: pending.content as unknown as Content, check: pending.check };
+}
