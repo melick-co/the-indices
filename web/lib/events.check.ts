@@ -16,3 +16,8 @@ assert.deepEqual(cal.map((e) => [e.event_key, e.title, e.scheduled_at]), [
 ]);
 assert.deepEqual(cal[0].metric_ids, ['wpi_annual_au', 'wpi_private_annual_au', 'wpi_public_annual_au']);
 console.log('events.check: ok');
+import { refPeriodOf } from './events';
+assert.deepEqual(refPeriodOf('Wage Price Index, Australia, September 2026'), { year: 2026, month: 9 });
+assert.deepEqual(refPeriodOf('Total Value of Dwellings, June Quarter 2026'), { year: 2026, month: 6 });
+assert.equal(refPeriodOf('Something else'), null);
+console.log('refPeriodOf: ok');

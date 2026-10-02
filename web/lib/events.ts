@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { callClaudeJson } from '../../agent/scripts/lib/claude.mjs';
 import { inSource } from '@/lib/source-check';
+import { fetchDocument } from '../../agent/scripts/lib/html-text.mjs';
+import { storeDocument } from '../../agent/scripts/lib/source-docs.mjs';
 
 /**
  * The events store (agent/supabase/34_events.sql): decisions and releases with the factors behind them, and
@@ -24,33 +26,35 @@ export type EventRow = {
  */
 export const RELEASES: Array<{
   series: string; title: RegExp; url: string; metric_ids: string[]; thresholds: Record<string, number>;
+  /** How often it is released (monthly releases also have quarter-end pages for quarterly series). */
+  cadence?: 'monthly' | 'quarterly';
 }> = [
-  { series: 'abs:cpi', title: /^Consumer Price Index, Australia/i,
+  { series: 'abs:cpi', cadence: 'monthly', title: /^Consumer Price Index, Australia/i,
     url: 'https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/consumer-price-index-australia/latest-release',
     metric_ids: ['cpi_annual_au', 'trimmed_mean_cpi_au', 'rent_cpi_annual_au', 'cpi_index_au'],
     thresholds: { cpi_annual_au: 0.3, trimmed_mean_cpi_au: 0.3 } },
-  { series: 'abs:wpi', title: /^Wage Price Index, Australia/i,
+  { series: 'abs:wpi', cadence: 'quarterly', title: /^Wage Price Index, Australia/i,
     url: 'https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/wage-price-index-australia/latest-release',
     metric_ids: ['wpi_annual_au', 'wpi_private_annual_au', 'wpi_public_annual_au'],
     thresholds: { wpi_annual_au: 0.3 } },
-  { series: 'abs:labour-force', title: /^Labour Force, Australia/i,
+  { series: 'abs:labour-force', cadence: 'monthly', title: /^Labour Force, Australia/i,
     url: 'https://www.abs.gov.au/statistics/labour/employment-and-unemployment/labour-force-australia/latest-release',
     metric_ids: ['unemployment_rate_au'],
     thresholds: { unemployment_rate_au: 0.2 } },
-  { series: 'abs:national-accounts', title: /^Australian National Accounts: National Income/i,
+  { series: 'abs:national-accounts', cadence: 'quarterly', title: /^Australian National Accounts: National Income/i,
     url: 'https://www.abs.gov.au/statistics/economy/national-accounts/australian-national-accounts-national-income-expenditure-and-product/latest-release',
     metric_ids: ['gdp_growth_qoq_au', 'gdp_per_capita_qoq_au', 'gdp_per_capita_au', 'gdp_per_hour_worked_index_au', 'market_gva_per_hour_index_au'],
     thresholds: { gdp_growth_qoq_au: 0.3 } },
-  { series: 'abs:population', title: /^National, state and territory population/i,
+  { series: 'abs:population', cadence: 'quarterly', title: /^National, state and territory population/i,
     url: 'https://www.abs.gov.au/statistics/people/population/national-state-and-territory-population/latest-release',
     metric_ids: ['nom_annual', 'erp_persons', 'population_growth_annual'], thresholds: {} },
-  { series: 'abs:dwellings-value', title: /^Total Value of Dwellings/i,
+  { series: 'abs:dwellings-value', cadence: 'quarterly', title: /^Total Value of Dwellings/i,
     url: 'https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/total-value-dwellings/latest-release',
     metric_ids: ['dwelling_stock_value_bn', 'mean_dwelling_price'], thresholds: {} },
-  { series: 'abs:lending', title: /^Lending Indicators/i,
+  { series: 'abs:lending', cadence: 'quarterly', title: /^Lending Indicators/i,
     url: 'https://www.abs.gov.au/statistics/economy/finance/lending-indicators/latest-release',
     metric_ids: [], thresholds: {} },
-  { series: 'abs:building-approvals', title: /^Building Approvals, Australia/i,
+  { series: 'abs:building-approvals', cadence: 'monthly', title: /^Building Approvals, Australia/i,
     url: 'https://www.abs.gov.au/statistics/industry/building-and-construction/building-approvals-australia/latest-release',
     metric_ids: [], thresholds: {} },
 ];
@@ -234,4 +238,81 @@ export async function eventsContext(db: SupabaseClient, metricIds: string[]): Pr
   });
   const coming = (next ?? []).map((e) => `- ${String(e.scheduled_at).slice(0, 10)}: ${e.title} (${e.source_url})`);
   return `${lines.length ? `Recent decisions and releases (newest first):\n${lines.join('\n')}` : ''}${coming.length ? `\n\nComing up:\n${coming.join('\n')}` : ''}`;
+}
+
+// ---------- past releases (milestones) ----------
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+
+/** The reference period at the end of a release title: "…, September 2026" or "…, June Quarter 2026". */
+export function refPeriodOf(title: string): { year: number; month: number } | null {
+  const m = /(january|february|march|april|may|june|july|august|september|october|november|december)(?:\s+quarter)?\s+(\d{4})\s*$/i.exec(title.trim());
+  return m ? { year: Number(m[2]), month: MONTH_NAMES.indexOf(m[1].toLowerCase()) + 1 } : null;
+}
+
+/** The page for one release ("…/wage-price-index-australia/mar-2026" or "…/mar-quarter-2026"), if it exists. */
+export async function releasePage(baseUrl: string, year: number, month: number) {
+  const mon = MONTHS[month - 1];
+  for (const slug of [`${mon}-${year}`, `${mon}-quarter-${year}`]) {
+    const doc = await fetchDocument(`${baseUrl}/${slug}`) as { error?: string; url: string; title: string | null; body: string };
+    if (!doc.error) return doc;
+  }
+  return null;
+}
+
+/** The stored value for a reference period, and the one before it (monthly or quarterly series). */
+export async function valuesAt(db: SupabaseClient, metricIds: string[], thresholds: Record<string, number>, year: number, month: number) {
+  const periods = [`${year}-${String(month).padStart(2, '0')}`, ...(month % 3 === 0 ? [`${year}-Q${month / 3}`] : [])];
+  const values: Record<string, { period: string; value: number; previous: number | null }> = {};
+  const reasons: string[] = [];
+  for (const id of metricIds) {
+    const { data: hit } = await db.from('observations').select('period, value').eq('metric_id', id).eq('entity', 'AUS').in('period', periods).limit(1);
+    if (!hit?.length) continue;
+    const { data: prev } = await db.from('observations').select('value').eq('metric_id', id).eq('entity', 'AUS')
+      .lt('period', hit[0].period).order('period', { ascending: false }).limit(1);
+    const value = Number(hit[0].value);
+    const previous = prev?.length ? Number(prev[0].value) : null;
+    values[id] = { period: hit[0].period, value, previous };
+    const t = thresholds[id];
+    if (t != null && previous != null && Math.abs(value - previous) >= t - 1e-9) reasons.push(`${id} moved ${(value - previous).toFixed(2)}`);
+  }
+  return { values, reasons };
+}
+
+/**
+ * Record past releases of one ABS series as events (milestones for timelines): release date from the release
+ * page, figures from stored data, the page stored as a source document. Existing events are left alone.
+ */
+export async function absHistory(db: SupabaseClient, rel: (typeof RELEASES)[number], fromYear: number, log: (m: string) => void = () => {}) {
+  const base = rel.url.replace(/\/latest-release$/, '');
+  const now = new Date();
+  let added = 0;
+  for (let y = fromYear; y <= now.getUTCFullYear(); y++) {
+    for (let m = 1; m <= 12; m++) {
+      if (y === now.getUTCFullYear() && m > now.getUTCMonth() + 1) break;
+      if (rel.cadence === 'quarterly' && m % 3 !== 0) continue;
+      const page = await releasePage(base, y, m);
+      if (!page) continue;
+      const released = /Released\s+(\d{2})\/(\d{2})\/(\d{4})/.exec(page.body);
+      if (!released) continue;
+      const day = `${released[3]}-${released[2]}-${released[1]}`;
+      const key = `${rel.series}:${day}`;
+      const { data: have } = await db.from('events').select('event_id').eq('event_key', key).maybeSingle();
+      if (have) continue;
+      await storeDocument(db, { ...page, publisher: 'ABS', kind: 'release', published: day }).catch(() => {});
+      const { values, reasons } = await valuesAt(db, rel.metric_ids, rel.thresholds, y, m);
+      const { error } = await db.from('events').insert({
+        event_key: key, kind: 'release', institution: 'ABS', series: rel.series, title: page.title ?? key,
+        occurred_on: day, status: 'processed', metric_ids: rel.metric_ids, outcome: { values, reasons },
+        source_url: page.url, significance: reasons.length ? 'breaking' : 'refresh',
+        summary: reasons.length ? `Significant: ${reasons.join('; ')}` : 'Routine release',
+        actions: { note: 'history; no triggers' }, processed_at: new Date().toISOString(),
+      });
+      if (error) throw new Error(error.message);
+      added++;
+      log(`  ${day}: ${page.title} ${Object.entries(values).map(([k, v]) => `${k}=${v.value}`).join(' ')}`);
+    }
+  }
+  return added;
 }
