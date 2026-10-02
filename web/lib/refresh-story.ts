@@ -205,12 +205,20 @@ export function editContent(content: Content, edits: CopyEdit[]): Content {
   for (const b of blocks) {
     for (const k of ['text', 'title', 'subtitle', 'alt', 'caption']) if (k in b) b[k] = edit(b[k]);
     if (Array.isArray(b.items)) b.items = b.items.map(edit);
-    if (Array.isArray(b.events)) for (const ev of b.events as Record<string, unknown>[]) ev.label = edit(ev.label);
+    if (Array.isArray(b.events)) for (const ev of b.events as Record<string, unknown>[]) { ev.label = edit(ev.label); ev.date = edit(ev.date); }
   }
   // A paragraph edited down to nothing is removed (an editor deleting a duplicate, say).
   (next.body as { blocks: Record<string, unknown>[] }).blocks = blocks.filter((b) => b.type !== 'paragraph' || String(b.text ?? '').trim());
   const table = (next.evidence as { table?: { rows: unknown[][] } })?.table;
-  if (table) table.rows = table.rows.map((r) => r.map(edit));
+  // Table rows are edited whole ("label | value | period") first, so equal cells in different rows can be
+  // told apart, then cell by cell.
+  if (table) {
+    table.rows = table.rows.map((r) => {
+      const joined = r.map((c) => String(c ?? '')).join(' | ');
+      const edited = edit(joined) as string;
+      return (edited !== joined ? edited.split(' | ') : r).map(edit);
+    });
+  }
   // Footnotes too: a wrong source link or citation is corrected the same way.
   for (const f of ((next.evidence as { footnotes?: Record<string, unknown>[] })?.footnotes ?? [])) {
     f.text = edit(f.text);
