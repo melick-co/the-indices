@@ -81,8 +81,11 @@ type Scheduled = Pick<EventRow, 'event_key' | 'kind' | 'institution' | 'series' 
 export function absCalendar(pages: Array<{ url: string; body: string }>): Scheduled[] {
   const out: Scheduled[] = [];
   for (const page of pages) {
-    for (const m of page.body.matchAll(/Next Release\s+(\d{2})\/(\d{2})\/(\d{4})\s+([^\n•]+)/gi)) {
-      const [, dd, mo, yyyy, rawTitle] = m;
+    // Days and months may be one digit ("Next Release 2/12/2026").
+    for (const m of page.body.matchAll(/Next Release\s+(\d{1,2})\/(\d{1,2})\/(\d{4})\s+([^\n•]+)/gi)) {
+      const [, d1, m1, yyyy, rawTitle] = m;
+      const dd = d1.padStart(2, '0');
+      const mo = m1.padStart(2, '0');
       const title = rawTitle.trim();
       const rel = RELEASES.find((r) => r.title.test(title));
       if (!rel) continue;
@@ -263,7 +266,10 @@ export async function releasePage(baseUrl: string, year: number, month: number) 
 
 /** The stored value for a reference period, and the one before it (monthly or quarterly series). */
 export async function valuesAt(db: SupabaseClient, metricIds: string[], thresholds: Record<string, number>, year: number, month: number) {
-  const periods = [`${year}-${String(month).padStart(2, '0')}`, ...(month % 3 === 0 ? [`${year}-Q${month / 3}`] : [])];
+  // Series are stored by month ("2026-03"), quarter ("2026-Q1"), period-end date ("2025-12-31") or year ("2025").
+  const mm = String(month).padStart(2, '0');
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const periods = [`${year}-${mm}`, `${year}-${mm}-${lastDay}`, ...(month % 3 === 0 ? [`${year}-Q${month / 3}`] : []), ...(month === 12 ? [`${year}`] : [])];
   const values: Record<string, { period: string; value: number; previous: number | null }> = {};
   const reasons: string[] = [];
   for (const id of metricIds) {
@@ -294,12 +300,22 @@ export async function absHistory(db: SupabaseClient, rel: (typeof RELEASES)[numb
       if (rel.cadence === 'quarterly' && m % 3 !== 0) continue;
       const page = await releasePage(base, y, m);
       if (!page) continue;
-      const released = /Released\s+(\d{2})\/(\d{2})\/(\d{4})/.exec(page.body);
+      const released = /Released\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(page.body);
       if (!released) continue;
-      const day = `${released[3]}-${released[2]}-${released[1]}`;
+      const day = `${released[3]}-${released[2].padStart(2, '0')}-${released[1].padStart(2, '0')}`;
       const key = `${rel.series}:${day}`;
-      const { data: have } = await db.from('events').select('event_id').eq('event_key', key).maybeSingle();
-      if (have) continue;
+      const { data: have } = await db.from('events').select('event_id, outcome').eq('event_key', key).maybeSingle();
+      if (have) {
+        // Recorded before its series was loaded: fill in the figures now.
+        if (!Object.keys(((have.outcome ?? {}) as { values?: object }).values ?? {}).length) {
+          const { values, reasons } = await valuesAt(db, rel.metric_ids, rel.thresholds, y, m);
+          if (Object.keys(values).length) {
+            await db.from('events').update({ outcome: { values, reasons }, significance: reasons.length ? 'breaking' : 'refresh', updated_at: new Date().toISOString() }).eq('event_id', have.event_id);
+            log(`  ${day}: filled in ${Object.keys(values).join(', ')}`);
+          }
+        }
+        continue;
+      }
       await storeDocument(db, { ...page, publisher: 'ABS', kind: 'release', published: day }).catch(() => {});
       const { values, reasons } = await valuesAt(db, rel.metric_ids, rel.thresholds, y, m);
       const { error } = await db.from('events').insert({
