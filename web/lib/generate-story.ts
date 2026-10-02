@@ -7,6 +7,7 @@ import { checkStyle, splitLongParagraphs, verifyQuotes } from '@/lib/style-check
 import { factCheckStory, type FactCheck } from '@/lib/fact-check';
 import { auditClaims, reviseForChecks } from '@/lib/claim-audit';
 import { latestOfficialDocuments, verifySourcedStatements } from '@/lib/source-check';
+import { eventsContext } from '@/lib/events';
 import { canonicalMetricId, loadKnownMetrics, normaliseMetricIds } from '../../agent/scripts/lib/metric-ids.mjs';
 import type { StoryChartBlock } from '@/lib/story-types';
 import { readFileSync } from 'node:fs';
@@ -453,8 +454,11 @@ export async function draftStory(
   } else {
     const charter = loadEditorialCharter();
     const official = await latestOfficialDocuments(supabase);
+    // Decisions, releases and their factors for these series, with each one's own source (the events store).
+    const events = await eventsContext(supabase, metricIds).catch(() => '');
     const researchPrompt = buildResearchPrompt(pitch, metrics, charter) + (opts.prior ? priorArticleBrief(opts.prior) : '')
-      + (official ? `\n\n<official_documents>\n${official}\n</official_documents>\n\nThese are the latest RBA decision statement and minutes, stored as text. When the story reports what the RBA said, use these documents and cite their exact URLs; statements are checked against the cited document's text.` : '');
+      + (official ? `\n\n<official_documents>\n${official}\n</official_documents>\n\nThese are the latest RBA decision statement and minutes, stored as text. When the story reports what the RBA said, use these documents and cite their exact URLs; statements are checked against the cited document's text.` : '')
+      + (events ? `\n\n<events>\n${events}\n</events>\n\nThese are recorded decisions and releases for this story's series, with the factors the institution gave (quoted from its statement). Use them for timelines and "what drove this" passages: each timeline event cites its own source URL listed here, and a factor is described only as quoted.` : '');
 
     onEvent({ type: 'tool_start', name: 'research', label: 'Researching story data', at: new Date().toISOString() });
 

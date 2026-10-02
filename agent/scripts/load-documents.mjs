@@ -5,6 +5,7 @@
  *
  *   node scripts/load-documents.mjs            # RBA statements, minutes, speeches; ABS release pages
  *   node scripts/load-documents.mjs --dry-run  # list what would be fetched
+ *   node scripts/load-documents.mjs --recent   # this year's RBA releases and minutes, and ABS release pages
  *
  * Unchanged documents are skipped (content hash). Pages that 404 (e.g. minutes for meetings not yet held,
  * which the RBA index already lists) are skipped quietly.
@@ -46,14 +47,16 @@ async function links(indexUrl, pattern) {
 
 async function main() {
   // Decisions and minutes back to 2022 (the current tightening and easing cycles), speeches this year.
-  const years = Array.from({ length: year - FIRST_YEAR + 1 }, (_, i) => year - i);
+  // --recent (the events watcher): this year's releases and minutes and the ABS release pages only.
+  const recent = process.argv.includes('--recent');
+  const years = recent ? [year] : Array.from({ length: year - FIRST_YEAR + 1 }, (_, i) => year - i);
   const urls = [];
   for (const y of years) {
     urls.push(...await links(`${RBA}/media-releases/${y}/`, /\/media-releases\/\d{4}\/mr-\d+-\d+\.html$/));
     // The minutes index lists future meetings too; those 404 and are skipped.
     urls.push(...await links(`${RBA}/monetary-policy/rba-board-minutes/${y}/`, /\/rba-board-minutes\/\d{4}\/\d{4}-\d{2}-\d{2}\.html$/));
   }
-  urls.push(...await links(`${RBA}/speeches/${year}/`, /\/speeches\/\d{4}\/sp-[a-z0-9-]+\.html$/));
+  if (!recent) urls.push(...await links(`${RBA}/speeches/${year}/`, /\/speeches\/\d{4}\/sp-[a-z0-9-]+\.html$/));
   urls.push(...ABS_RELEASES);
   console.log(`${urls.length} candidate documents`);
   if (dryRun) { for (const u of urls) console.log(`  ${u}`); return; }
