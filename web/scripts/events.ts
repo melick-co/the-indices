@@ -20,13 +20,15 @@
  */
 import { createClient } from '@/lib/supabase-server';
 import {
-  RELEASES, absCalendar, absHistory, eventsContext, refPeriodOf, releasePage, extractRbaDecision, rateAround, rbaCalendar, releaseOutcome, scheduleEvents, type EventRow,
+  RELEASES, absCalendar, absHistory, absReleaseCalendar, eventsContext, expandRules, fedCalendar, rbaPublications, rbaTableCalendar, type WatchRule, refPeriodOf, releasePage, extractRbaDecision, rateAround, rbaCalendar, releaseOutcome, scheduleEvents, type EventRow,
 } from '@/lib/events';
 import { applyRevision, refreshStory } from '@/lib/refresh-story';
 import { goLiveFromPitch, publishStoryFromPitch } from '@/lib/generate-story';
 import { generateHeroImage } from '@/lib/hero-image';
 import { generateHeroVideo } from '@/lib/hero-video';
 import { callClaudeJson } from '../../agent/scripts/lib/claude.mjs';
+import { ensureDocument } from '../../agent/scripts/lib/source-docs.mjs';
+import { pdfText } from '@/lib/pdf-text';
 import type { FoundryEvent } from '@/lib/foundry-agent';
 import type { StoryBlock } from '@/lib/story-types';
 
@@ -45,11 +47,25 @@ const prettyDay = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateStri
 
 async function calendar() {
   const { data: pages } = await db.from('source_documents').select('url, body').eq('publisher', 'ABS').eq('kind', 'release');
-  const abs = absCalendar(pages ?? []);
   const year = new Date().getUTCFullYear();
   const rba = await rbaCalendar([year, year + 1]);
-  const added = await scheduleEvents(db, [...abs, ...rba]);
-  log(`Calendar: ${abs.length} ABS releases and ${rba.length} RBA meetings found; ${added} new on the watch list.`);
+  const { data: rules } = await db.from('watch_rules').select('*').eq('active', true);
+  const sources: Array<[string, Awaited<ReturnType<typeof absCalendar>>]> = [
+    ['ABS release pages', absCalendar(pages ?? [])],
+    ['ABS release calendar', await absReleaseCalendar(6)],
+    ['RBA meetings', rba],
+    ['RBA statements and minutes', rbaPublications(rba)],
+    ['RBA statistical tables', await rbaTableCalendar()],
+    ['US Federal Reserve', await fedCalendar()],
+    ['watch rules', expandRules((rules ?? []) as WatchRule[], 60)],
+  ];
+  let added = 0;
+  for (const [name, events] of sources) {
+    const n = await scheduleEvents(db, events);
+    added += n;
+    log(`  ${name}: ${events.length} found, ${n} new`);
+  }
+  log(`Calendar: ${added} new on the watch list.`);
 }
 
 async function backfill() {
@@ -123,9 +139,24 @@ async function record(e: EventRow): Promise<boolean> {
     if (!doc) { await notYet(e, 'the decision statement is not stored yet'); return false; }
     const { outcome, factors, summary } = await extractRbaDecision(db, doc);
     Object.assign(e, { outcome, factors, summary, source_url: doc.url, occurred_on: day, significance: 'breaking', status: 'occurred' });
+  } else if (!RELEASES.some((r) => r.series === e.series)) {
+    // Everything else on the watch list: a reminder for private sources; for official ones, the publication
+    // stored as a source document once it is out (a statement, minutes, a table or a release with no series).
+    const official = (e as { official?: boolean }).official !== false;
+    let summary = 'Reminder: unofficial source; check the report. Not citable under the house sourcing rules.';
+    if (official && e.source_url && !/statistics\/tables\/#/.test(e.source_url)) {
+      const doc = await ensureDocument(db, e.source_url, { pdfText }) as { error?: string };
+      if (doc.error) { await notYet(e, `${e.source_url}: ${doc.error}`); return false; }
+      summary = 'Published; stored as a source document.';
+    } else if (official) {
+      summary = e.metric_ids.length ? 'Released; the data load picks up its series.' : 'Released.';
+    }
+    Object.assign(e, {
+      occurred_on: day, status: 'occurred', summary,
+      significance: official && e.metric_ids.length ? 'refresh' : 'none',
+    });
   } else {
-    const rel = RELEASES.find((r) => r.series === e.series);
-    if (!rel) { await notYet(e, `no release config for ${e.series}`); return false; }
+    const rel = RELEASES.find((r) => r.series === e.series)!;
     const { data: page } = await db.from('source_documents').select('title').eq('url', rel.url).maybeSingle();
     const out = (t: string) => t.toLowerCase().replace(/\s+/g, ' ').trim();
     if (!page?.title || !out(e.title).startsWith(out(page.title)) && !out(page.title).startsWith(out(e.title))) {
@@ -255,7 +286,8 @@ async function watch() {
         e.actions = actions;
         await db.from('events').update({ actions: e.actions, updated_at: new Date().toISOString() }).eq('event_id', e.event_id);
       }
-      const finished = await refreshAffected(e);
+      // Only releases that move stored series refresh articles.
+      const finished = e.significance === 'breaking' || e.significance === 'refresh' ? await refreshAffected(e) : true;
       await db.from('events').update({
         actions: e.actions, status: finished ? 'processed' : 'occurred',
         processed_at: finished ? new Date().toISOString() : null, updated_at: new Date().toISOString(),

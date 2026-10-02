@@ -136,6 +136,9 @@ Research task:
 5. Design a chart from the evidence that matches chart_hint when possible
    (rank_swap for denominator flips, timeline for sequences, bars otherwise).
 
+6. If you find a scheduled release, decision or recurring report that will move this story's numbers (a date
+   the data updates, a decision due, a weekly industry report), put it on the watch list with add_watch_item.
+
 Write up findings in prose with explicit source citations. Be specific with numbers.`;
 }
 
