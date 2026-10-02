@@ -222,9 +222,12 @@ export function editContent(content: Content, edits: CopyEdit[]): Content {
     });
   }
   // Footnotes too: a wrong source link or citation is corrected the same way.
+  // A footnote's link can be targeted on its own as "[^n] <url>", for when two footnotes share a link.
   for (const f of ((next.evidence as { footnotes?: Record<string, unknown>[] })?.footnotes ?? [])) {
     f.text = edit(f.text);
-    f.url = edit(f.url);
+    const tag = `[^${f.n}] `;
+    const keyed = edit(`${tag}${f.url ?? ''}`) as string;
+    f.url = keyed.startsWith(tag) && keyed !== `${tag}${f.url ?? ''}` ? keyed.slice(tag.length) : edit(f.url);
   }
   const missed = edits.filter((e) => !hits.get(e));
   if (missed.length) throw new Error(`edit text not found: ${missed.map((e) => JSON.stringify(e.find)).join(', ')}`);
