@@ -31,7 +31,11 @@ function inSource(evidence: string, bodies: string[]): boolean {
   const fragments = evidence.split(/\.\.\.|…|\[\.\.\.\]|(?<=[.!?])\s+(?=[A-Z"“(])/)
     .map((f) => norm(f).replace(/^["'“‘\s]+|["'”’\s.,;:]+$/g, ''))
     .filter((f) => f.split(' ').length >= 3);
-  return fragments.length > 0 && fragments.every((f) => bodies.some((b) => b.includes(f)));
+  // Compare on words and figures only, so punctuation and spacing differences ("Released: 19/08/2026" for
+  // "Released 19/08/2026") do not reject words that are really there.
+  const bare = (t: string) => ` ${t.replace(/[^a-z0-9%./ ]/g, ' ').replace(/\s+/g, ' ').trim()} `;
+  const docs = bodies.map(bare);
+  return fragments.length > 0 && fragments.every((f) => docs.some((b) => b.includes(bare(f))));
 }
 
 /** Sourced statements and dated events in the article, with the footnotes they cite. */
@@ -132,7 +136,7 @@ Respond ONLY with JSON:
     const quoted = r?.evidence?.trim() ? inSource(r.evidence, bodies) : false;
     if (r?.verdict === 'supported' && quoted) continue;
     const why = !r ? 'not assessed'
-      : r.verdict === 'supported' ? `the supporting words given are not in the source: "${(r.evidence ?? '').slice(0, 100)}"`
+      : r.verdict === 'supported' ? `the supporting words given are not in the source: "${(r.evidence ?? '').slice(0, 300)}"`
         : r.reason || 'the source does not say this';
     issues.push(`source: "${c.text.slice(0, 120)}" is not supported by ${c.docs.join(', ')} (${why})`);
   }

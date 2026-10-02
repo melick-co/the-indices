@@ -210,7 +210,15 @@ export function editContent(content: Content, edits: CopyEdit[]): Content {
   // A paragraph edited down to nothing is removed (an editor deleting a duplicate, say).
   (next.body as { blocks: Record<string, unknown>[] }).blocks = blocks.filter((b) => b.type !== 'paragraph' || String(b.text ?? '').trim());
   const table = (next.evidence as { table?: { rows: unknown[][] } })?.table;
-  if (table) table.rows = table.rows.map((r) => r.map(edit));
+  // Table rows are edited whole ("label | value | period") first, so equal cells in different rows can be
+  // told apart, then cell by cell.
+  if (table) {
+    table.rows = table.rows.map((r) => {
+      const joined = r.map((c) => String(c ?? '')).join(' | ');
+      const edited = edit(joined) as string;
+      return (edited !== joined ? edited.split(' | ') : r).map(edit);
+    });
+  }
   // Footnotes too: a wrong source link or citation is corrected the same way.
   for (const f of ((next.evidence as { footnotes?: Record<string, unknown>[] })?.footnotes ?? [])) {
     f.text = edit(f.text);
