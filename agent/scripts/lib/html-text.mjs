@@ -68,6 +68,8 @@ const PUBLISHERS = [
   [/(^|\.)stats\.govt\.nz$/, 'Stats NZ'],
   [/(^|\.)rbnz\.govt\.nz$/, 'RBNZ'],
   [/(^|\.)ons\.gov\.uk$/, 'ONS'],
+  // Any other Australian government site (ministers, departments, data.gov.au): official, but checked like any page.
+  [/\.gov\.au$/, 'Australian Government'],
 ];
 
 /** The official publisher of a URL, or null when it is not on the list. */
@@ -98,19 +100,44 @@ export function firstDate(text) {
   return short ? `${short[3]}-${short[2]}-${short[1]}` : null;
 }
 
-/** Fetch a page and return its text, or { error }. */
-export async function fetchDocument(url) {
+/** PDF text as one sentence per line, so excerpts can pick the relevant passages. */
+function pdfLines(text) {
+  return text.replace(/\s+/g, ' ').split(/(?<=[.!?])\s+(?=[A-Z“"(])/).map((l) => l.trim()).filter(Boolean).join('\n');
+}
+
+const UA = { 'user-agent': 'Mozilla/5.0 (compatible; caveat-sources/0.1)' };
+const MAX_PDF_BYTES = 40 * 1024 * 1024;
+
+/**
+ * Fetch a page and return its text, or { error }. PDFs are read when the caller supplies `pdfText`
+ * (a function from bytes to text; the web app passes one built on unpdf, so this file stays dependency-free).
+ * A near-empty landing page that links to PDFs (Treasury publications, say) is read through to the PDFs.
+ */
+export async function fetchDocument(url, opts = {}) {
   try {
-    const res = await fetch(url, {
-      headers: { 'user-agent': 'Mozilla/5.0 (compatible; caveat-sources/0.1)' },
-      signal: AbortSignal.timeout(25000),
-      redirect: 'follow',
-    });
+    const res = await fetch(url, { headers: UA, signal: AbortSignal.timeout(60000), redirect: 'follow' });
     if (!res.ok) return { error: `HTTP ${res.status}` };
     const type = res.headers.get('content-type') ?? '';
-    if (!/html|text\/plain/i.test(type)) return { error: `not an HTML page (${type || 'unknown type'})` };
+    if (/application\/pdf/i.test(type) || /\.pdf($|\?)/i.test(res.url || url)) {
+      if (!opts.pdfText) return { error: 'PDF (no PDF reader available here)' };
+      const bytes = await res.arrayBuffer();
+      if (bytes.byteLength > MAX_PDF_BYTES) return { error: `PDF too large (${Math.round(bytes.byteLength / 1e6)} MB)` };
+      const body = pdfLines(await opts.pdfText(bytes));
+      if (body.length < 200) return { error: 'PDF has almost no text (scanned?)' };
+      const name = decodeURIComponent((res.url || url).split('/').pop() ?? '').replace(/\.pdf.*$/i, '');
+      return { url: canonicalUrl(url), title: name || null, body };
+    }
+    if (!/html|text\/plain/i.test(type)) return { error: `not an HTML page or PDF (${type || 'unknown type'})` };
     const html = await res.text();
-    const body = /text\/plain/i.test(type) ? html : htmlToText(html);
+    let body = /text\/plain/i.test(type) ? html : htmlToText(html);
+    // Landing pages (little text, links to the document as PDF): read the PDFs too.
+    if (body.length < 1500 && opts.pdfText) {
+      const pdfs = [...new Set([...html.matchAll(/href="([^"]+\.pdf)"/gi)].map((m) => new URL(decodeEntities(m[1]), res.url || url).toString()))].slice(0, 3);
+      for (const link of pdfs) {
+        const doc = await fetchDocument(link, opts);
+        if (!doc.error) body += `\n${doc.body}`;
+      }
+    }
     if (body.length < 200) return { error: 'page has almost no text' };
     return { url: canonicalUrl(url), title: titleOf(html), body };
   } catch (e) {

@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase-server';
-import { checkStory, draftStory, type PriorArticle } from '@/lib/generate-story';
+import { checkStory, draftStory, goLiveFromPitch, type PriorArticle } from '@/lib/generate-story';
 import type { StructuredStory } from '@/lib/article-from-pitch';
 import type { FoundryEvent } from '@/lib/foundry-agent';
 import type { FactCheck } from '@/lib/fact-check';
@@ -224,8 +224,13 @@ export async function loadDraftContent(slug: string): Promise<Content> {
 }
 
 /** Apply exact-text edits to a draft, then re-check it. */
-export async function editDraft(slug: string, edits: CopyEdit[], extraMetrics: string[] = []): Promise<StoredCheck> {
-  const edited = editContent(await loadDraftContent(slug), edits);
+export async function editDraft(slug: string, edits: CopyEdit[], extraMetrics: string[] = [], dropBlocks: number[] = []): Promise<StoredCheck> {
+  const content = await loadDraftContent(slug);
+  if (dropBlocks.length) {
+    const body = content.body as { blocks: unknown[] };
+    body.blocks = body.blocks.filter((_, i) => !dropBlocks.includes(i));
+  }
+  const edited = edits.length ? editContent(content, edits) : content;
   const { error } = await createClient().from('stories')
     .update({ ...pick(edited as Record<string, unknown>), updated_at: new Date().toISOString() }).eq('slug', slug);
   if (error) throw new Error(error.message);
@@ -260,8 +265,11 @@ export function editContent(content: Content, edits: CopyEdit[]): Content {
       b.events = (b.events as Record<string, unknown>[]).filter((ev) => String(ev.label ?? '').trim());
     }
   }
-  // A paragraph edited down to nothing is removed (an editor deleting a duplicate, say).
-  (next.body as { blocks: Record<string, unknown>[] }).blocks = blocks.filter((b) => b.type !== 'paragraph' || String(b.text ?? '').trim());
+  // A text block (paragraph, heading, pull quote) edited down to nothing is removed, as are emptied layers.
+  for (const b of blocks) if (Array.isArray(b.items)) b.items = (b.items as unknown[]).filter((t) => String(t ?? '').trim());
+  (next.body as { blocks: Record<string, unknown>[] }).blocks = blocks.filter((b) =>
+    !['paragraph', 'heading', 'pull'].includes(String(b.type)) ? !(b.type === 'layers' && !(b.items as unknown[]).length)
+      : String(b.text ?? '').trim());
   const table = (next.evidence as { table?: { rows: unknown[][] } })?.table;
   // Table rows are edited whole ("label | value | period") first, so equal cells in different rows can be
   // told apart, then cell by cell.
@@ -270,7 +278,7 @@ export function editContent(content: Content, edits: CopyEdit[]): Content {
       const joined = r.map((c) => String(c ?? '')).join(' | ');
       const edited = edit(joined) as string;
       return (edited !== joined ? edited.split(' | ') : r).map(edit);
-    });
+    }).filter((r) => r.some((c) => String(c ?? '').trim()));  // a row edited to nothing is removed
   }
   // Footnotes too: a wrong source link or citation is corrected the same way.
   // A footnote's link can be targeted on its own as "[^n] <url>", for when two footnotes share a link.
@@ -301,4 +309,21 @@ export async function startRevisionFromLive(slug: string) {
     story_id: row.story_id, status: 'pending', content: pick(row), check: null, note: 'Correction to the live copy',
   });
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Publish a held draft the editor has approved: re-check it first, and publish only if it still passes
+ * every check (data and sources can change between approval and publishing).
+ */
+export async function publishDraft(slug: string, extraMetrics: string[] = []): Promise<{ check: StoredCheck; published: boolean }> {
+  const row = await loadDraft(slug);
+  const check = await recheckDraft(slug, extraMetrics);
+  if (!check.ok) return { check, published: false };
+  if (row.pitch_id) await goLiveFromPitch(String(row.pitch_id));
+  else {
+    const now = new Date().toISOString();
+    const { error } = await createClient().from('stories').update({ status: 'published', published: now.slice(0, 10), updated_at: now }).eq('slug', slug);
+    if (error) throw new Error(error.message);
+  }
+  return { check, published: true };
 }

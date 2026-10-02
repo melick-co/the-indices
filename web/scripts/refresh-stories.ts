@@ -11,6 +11,7 @@
  *   ... --recheck <slug>  # re-run every check on the revision as it stands
  *   ... --sources <slug>  # read-only: check the live article's sourced statements against its source documents
  *   ... --discard <slug>  # drop the pending revision; the live article is untouched
+ *   ... --publish <slug>  # publish an approved draft: re-checked first, published only if it still passes
  *   ... --drafts          # list draft stories; with --recheck/--show/--edit, slugs that are drafts are handled as
  *                         # drafts (edited and re-checked in place; they are not live)
  *
@@ -20,7 +21,7 @@
  * current version in story_revisions and adds the reader-facing update note.
  */
 import {
-  applyRevision, discardRevision, editContent, editDraft, listDrafts, loadDraftContent, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
+  applyRevision, discardRevision, editContent, editDraft, listDrafts, loadDraftContent, publishDraft, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
   type CopyEdit,
 } from '@/lib/refresh-story';
 import type { StoryBlock } from '@/lib/story-types';
@@ -36,6 +37,7 @@ const recheckOnly = process.argv.includes('--recheck');
 const sourcesOnly = process.argv.includes('--sources');
 const discard = process.argv.includes('--discard');
 const draftsList = process.argv.includes('--drafts');
+const publish = process.argv.includes('--publish');
 const words = (t: string) => t.replace(/\[\^\d+\]/g, '').trim().split(/\s+/).filter(Boolean).length;
 const slugs = [
   ...process.argv.slice(2).filter((a) => !a.startsWith('--')),
@@ -71,6 +73,14 @@ async function main() {
         for (const i of r.issues) log(`    - ${i}`);
         continue;
       }
+      if (publish) {
+        const extra = (process.env.REVISION_METRICS ?? '').split(/[\s,]+/).filter(Boolean);
+        const r = await publishDraft(slug, extra);
+        log(r.published ? '  Published (passed every check).' : `  Not published: held (${r.check.issues.length} issue(s)):`);
+        for (const i of r.published ? [] : r.check.issues) log(`    - ${i}`);
+        if (!r.published) failed++;
+        continue;
+      }
       // Drafts (held new articles) are shown, edited and re-checked in place.
       const draft = (show || editMode || recheckOnly) ? await loadDraftContent(slug).catch(() => null) : null;
       if (draft) {
@@ -78,16 +88,26 @@ async function main() {
         if (show) {
           log(`  [draft] ${draft.title} (${words(String(draft.title))} words)`);
           log(`  Deck (${words(String(draft.hook))} words): ${draft.hook}`);
-          for (const b of ((draft.body as { blocks?: StoryBlock[] })?.blocks ?? [])) {
-            if (b.type === 'paragraph') log(`  [${b.role ?? 'p'}] (${words(b.text)}w) ${b.text}`);
-            else if (b.type === 'chart') log(`  [chart] ${b.title ?? ''}`);
-            else if (b.type === 'timeline') for (const ev of b.events) log(`  [timeline] ${ev.date}: ${ev.label}`);
+          for (const [i, b] of ((draft.body as { blocks?: StoryBlock[] })?.blocks ?? []).entries()) {
+            if (b.type === 'paragraph') log(`  ${i}. [${b.role ?? 'p'}] (${words(b.text)}w) ${b.text}`);
+            else if (b.type === 'chart') log(`  ${i}. [chart ^${b.footnote ?? '-'}] ${b.title ?? ''}`);
+            else if (b.type === 'timeline') for (const ev of b.events) log(`  ${i}. [timeline ^${ev.footnote ?? '-'}] ${ev.date}: ${ev.label}`);
+            else if (b.type === 'layers') for (const t of b.items) log(`  ${i}. [layer] ${t}`);
+            else if (b.type === 'quote') log(`  ${i}. [quote] "${b.text}" (${b.speaker})`);
+            else if (b.type === 'heading' || b.type === 'pull') log(`  ${i}. [${b.type}] ${b.text}`);
+            else log(`  ${i}. [${(b as { type?: string }).type ?? 'unknown'}] ${JSON.stringify(b).slice(0, 160)}`);
           }
+          const table = (draft.evidence as { table?: { head: string[]; rows: string[][] } })?.table;
+          if (table) { log(`  [table] ${table.head.join(' | ')}`); table.rows.forEach((r, i) => log(`  [row ${i + 1}] ${r.join(' | ')}`)); }
+          const one = draft.one_number as { value?: string; label?: string; footnote?: number } | null;
+          if (one) log(`  [one_number ^${one.footnote ?? '-'}] ${one.value} ${one.label}`);
           for (const f of ((draft.evidence as { footnotes?: { n: number; text: string; url?: string }[] })?.footnotes ?? [])) log(`  [^${f.n}] ${f.text} ${f.url ?? '(no link)'}`);
           continue;
         }
         const edits = editMode ? JSON.parse(process.env.REVISION_EDITS || '[]') as CopyEdit[] : [];
-        const check = edits.length ? await editDraft(slug, edits, extra) : await recheckDraft(slug, extra);
+        // REVISION_DROP removes blocks by position (as --show numbers them), e.g. leftovers from an older format.
+        const drop = (process.env.REVISION_DROP ?? '').split(/[\s,]+/).filter(Boolean).map(Number);
+        const check = edits.length || drop.length ? await editDraft(slug, edits, extra, drop) : await recheckDraft(slug, extra);
         log(`  [draft] "${draft.title}"${edits.length ? ` (${edits.length} edit(s))` : ''}`);
         log(check.ok ? '  Passed every check.' : `  Held (${check.issues.length} issue(s)):`);
         for (const i of check.issues) log(`    - ${i}`);

@@ -21,7 +21,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-drafts, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-drafts, story-publish, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, story-refresh(-apply): story slug(s). Space separated.'
@@ -41,6 +41,10 @@ on:
         default: ''
       metrics:
         description: 'story-revision-edit: metric ids the revised copy quotes, added to what the re-check audits against.'
+        required: false
+        default: ''
+      drop:
+        description: 'story-revision-edit on a draft: block positions to remove (as story-revision-show numbers them).'
         required: false
         default: ''
 
@@ -273,7 +277,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' &&
       (inputs.task == 'story-refresh' || inputs.task == 'story-refresh-apply' || startsWith(inputs.task, 'story-revision-')
-        || inputs.task == 'story-sources' || inputs.task == 'story-drafts')
+        || inputs.task == 'story-sources' || inputs.task == 'story-drafts' || inputs.task == 'story-publish')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     defaults:
@@ -290,13 +294,14 @@ jobs:
           npx tsx --import ./scripts/node-shims.mjs scripts/refresh-stories.ts
           ${{ inputs.task == 'story-refresh-apply' && '--apply' || inputs.task == 'story-revision-show' && '--show'
           || inputs.task == 'story-revision-edit' && '--edit' || inputs.task == 'story-revision-recheck' && '--recheck'
-          || inputs.task == 'story-sources' && '--sources' || inputs.task == 'story-revision-discard' && '--discard' || inputs.task == 'story-drafts' && '--drafts' || '' }}
+          || inputs.task == 'story-sources' && '--sources' || inputs.task == 'story-revision-discard' && '--discard' || inputs.task == 'story-drafts' && '--drafts' || inputs.task == 'story-publish' && '--publish' || '' }}
         env:
           STORY_SLUGS: ${{ inputs.pitch }}
           REVISION_EDITS: ${{ inputs.edits }}
           REVISION_NOTE: ${{ inputs.note }}
           REFRESH_BRIEF: ${{ inputs.brief }}
           REVISION_METRICS: ${{ inputs.metrics }}
+          REVISION_DROP: ${{ inputs.drop }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
