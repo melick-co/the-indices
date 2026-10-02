@@ -26,7 +26,7 @@ const sentences = (t: string) => t.replace(MARKER, '').split(/(?<=[.!?])\s+(?=[A
 const paragraphs = (blocks: StoryBlock[]) => blocks.filter((b): b is Extract<StoryBlock, { type: 'paragraph' }> => b.type === 'paragraph');
 
 /** Split raw text (footnote markers kept) into sentences, on the same boundaries as `sentences`. */
-const rawSentences = (t: string) => t.split(/(?<=[.!?](?:\[\^\d+\])*)\s+(?=[A-Z"'“‘(])/).filter((x) => x.trim());
+export const rawSentences = (t: string) => t.split(/(?<=[.!?](?:\[\^\d+\])*)\s+(?=[A-Z"'“‘(])/).filter((x) => x.trim());
 
 /**
  * Paragraphs of more than three sentences are split into consecutive paragraphs of at most three
@@ -57,7 +57,7 @@ const FIGURE = /(?:A\$|US\$|\$)\s?\d|\d[\d,]*(?:\.\d+)?\s?(?:%|per cent|pts?\b|b
 
 // Reported speech and sourced facts: what an institution said, published or has scheduled. The claim audit
 // does not check these against stored data, so each must link to its source through a footnote.
-const ATTRIBUTION = /\b(?:said|says|told|minutes|statement|announced|flagged|signall?ed|warned|identified|confirmed|stated|reported|scheduled|due (?:for|on)|meets on|meeting on|released|publishe[sd]|according to)\b/i;
+export const ATTRIBUTION = /\b(?:said|says|told|minutes|statement|announced|flagged|signall?ed|warned|identified|confirmed|stated|reported|scheduled (?:for|to|on)|is scheduled|due (?:for|on)|meets on|meeting on|released|publishe[sd]|according to)\b/i;
 
 /** Sentences that report what a source said, published or scheduled but carry no footnote marker. */
 function unsourcedAttributions(text: string): string[] {

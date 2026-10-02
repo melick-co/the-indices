@@ -40,10 +40,11 @@ export const ABS_SERIES = [
     metric_id: 'wpi_annual_au',
     name: 'Australia WPI, annual change',
     dataflow: 'WPI',
-    dataKey: '3.THRPIB.7.TOT.10.AUS.Q', // YoY | total hourly incl bonuses | all industries | Australia
+    // The ABS headline measure (excl bonuses, seasonally adjusted), so stored figures match the release.
+    dataKey: '3.THRPEB.7.TOT.20.AUS.Q', // YoY | total hourly excl bonuses | all sectors | all industries | SA
     lastN: 40,
     unit: 'percent',
-    basis: 'Total hourly rates of pay incl bonuses, YoY, all industries',
+    basis: 'Total hourly rates of pay excluding bonuses, seasonally adjusted, YoY, all industries (ABS headline)',
     direction: 'higher_is_more_pressure',
     category: 'labour',
     source_id: 'abs_awe',
@@ -68,10 +69,10 @@ export const ABS_SERIES = [
     metric_id: 'wpi_private_annual_au',
     name: 'Australia WPI, private sector, annual change',
     dataflow: 'WPI',
-    dataKey: '3.THRPIB.1.TOT.10.AUS.Q', // YoY | total hourly incl bonuses | Private | all industries | Original
+    dataKey: '3.THRPEB.1.TOT.20.AUS.Q', // YoY | total hourly excl bonuses | Private | all industries | SA
     lastN: 40,
     unit: 'percent',
-    basis: 'Total hourly rates of pay incl bonuses, YoY, private sector, all industries',
+    basis: 'Total hourly rates of pay excluding bonuses, seasonally adjusted, YoY, private sector (ABS headline)',
     direction: 'higher_is_more_pressure',
     category: 'labour',
     source_id: 'abs_awe',
@@ -81,10 +82,10 @@ export const ABS_SERIES = [
     metric_id: 'wpi_public_annual_au',
     name: 'Australia WPI, public sector, annual change',
     dataflow: 'WPI',
-    dataKey: '3.THRPIB.2.TOT.10.AUS.Q', // YoY | total hourly incl bonuses | Public | all industries | Original
+    dataKey: '3.THRPEB.2.TOT.20.AUS.Q', // YoY | total hourly excl bonuses | Public | all industries | SA
     lastN: 40,
     unit: 'percent',
-    basis: 'Total hourly rates of pay incl bonuses, YoY, public sector, all industries',
+    basis: 'Total hourly rates of pay excluding bonuses, seasonally adjusted, YoY, public sector (ABS headline)',
     direction: 'higher_is_more_pressure',
     category: 'labour',
     source_id: 'abs_awe',

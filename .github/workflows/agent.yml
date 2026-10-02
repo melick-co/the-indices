@@ -18,7 +18,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, story-refresh(-apply): story slug(s). Space separated.'
@@ -26,6 +26,10 @@ on:
         default: ''
       edits:
         description: 'story-revision-edit: JSON list of {"find": "...", "replace": "..."} copy edits.'
+        required: false
+        default: ''
+      note:
+        description: 'story-refresh-apply: reader-facing update note (default: the news-format refresh note).'
         required: false
         default: ''
 
@@ -257,7 +261,8 @@ jobs:
     # revisions that passed their checks live, archiving the replaced version.
     if: >-
       github.event_name == 'workflow_dispatch' &&
-      (inputs.task == 'story-refresh' || inputs.task == 'story-refresh-apply' || startsWith(inputs.task, 'story-revision-'))
+      (inputs.task == 'story-refresh' || inputs.task == 'story-refresh-apply' || startsWith(inputs.task, 'story-revision-')
+        || inputs.task == 'story-sources')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     defaults:
@@ -273,10 +278,12 @@ jobs:
         run: >-
           npx tsx --import ./scripts/node-shims.mjs scripts/refresh-stories.ts
           ${{ inputs.task == 'story-refresh-apply' && '--apply' || inputs.task == 'story-revision-show' && '--show'
-          || inputs.task == 'story-revision-edit' && '--edit' || inputs.task == 'story-revision-recheck' && '--recheck' || '' }}
+          || inputs.task == 'story-revision-edit' && '--edit' || inputs.task == 'story-revision-recheck' && '--recheck'
+          || inputs.task == 'story-sources' && '--sources' || '' }}
         env:
           STORY_SLUGS: ${{ inputs.pitch }}
           REVISION_EDITS: ${{ inputs.edits }}
+          REVISION_NOTE: ${{ inputs.note }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -323,7 +330,7 @@ jobs:
     # hero-media generates hero art and the narrated clip for one story (pitch input = slug).
     if: >-
       github.event_name == 'workflow_dispatch' &&
-      (inputs.task == 'media-smoke' || inputs.task == 'media-smoke-video' || inputs.task == 'hero-media')
+      (inputs.task == 'media-smoke' || inputs.task == 'media-smoke-video' || inputs.task == 'hero-media' || inputs.task == 'hero-image')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -334,7 +341,7 @@ jobs:
         with: { node-version: 22 }
       - run: npm ci --silent
       - name: ElevenLabs smoke test
-        if: inputs.task != 'hero-media'
+        if: inputs.task != 'hero-media' && inputs.task != 'hero-image'
         run: npx tsx --import ./scripts/node-shims.mjs scripts/elevenlabs-smoke.ts ${{ inputs.task == 'media-smoke-video' && '--video' || '' }}
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
@@ -346,9 +353,9 @@ jobs:
           # Static ffmpeg from npm (downloads from GitHub releases); apt on the runners is unreliable.
           npm install --no-save --silent ffmpeg-static@5.3.0
           echo "FFMPEG_PATH=$(node -p "require('ffmpeg-static')")" >> "$GITHUB_ENV"
-      - name: Hero image and video for one story (pitch input = story slug)
-        if: inputs.task == 'hero-media'
-        run: npx tsx --import ./scripts/node-shims.mjs scripts/hero-media.ts --video
+      - name: Hero image (and, for hero-media, video) for one story (pitch input = story slug)
+        if: inputs.task == 'hero-media' || inputs.task == 'hero-image'
+        run: npx tsx --import ./scripts/node-shims.mjs scripts/hero-media.ts ${{ inputs.task == 'hero-media' && '--video' || '' }}
         env:
           HERO_SLUG: ${{ inputs.pitch }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
@@ -359,7 +366,7 @@ jobs:
   sources:
     if: >-
       github.event_name == 'workflow_dispatch' &&
-      (inputs.task == 'sources' || inputs.task == 'both') ||
+      (inputs.task == 'sources' || inputs.task == 'both' || inputs.task == 'documents') ||
       github.event_name == 'schedule' && github.event.schedule == '0 2 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -371,8 +378,18 @@ jobs:
         with: { node-version: 22 }
       - run: npm install @supabase/supabase-js --no-save --silent
       - name: Source connectors (ABS + World Bank + RBA)
+        if: inputs.task != 'documents'
         run: node scripts/load-sources.mjs all --revise
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: Official documents as text (RBA statements, minutes, speeches; ABS release pages)
+        # Feeds the source check; never blocks the data connectors.
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 15
+        run: node scripts/load-documents.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

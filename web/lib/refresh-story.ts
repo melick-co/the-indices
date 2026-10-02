@@ -211,6 +211,11 @@ export function editContent(content: Content, edits: CopyEdit[]): Content {
   (next.body as { blocks: Record<string, unknown>[] }).blocks = blocks.filter((b) => b.type !== 'paragraph' || String(b.text ?? '').trim());
   const table = (next.evidence as { table?: { rows: unknown[][] } })?.table;
   if (table) table.rows = table.rows.map((r) => r.map(edit));
+  // Footnotes too: a wrong source link or citation is corrected the same way.
+  for (const f of ((next.evidence as { footnotes?: Record<string, unknown>[] })?.footnotes ?? [])) {
+    f.text = edit(f.text);
+    f.url = edit(f.url);
+  }
   const missed = edits.filter((e) => !hits.get(e));
   if (missed.length) throw new Error(`edit text not found: ${missed.map((e) => JSON.stringify(e.find)).join(', ')}`);
   return next as Content;
@@ -222,4 +227,14 @@ export async function loadRevisionContent(slug: string) {
   const pending = await loadPendingRevision(row.story_id);
   if (!pending) throw new Error(`/stories/${slug} has no pending revision`);
   return { content: pending.content as unknown as Content, check: pending.check };
+}
+
+/** Open a pending revision holding the live copy, for corrections to a published story. */
+export async function startRevisionFromLive(slug: string) {
+  const row = await loadPublished(slug);
+  if (await loadPendingRevision(row.story_id)) throw new Error(`/stories/${slug} already has a pending revision`);
+  const { error } = await createClient().from('story_revisions').insert({
+    story_id: row.story_id, status: 'pending', content: pick(row), check: null, note: 'Correction to the live copy',
+  });
+  if (error) throw new Error(error.message);
 }

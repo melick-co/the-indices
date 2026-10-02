@@ -118,7 +118,8 @@ Rules:
   claim; deck 20-35 words; lede 35 words or fewer; nut graf by paragraph 4; "to_be_sure" and
   "whats_next" paragraphs; 1-3 sentences per paragraph; [^n] after every figure with each n listed in
   evidence.footnotes; [^n] on every sentence reporting what a source said, published or scheduled, pointing
-  at a footnote with that page's url (cite an existing footnote that covers it, or cut the claim); every chart with title, subtitle, alt and footnote; a timeline when 3+ dated events.
+  at a footnote with that page's url (cite an existing footnote that covers it, or cut the claim);
+  for "source:" findings, say only what the cited page says (or cut the claim); footnote text is a citation only; every chart with title, subtitle, alt and footnote; a timeline when 3+ dated events.
 - Keep each paragraph's "role", every chart's "data" spec (metric_id from the reference), one_number's
   metric_id, footnote numbering, and any quote block exactly as it is (quotes are verified separately).
   Lead the headline with the strongest finding the reference supports. No em dashes.
