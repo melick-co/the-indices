@@ -5,7 +5,8 @@
  *   npx tsx --import ./scripts/node-shims.mjs scripts/refresh-stories.ts --apply <slug> [...]        # put them live
  *   ... --apply --force   # apply even though the revision failed a check (editor's call)
  *   ... --show <slug>     # print the pending revision's copy, with deck and lede word counts
- *   ... --edit <slug>     # apply REVISION_EDITS (JSON [{find, replace}]) to the revision, then re-check it
+ *   ... --edit <slug>     # apply REVISION_EDITS (JSON [{find, replace}]) to the revision (or to a new revision of the
+ *                         # live copy, for corrections), then re-check it. --apply takes REVISION_NOTE as the update note.
  *   ... --recheck <slug>  # re-run every check on the revision as it stands
  *
  * Slugs may also come from STORY_SLUGS (space or comma separated). A refresh never changes the live
@@ -13,7 +14,8 @@
  * current version in story_revisions and adds the reader-facing update note.
  */
 import {
-  applyRevision, editContent, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, type CopyEdit,
+  applyRevision, editContent, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
+  type CopyEdit,
 } from '@/lib/refresh-story';
 import type { StoryBlock } from '@/lib/story-types';
 import type { FoundryEvent } from '@/lib/foundry-agent';
@@ -58,7 +60,10 @@ async function main() {
         if (editMode) {
           const edits = JSON.parse(process.env.REVISION_EDITS || '[]') as CopyEdit[];
           if (!edits.length) throw new Error('REVISION_EDITS is empty');
-          const { content } = await loadRevisionContent(slug);
+          // No pending revision: start one from the live copy (a correction).
+          const existing = await loadRevisionContent(slug).catch(() => null);
+          if (!existing) { await startRevisionFromLive(slug); log('  Started a revision from the live copy.'); }
+          const { content } = existing ?? await loadRevisionContent(slug);
           await saveRevisionContent(slug, editContent(content, edits));
           log(`  Applied ${edits.length} edit(s) to the revision.`);
         }
@@ -69,7 +74,7 @@ async function main() {
         continue;
       }
       if (apply) {
-        const r = await applyRevision(slug, { force });
+        const r = await applyRevision(slug, { force, note: process.env.REVISION_NOTE?.trim() || undefined });
         log(`  Applied: "${r.title}"`);
         continue;
       }

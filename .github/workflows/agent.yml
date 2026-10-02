@@ -28,6 +28,10 @@ on:
         description: 'story-revision-edit: JSON list of {"find": "...", "replace": "..."} copy edits.'
         required: false
         default: ''
+      note:
+        description: 'story-refresh-apply: reader-facing update note (default: the news-format refresh note).'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -277,6 +281,7 @@ jobs:
         env:
           STORY_SLUGS: ${{ inputs.pitch }}
           REVISION_EDITS: ${{ inputs.edits }}
+          REVISION_NOTE: ${{ inputs.note }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
