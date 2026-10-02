@@ -78,10 +78,13 @@ async function main() {
         if (show) {
           log(`  [draft] ${draft.title} (${words(String(draft.title))} words)`);
           log(`  Deck (${words(String(draft.hook))} words): ${draft.hook}`);
-          for (const b of ((draft.body as { blocks?: StoryBlock[] })?.blocks ?? [])) {
-            if (b.type === 'paragraph') log(`  [${b.role ?? 'p'}] (${words(b.text)}w) ${b.text}`);
-            else if (b.type === 'chart') log(`  [chart] ${b.title ?? ''}`);
-            else if (b.type === 'timeline') for (const ev of b.events) log(`  [timeline] ${ev.date}: ${ev.label}`);
+          for (const [i, b] of ((draft.body as { blocks?: StoryBlock[] })?.blocks ?? []).entries()) {
+            if (b.type === 'paragraph') log(`  ${i}. [${b.role ?? 'p'}] (${words(b.text)}w) ${b.text}`);
+            else if (b.type === 'chart') log(`  ${i}. [chart] ${b.title ?? ''}`);
+            else if (b.type === 'timeline') for (const ev of b.events) log(`  ${i}. [timeline] ${ev.date}: ${ev.label}`);
+            else if (b.type === 'layers') for (const t of b.items) log(`  ${i}. [layer] ${t}`);
+            else if (b.type === 'quote') log(`  ${i}. [quote] "${b.text}" (${b.speaker})`);
+            else if (b.type === 'heading' || b.type === 'pull') log(`  ${i}. [${b.type}] ${b.text}`);
           }
           for (const f of ((draft.evidence as { footnotes?: { n: number; text: string; url?: string }[] })?.footnotes ?? [])) log(`  [^${f.n}] ${f.text} ${f.url ?? '(no link)'}`);
           continue;

@@ -68,6 +68,8 @@ const PUBLISHERS = [
   [/(^|\.)stats\.govt\.nz$/, 'Stats NZ'],
   [/(^|\.)rbnz\.govt\.nz$/, 'RBNZ'],
   [/(^|\.)ons\.gov\.uk$/, 'ONS'],
+  // Any other Australian government site (ministers, departments, data.gov.au): official, but checked like any page.
+  [/\.gov\.au$/, 'Australian Government'],
 ];
 
 /** The official publisher of a URL, or null when it is not on the list. */

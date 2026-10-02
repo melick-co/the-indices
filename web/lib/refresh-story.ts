@@ -260,8 +260,11 @@ export function editContent(content: Content, edits: CopyEdit[]): Content {
       b.events = (b.events as Record<string, unknown>[]).filter((ev) => String(ev.label ?? '').trim());
     }
   }
-  // A paragraph edited down to nothing is removed (an editor deleting a duplicate, say).
-  (next.body as { blocks: Record<string, unknown>[] }).blocks = blocks.filter((b) => b.type !== 'paragraph' || String(b.text ?? '').trim());
+  // A text block (paragraph, heading, pull quote) edited down to nothing is removed, as are emptied layers.
+  for (const b of blocks) if (Array.isArray(b.items)) b.items = (b.items as unknown[]).filter((t) => String(t ?? '').trim());
+  (next.body as { blocks: Record<string, unknown>[] }).blocks = blocks.filter((b) =>
+    !['paragraph', 'heading', 'pull'].includes(String(b.type)) ? !(b.type === 'layers' && !(b.items as unknown[]).length)
+      : String(b.text ?? '').trim());
   const table = (next.evidence as { table?: { rows: unknown[][] } })?.table;
   // Table rows are edited whole ("label | value | period") first, so equal cells in different rows can be
   // told apart, then cell by cell.
