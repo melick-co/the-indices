@@ -6,6 +6,7 @@ import { bindOneNumber, bindStoryCharts } from '@/lib/chart-from-data';
 import { checkStyle, splitLongParagraphs, verifyQuotes } from '@/lib/style-check';
 import { factCheckStory, type FactCheck } from '@/lib/fact-check';
 import { auditClaims, reviseForChecks } from '@/lib/claim-audit';
+import { latestOfficialDocuments, verifySourcedStatements } from '@/lib/source-check';
 import { canonicalMetricId, loadKnownMetrics, normaliseMetricIds } from '../../agent/scripts/lib/metric-ids.mjs';
 import type { StoryChartBlock } from '@/lib/story-types';
 import { readFileSync } from 'node:fs';
@@ -235,7 +236,8 @@ Rules (in addition to the house style):
   filings, statements). Number footnotes in order of first appearance. Every footnote has the "url" of the exact
   page it came from. Anything stored data cannot show (what minutes, statements or speeches said; scheduled
   release or meeting dates; events) needs [^n] on its sentence pointing at that page; if you have no URL for
-  it, leave the claim out.
+  it, leave the claim out. These statements are checked against the cited page's text, so say only what the
+  page says. A footnote's text is a citation only (publisher, title, number, date), never a claim.
 - Quotes: only text that appears word for word on source_url (from the research notes). It is checked; an
   unverifiable quote is removed. If the research found no such quote, include no quote block.
 - Every number in the copy must be a stored value (or a change between stored periods, a gap to a peer, or a
@@ -357,6 +359,16 @@ export async function checkStory(supabase: SupabaseClient, draft: StructuredStor
       result.ok = false;
       result.issues.push(`claim audit failed: ${e instanceof Error ? e.message : String(e)}`);
     }
+    // What sources said, published or scheduled: checked against the documents' stored text.
+    onEvent({ type: 'tool_start', name: 'sources', label: 'Checking sourced statements against the source documents', at: new Date().toISOString() });
+    try {
+      const src = await verifySourcedStatements(supabase, draft);
+      result.issues.push(...src.issues);
+      if (src.issues.length) result.ok = false;
+    } catch (e) {
+      result.ok = false;
+      result.issues.push(`source check failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
   return { check: result, ids };
 }
@@ -407,7 +419,9 @@ export async function draftStory(
     story = articleFromApprovedPitch(pitch);
   } else {
     const charter = loadEditorialCharter();
-    const researchPrompt = buildResearchPrompt(pitch, metrics, charter) + (opts.prior ? priorArticleBrief(opts.prior) : '');
+    const official = await latestOfficialDocuments(supabase);
+    const researchPrompt = buildResearchPrompt(pitch, metrics, charter) + (opts.prior ? priorArticleBrief(opts.prior) : '')
+      + (official ? `\n\n<official_documents>\n${official}\n</official_documents>\n\nThese are the latest RBA decision statement and minutes, stored as text. When the story reports what the RBA said, use these documents and cite their exact URLs; statements are checked against the cited document's text.` : '');
 
     onEvent({ type: 'tool_start', name: 'research', label: 'Researching story data', at: new Date().toISOString() });
 
