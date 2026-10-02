@@ -51,7 +51,7 @@ async function main() {
   if (draftsList && !slugs.length) {
     const drafts = await listDrafts();
     log(`${drafts.length} draft(s):`);
-    for (const d of drafts) log(`  ${d.slug}  (${String(d.updated_at).slice(0, 10)})  ${d.title}`);
+    for (const d of drafts) log(`  ${d.slug}  pitch=${d.pitch_id ?? "none"}  (${String(d.updated_at).slice(0, 10)})  ${d.title}`);
     return;
   }
   if (!slugs.length) throw new Error('Name at least one story slug');
