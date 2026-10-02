@@ -38,8 +38,9 @@ export async function storeDocument(db, doc) {
 /**
  * The stored text of an official page, fetching and storing it first if needed.
  * Returns { url, title, body, published } or { error } (not an official publisher, page missing, etc.).
+ * `opts.pdfText` lets the caller read PDFs (see fetchDocument).
  */
-export async function ensureDocument(db, rawUrl) {
+export async function ensureDocument(db, rawUrl, opts = {}) {
   let url;
   try { url = canonicalUrl(rawUrl); } catch { return { error: 'not a valid URL' }; }
   const { data: stored, error } = await db.from('source_documents')
@@ -48,7 +49,7 @@ export async function ensureDocument(db, rawUrl) {
   // Store missing (migration not yet run) or unreadable: still check against the live page.
   const storeUp = !error;
   if (!publisherOf(url)) return { error: 'not an official publisher on the source list' };
-  const fetched = await fetchDocument(url);
+  const fetched = await fetchDocument(url, opts);
   if (fetched.error) return { error: fetched.error };
   if (storeUp) await storeDocument(db, fetched).catch(() => {});
   return { url, title: fetched.title, body: fetched.body, published: firstDate(fetched.body.slice(0, 1500)) };

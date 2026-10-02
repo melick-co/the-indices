@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { callClaudeJson } from '../../agent/scripts/lib/claude.mjs';
 import { ensureDocument } from '../../agent/scripts/lib/source-docs.mjs';
+import { pdfText } from '@/lib/pdf-text';
 import { ATTRIBUTION, rawSentences } from '@/lib/style-check';
 import type { StoryBlock, StoryEvidence } from '@/lib/story-types';
 
@@ -20,8 +21,8 @@ const MARKER = /\[\^(\d+)\]/g;
 const STOP = new Set('the a an and or of to in on for by with as at from that this its it is are was were be has have had will would its their there which into than over after before since about more most also been not but per cent'.split(' '));
 const norm = (t: string) => t.toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
 // Words worth matching on: content words, plus numbers and dates ("4.60", "18/11/2026").
-// Hyphens split too, so "2025-01-23" shares "2025" and "23" with "23 January 2025".
-const terms = (t: string) => new Set(norm(t).replace(/[^a-z0-9'./ ]/g, ' ').replace(/[.,](?!\d)/g, ' ').split(' ')
+// Hyphens and slashes split too, so "2025-01-23" and "23/10/2026" share their parts with written dates.
+const terms = (t: string) => new Set(norm(t).replace(/[^a-z0-9'. ]/g, ' ').replace(/[.,](?!\d)/g, ' ').split(' ')
   .filter((w) => (/\d/.test(w) ? w.length >= 2 : w.length > 3 && !STOP.has(w))));
 
 /**
@@ -47,7 +48,7 @@ export function inSource(evidence: string, bodies: string[]): boolean {
 
 // Statistical tables and data APIs: their figures are checked against stored data by the claim audit, and
 // the pages themselves are lists of files, not text to check statements against.
-const DATA_TABLE = /rba\.gov\.au\/statistics\/tables|data\.api\.abs\.gov\.au|explore\.data\.abs\.gov\.au|data-explorer\.oecd\.org|sdmx\.oecd\.org|data\.imf\.org|stats\.bis\.org|data\.worldbank\.org/i;
+export const DATA_TABLE = /rba\.gov\.au\/statistics\/tables|data\.api\.abs\.gov\.au|explore\.data\.abs\.gov\.au|data-explorer\.oecd\.org|sdmx\.oecd\.org|data\.imf\.org|stats\.bis\.org|data\.worldbank\.org/i;
 
 /** Sourced statements and dated events in the article, with the footnotes they cite. */
 function claimsOf(story: Checkable): Claim[] {
@@ -96,7 +97,7 @@ export async function verifySourcedStatements(
   // Load each cited document once.
   const docs = new Map<string, Doc | { error: string }>();
   for (const url of new Set(claims.flatMap((c) => c.footnotes.map((n) => urlOf.get(n) ?? '')))) {
-    if (url && !DATA_TABLE.test(url)) docs.set(url, await ensureDocument(db, url) as Doc | { error: string });
+    if (url && !DATA_TABLE.test(url)) docs.set(url, await ensureDocument(db, url, { pdfText }) as Doc | { error: string });
   }
   const unreadable = new Set<string>();
   for (const [url, d] of docs) {
@@ -164,4 +165,15 @@ export async function latestOfficialDocuments(db: SupabaseClient): Promise<strin
   if (error || !data?.length) return '';
   const latest = ['statement', 'minutes'].map((k) => data.find((d) => d.kind === k)).filter(Boolean) as typeof data;
   return latest.map((d) => `<document url="${d.url}" title="${d.title ?? ''}" published="${d.published ?? ''}">\n${d.body.slice(0, 3500)}\n</document>`).join('\n');
+}
+
+/**
+ * True for a sentence the source check verifies against a cited document (it reports what a source said,
+ * published or scheduled, and its footnote links to a page rather than a data table). The claim audit leaves
+ * these to the source check: their figures belong to the document, not to stored data.
+ */
+export function isDocumentSourced(sentence: string, footnoteUrls: Map<number, string>): boolean {
+  if (!ATTRIBUTION.test(sentence)) return false;
+  const urls = [...sentence.matchAll(MARKER)].map((m) => footnoteUrls.get(Number(m[1])) ?? '');
+  return urls.length > 0 && urls.every((u) => u && !DATA_TABLE.test(u));
 }
