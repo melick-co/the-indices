@@ -27,13 +27,14 @@ const terms = (t: string) => new Set(norm(t).replace(/[^a-z0-9'./ -]/g, ' ').rep
  * True when the quoted evidence is really in the source: each fragment of 3+ words is found. Evidence is split
  * at ellipses and between sentences, since models often join passages from different parts of a page.
  */
-function inSource(evidence: string, bodies: string[]): boolean {
+export function inSource(evidence: string, bodies: string[]): boolean {
   const fragments = evidence.split(/\.\.\.|…|\[\.\.\.\]|(?<=[.!?])\s+(?=[A-Z"“(])/)
     .map((f) => norm(f).replace(/^["'“‘\s]+|["'”’\s.,;:]+$/g, ''))
-    .filter((f) => f.split(' ').length >= 3);
+    // Fragments need words, not just a date or figures ("19 August 2026" where the page has "19/08/2026").
+    .filter((f) => f.split(' ').length >= 3 && (f.match(/[a-z]{2,}/g) ?? []).length >= 2);
   // Compare on words and figures only, so punctuation and spacing differences ("Released: 19/08/2026" for
   // "Released 19/08/2026") do not reject words that are really there.
-  const bare = (t: string) => ` ${t.replace(/[^a-z0-9%./ ]/g, ' ').replace(/\s+/g, ' ').trim()} `;
+  const bare = (t: string) => ` ${t.replace(/[^a-z0-9%./ ]/g, ' ').replace(/\.(?!\d)/g, ' ').replace(/\s+/g, ' ').trim()} `;
   const docs = bodies.map(bare);
   return fragments.length > 0 && fragments.every((f) => docs.some((b) => b.includes(bare(f))));
 }
