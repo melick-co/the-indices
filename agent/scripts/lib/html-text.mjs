@@ -35,7 +35,9 @@ export function htmlToText(html) {
   // Prefer the main content region when the page marks one.
   const main = /<main\b[\s\S]*?<\/main>/i.exec(h)?.[0] ?? /<article\b[\s\S]*?<\/article>/i.exec(h)?.[0];
   if (main) h = main;
-  h = h.replace(/<(br|\/p|\/div|\/li|\/h[1-6]|\/tr|\/section|\/blockquote)\b[^>]*>/gi, '\n');
+  // Source newlines (pages wrap sentences mid-paragraph) and <br> are spaces; only block ends break lines.
+  h = h.replace(/\s+/g, ' ').replace(/<br\b[^>]*>/gi, ' ');
+  h = h.replace(/<(\/p|\/div|\/li|\/h[1-6]|\/tr|\/section|\/blockquote)\b[^>]*>/gi, '\n');
   h = h.replace(/<li\b[^>]*>/gi, '\n• ');
   h = h.replace(/<[^>]+>/g, ' ');
   return decodeEntities(h)

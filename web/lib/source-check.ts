@@ -19,7 +19,17 @@ type Doc = { url: string; title?: string | null; body: string };
 const MARKER = /\[\^(\d+)\]/g;
 const STOP = new Set('the a an and or of to in on for by with as at from that this its it is are was were be has have had will would its their there which into than over after before since about more most also been not but per cent'.split(' '));
 const norm = (t: string) => t.toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
-const terms = (t: string) => new Set(norm(t).replace(/[^a-z0-9' -]/g, ' ').split(' ').filter((w) => w.length > 3 && !STOP.has(w)));
+// Words worth matching on: content words, plus numbers and dates ("4.60", "18/11/2026").
+const terms = (t: string) => new Set(norm(t).replace(/[^a-z0-9'./ -]/g, ' ').replace(/[.,](?!\d)/g, ' ').split(' ')
+  .filter((w) => (/\d/.test(w) ? w.length >= 2 : w.length > 3 && !STOP.has(w))));
+
+/** True when the quoted evidence is really in the source: each fragment (split at ellipses) of 3+ words is found. */
+function inSource(evidence: string, bodies: string[]): boolean {
+  const fragments = evidence.split(/\.\.\.|…|\[\.\.\.\]/)
+    .map((f) => norm(f).replace(/^["'“‘\s]+|["'”’\s.,;:]+$/g, ''))
+    .filter((f) => f.split(' ').length >= 3);
+  return fragments.length > 0 && fragments.every((f) => bodies.some((b) => b.includes(f)));
+}
 
 /** Sourced statements and dated events in the article, with the footnotes they cite. */
 function claimsOf(story: Checkable): Claim[] {
@@ -93,10 +103,16 @@ below comes with passages from its cited source(s). They are the only admissible
 
 ${sections}
 
-For each claim, first copy the passage words that bear on it (verbatim, a sentence or two), then decide:
+Judge only what each claim attributes to its source: what the source said, decided, published or
+scheduled. Figures and comparisons that come from the story's own stored data ("its highest since 2010")
+are checked elsewhere; ignore them unless the source gives a different value for the same measure, which
+makes the claim unsupported.
+
+For each claim, first copy the passage words that bear on it, exactly as written in the passage (a
+sentence or two; mark a gap with "..."), then decide:
 - "supported": the source says it, or plainly implies it. Paraphrase is fine.
-- "unsupported": the source does not say it, says something different, or the claim adds detail the source
-  lacks (a date, number, characterisation, cause, or who said it).
+- "unsupported": the source does not say it, says something different, or the claim attributes detail to the
+  source that it lacks (a date, number, characterisation, cause, or who said it).
 If nothing in the passages bears on the claim, the evidence is "" and the verdict is "unsupported".
 
 Respond ONLY with JSON:
@@ -110,10 +126,10 @@ Respond ONLY with JSON:
     const r = byId.get(c.id);
     const bodies = c.docs.map((u) => norm((docs.get(u) as Doc).body));
     // The supporting words must really be in the source, not a model's paraphrase of it.
-    const quoted = r?.evidence?.trim() ? bodies.some((b) => b.includes(norm(r.evidence!))) : false;
+    const quoted = r?.evidence?.trim() ? inSource(r.evidence, bodies) : false;
     if (r?.verdict === 'supported' && quoted) continue;
     const why = !r ? 'not assessed'
-      : r.verdict === 'supported' ? 'the supporting words given are not in the source'
+      : r.verdict === 'supported' ? `the supporting words given are not in the source: "${(r.evidence ?? '').slice(0, 100)}"`
         : r.reason || 'the source does not say this';
     issues.push(`source: "${c.text.slice(0, 120)}" is not supported by ${c.docs.join(', ')} (${why})`);
   }
