@@ -62,6 +62,12 @@ const PUBLISHERS = [
   [/(^|\.)imf\.org$/, 'IMF'],
   [/(^|\.)bis\.org$/, 'BIS'],
   [/(^|\.)worldbank\.org$/, 'World Bank'],
+  // Peer official bodies, for comparisons (e.g. Canada's migration modelling).
+  [/(^|\.)pbo-dpb\.ca$/, 'Parliamentary Budget Officer (Canada)'],
+  [/(^|\.)statcan\.gc\.ca$/, 'Statistics Canada'],
+  [/(^|\.)stats\.govt\.nz$/, 'Stats NZ'],
+  [/(^|\.)rbnz\.govt\.nz$/, 'RBNZ'],
+  [/(^|\.)ons\.gov\.uk$/, 'ONS'],
 ];
 
 /** The official publisher of a URL, or null when it is not on the list. */

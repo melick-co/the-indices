@@ -20,7 +20,8 @@ const MARKER = /\[\^(\d+)\]/g;
 const STOP = new Set('the a an and or of to in on for by with as at from that this its it is are was were be has have had will would its their there which into than over after before since about more most also been not but per cent'.split(' '));
 const norm = (t: string) => t.toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
 // Words worth matching on: content words, plus numbers and dates ("4.60", "18/11/2026").
-const terms = (t: string) => new Set(norm(t).replace(/[^a-z0-9'./ -]/g, ' ').replace(/[.,](?!\d)/g, ' ').split(' ')
+// Hyphens split too, so "2025-01-23" shares "2025" and "23" with "23 January 2025".
+const terms = (t: string) => new Set(norm(t).replace(/[^a-z0-9'./ ]/g, ' ').replace(/[.,](?!\d)/g, ' ').split(' ')
   .filter((w) => (/\d/.test(w) ? w.length >= 2 : w.length > 3 && !STOP.has(w))));
 
 /**
@@ -31,13 +32,22 @@ export function inSource(evidence: string, bodies: string[]): boolean {
   const fragments = evidence.split(/\.\.\.|…|\[\.\.\.\]|(?<=[.!?])\s+(?=[A-Z"“(])/)
     .map((f) => norm(f).replace(/^["'“‘\s]+|["'”’\s.,;:]+$/g, ''))
     // Fragments need words, not just a date or figures ("19 August 2026" where the page has "19/08/2026").
-    .filter((f) => f.split(' ').length >= 3 && (f.match(/[a-z]{2,}/g) ?? []).length >= 2);
+    // ...but a table row ("Dec-23 636,375 105,755 530,620") is evidence: four or more tokens with one word.
+    .filter((f) => {
+      const tokens = f.split(' ').length;
+      const wordCount = (f.match(/[a-z]{2,}/g) ?? []).length;
+      return (tokens >= 3 && wordCount >= 2) || (tokens >= 4 && wordCount >= 1);
+    });
   // Compare on words and figures only, so punctuation and spacing differences ("Released: 19/08/2026" for
   // "Released 19/08/2026") do not reject words that are really there.
   const bare = (t: string) => ` ${t.replace(/[^a-z0-9%./ ]/g, ' ').replace(/\.(?!\d)/g, ' ').replace(/\s+/g, ' ').trim()} `;
   const docs = bodies.map(bare);
   return fragments.length > 0 && fragments.every((f) => docs.some((b) => b.includes(bare(f))));
 }
+
+// Statistical tables and data APIs: their figures are checked against stored data by the claim audit, and
+// the pages themselves are lists of files, not text to check statements against.
+const DATA_TABLE = /rba\.gov\.au\/statistics\/tables|data\.api\.abs\.gov\.au|explore\.data\.abs\.gov\.au|data-explorer\.oecd\.org|sdmx\.oecd\.org|data\.imf\.org|stats\.bis\.org|data\.worldbank\.org/i;
 
 /** Sourced statements and dated events in the article, with the footnotes they cite. */
 function claimsOf(story: Checkable): Claim[] {
@@ -86,7 +96,7 @@ export async function verifySourcedStatements(
   // Load each cited document once.
   const docs = new Map<string, Doc | { error: string }>();
   for (const url of new Set(claims.flatMap((c) => c.footnotes.map((n) => urlOf.get(n) ?? '')))) {
-    if (url) docs.set(url, await ensureDocument(db, url) as Doc | { error: string });
+    if (url && !DATA_TABLE.test(url)) docs.set(url, await ensureDocument(db, url) as Doc | { error: string });
   }
   const unreadable = new Set<string>();
   for (const [url, d] of docs) {
@@ -94,7 +104,7 @@ export async function verifySourcedStatements(
   }
 
   const checkable = claims
-    .map((c) => ({ ...c, docs: c.footnotes.map((n) => urlOf.get(n) ?? '').filter((u) => u && !unreadable.has(u)) }))
+    .map((c) => ({ ...c, docs: c.footnotes.map((n) => urlOf.get(n) ?? '').filter((u) => u && !unreadable.has(u) && !DATA_TABLE.test(u)) }))
     .filter((c) => c.docs.length);
   if (!checkable.length) return { issues, checked: 0 };
 
@@ -114,7 +124,8 @@ ${sections}
 Judge only what each claim attributes to its source: what the source said, decided, published or
 scheduled. Figures and comparisons that come from the story's own stored data ("its highest since 2010")
 are checked elsewhere; ignore them unless the source gives a different value for the same measure, which
-makes the claim unsupported.
+makes the claim unsupported. A rounded figure is the same value ("A$12,689 billion" for 12,688.9), and a date
+written another way is the same date ("23 January 2025" for 2025-01-23).
 
 For each claim, first copy the passage words that bear on it, exactly as written in the passage (a
 sentence or two; mark a gap with "..."), then decide:

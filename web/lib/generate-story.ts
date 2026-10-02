@@ -236,8 +236,10 @@ Rules (in addition to the house style):
   filings, statements). Number footnotes in order of first appearance. Every footnote has the "url" of the exact
   page it came from. Anything stored data cannot show (what minutes, statements or speeches said; scheduled
   release or meeting dates; events) needs [^n] on its sentence pointing at that page; if you have no URL for
-  it, leave the claim out. These statements are checked against the cited page's text, so say only what the
-  page says. A footnote's text is a citation only (publisher, title, number, date), never a claim.
+  it, leave the claim out. Cite figures to the statistical table or release they come from, and events (a
+  rate decision, say) to the release that announced them. These statements are checked against the cited page's text, so say only what the
+  page says. A footnote's text is a citation only (publisher, title, number, date), never a claim. Each timeline
+  event cites the release for that event (that decision's own RBA media release, say), not a later document.
 - Quotes: only text that appears word for word on source_url (from the research notes). It is checked; an
   unverifiable quote is removed. If the research found no such quote, include no quote block.
 - Every number in the copy must be a stored value (or a change between stored periods, a gap to a peer, or a
@@ -374,7 +376,11 @@ export async function checkStory(supabase: SupabaseClient, draft: StructuredStor
 }
 
 /** A published article being refreshed: the writer keeps its finding unless newer data changes it. */
-export type PriorArticle = { title: string; hook: string; published: string; text: string };
+export type PriorArticle = {
+  title: string; hook: string; published: string; text: string;
+  /** The editor's instructions for this refresh (e.g. a correction that reverses the finding); they win. */
+  brief?: string;
+};
 
 function priorArticleBrief(prior: PriorArticle) {
   return `
@@ -387,8 +393,35 @@ ${prior.text.slice(0, 8000)}
 </published_article>
 
 This is a refresh of the article above, published ${prior.published}. Rewrite it in the house news style with
-the latest stored data. Keep its finding if the data still supports it; if newer data changes the finding, the
-new copy says so plainly. Do not mention that the article was rewritten; the page carries an update note.`;
+the latest stored data. Keep its finding, and lead the headline with it, if the data still supports it; if newer
+data changes the finding, the new copy says so plainly. Every footnote keeps a url to the exact page. Do not mention that the article was rewritten; the page carries an update note.${prior.brief ? `
+
+<editor_brief>
+${prior.brief}
+</editor_brief>
+
+Follow the editor's brief. Where it conflicts with the instructions above, the brief wins.` : ''}`;
+}
+
+/**
+ * Revisions return the whole article and sometimes drop footnote and source links on the way. Put back any
+ * link a revised footnote lost, from the previous version's footnote with the same number and citation (or
+ * the same citation under a new number).
+ */
+export function keepSourceLinks(before: StructuredStory, after: StructuredStory): StructuredStory {
+  const prior = before.evidence?.footnotes ?? [];
+  const byText = new Map(prior.filter((f) => f.url).map((f) => [f.text.trim().toLowerCase(), f.url!]));
+  const byN = new Map(prior.filter((f) => f.url).map((f) => [f.n, { url: f.url!, text: f.text.trim().toLowerCase() }]));
+  for (const f of after.evidence?.footnotes ?? []) {
+    if (f.url) continue;
+    const text = f.text.trim().toLowerCase();
+    const same = byN.get(f.n);
+    f.url = byText.get(text) ?? (same && (same.text === text || text.startsWith(same.text.slice(0, 40))) ? same.url : undefined);
+    if (!f.url) delete f.url;
+  }
+  const sources = new Map((before.evidence?.sources ?? []).filter((s) => s.url).map((s) => [`${s.org}|${s.metric}`, s.url]));
+  for (const s of after.evidence?.sources ?? []) if (!s.url) s.url = sources.get(`${s.org}|${s.metric}`) ?? '';
+  return after;
 }
 
 /** Research, write and check an article for a pitch, with revision rounds. Saves nothing. */
@@ -397,7 +430,7 @@ export async function draftStory(
   pitch: Record<string, unknown>,
   onEvent: (event: FoundryEvent) => void,
   opts: PublishOptions & { prior?: PriorArticle },
-): Promise<{ story: StructuredStory; check: FactCheck }> {
+): Promise<{ story: StructuredStory; check: FactCheck; ids: Set<string> }> {
   onEvent({ type: 'tool_start', name: 'load', label: 'Loading pitch and metrics', at: new Date().toISOString() });
 
   const metricIds = [
@@ -465,7 +498,7 @@ export async function draftStory(
   for (let round = 1; !check.ok && apiKey && story.body.blocks.length && round <= rounds; round++) {
     onEvent({ type: 'tool_start', name: 'revise', label: `Revision ${round}: ${check.issues.length} item(s) to fix`, at: new Date().toISOString() });
     try {
-      const revised = await reviseForChecks(supabase, story, check.issues, [...checkedIds], loadNewsStyle());
+      const revised = keepSourceLinks(story, await reviseForChecks(supabase, story, check.issues, [...checkedIds], loadNewsStyle()));
       const next = await checkStory(supabase, revised, ctx);
       story = revised;
       check = next.check;
@@ -477,7 +510,7 @@ export async function draftStory(
     if (round === rounds && rounds === MAX_REVISIONS && !check.ok && styleOnly()) rounds++;
   }
   if (!check.ok && rounds) check.issues.unshift(`not fixed after ${rounds} revision round(s):`);
-  return { story, check };
+  return { story, check, ids: checkedIds };
 }
 
 export async function publishStoryFromPitch(
@@ -499,7 +532,8 @@ export async function publishStoryFromPitch(
     throw new Error(`Story already published at /stories/${existing.slug}`);
   }
 
-  const { story, check } = await draftStory(supabase, pitch, onEvent, opts);
+  const { story, check, ids } = await draftStory(supabase, pitch, onEvent, opts);
+  const checkedIdsForSave = ids;
 
   const slug = existing?.slug ?? await uniqueSlug(story.slug_hint || story.title);
   const now = new Date().toISOString();
@@ -516,7 +550,7 @@ export async function publishStoryFromPitch(
       caveat: story.caveat,
       published: today,
       one_number: story.one_number,
-      evidence: story.evidence,
+      evidence: { ...story.evidence, metric_ids: [...checkedIdsForSave] },
       body: story.body,
       frame_check: Boolean(story.frame_check),
       updated_at: now,
@@ -532,7 +566,7 @@ export async function publishStoryFromPitch(
       caveat: story.caveat,
       published: today,
       one_number: story.one_number,
-      evidence: story.evidence,
+      evidence: { ...story.evidence, metric_ids: [...checkedIdsForSave] },
       body: story.body,
       frame_check: Boolean(story.frame_check),
     });

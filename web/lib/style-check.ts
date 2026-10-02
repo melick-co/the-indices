@@ -57,7 +57,7 @@ const FIGURE = /(?:A\$|US\$|\$)\s?\d|\d[\d,]*(?:\.\d+)?\s?(?:%|per cent|pts?\b|b
 
 // Reported speech and sourced facts: what an institution said, published or has scheduled. The claim audit
 // does not check these against stored data, so each must link to its source through a footnote.
-export const ATTRIBUTION = /\b(?:said|says|told|minutes|statement|announced|flagged|signall?ed|warned|identified|confirmed|stated|reported|scheduled (?:for|to|on)|is scheduled|due (?:for|on)|meets on|meeting on|released|publishe[sd]|according to)\b/i;
+export const ATTRIBUTION = /\b(?:said|says|told|minutes|statement|announced|flagged|signall?ed|warned|identified|confirmed|stated|reported|noted|notes|noting|acknowledged|scheduled (?:for|to|on)|is scheduled|due (?:for|on)|meets on|meeting on|released|(?<!\bnot (?:an? )?)publishe[sd]|according to)\b/i;
 
 /** Sentences that report what a source said, published or scheduled but carry no footnote marker. */
 function unsourcedAttributions(text: string): string[] {

@@ -148,6 +148,33 @@ export const ABS_SERIES = [
       lag: 4,
     },
   },
+  // Added Oct 2026 for the refresh of the GDP-per-capita story. Keys checked against the ABS Data API.
+  {
+    metric_id: 'gdp_per_capita_qoq_au',
+    name: 'Australia real GDP per capita, quarterly growth',
+    dataflow: 'ANA_AGG',
+    dataKey: 'M2.GPM_PCA.20.AUS.Q', // % change from previous quarter | GDP per capita | SA | Australia | Quarterly
+    lastN: 40,
+    unit: 'percent',
+    basis: 'GDP per capita, chain volume measures, seasonally adjusted, change from previous quarter',
+    direction: 'higher_is_less_pressure',
+    category: 'output',
+    source_id: 'abs_ana',
+    verified: true,
+  },
+  {
+    metric_id: 'gdp_per_capita_au',
+    name: 'Australia real GDP per capita, level',
+    dataflow: 'ANA_AGG',
+    dataKey: 'M1.GPM_PCA.20.AUS.Q', // chain volume level | GDP per capita | SA | Australia | Quarterly
+    lastN: 40,
+    unit: 'AUD',
+    basis: 'GDP per capita, chain volume measures (dollars per person, per quarter), seasonally adjusted',
+    direction: 'higher_is_less_pressure',
+    category: 'output',
+    source_id: 'abs_ana',
+    verified: true,
+  },
 ];
 
 /**

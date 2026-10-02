@@ -222,7 +222,14 @@ function rbaTitle(key, dims) {
 async function verify(provider, choice, dims) {
   const name = (dimId, code) => dims.find((d) => d.id === dimId)?.codes.find((c) => c.id === code)?.name ?? code;
   if (provider === 'abs') {
-    const json = await absFetch(`/data/ABS,${choice.flow}/${choice.key}?lastNObservations=12&format=jsondata`);
+    // The ABS answers a key that matches no series with 404; say so rather than reporting an outage.
+    let json;
+    try {
+      json = await absFetch(`/data/ABS,${choice.flow}/${choice.key}?lastNObservations=12&format=jsondata`);
+    } catch (e) {
+      if (/404/.test(String(e?.message))) return { ok: false, why: `no ABS series exists for key ${choice.key} in ${choice.flow}` };
+      throw e;
+    }
     const keys = seriesKeys(json);
     if (keys.length !== 1) return { ok: false, why: `key matches ${keys.length} series, need exactly one` };
     const obs = parseSdmxJson(json);

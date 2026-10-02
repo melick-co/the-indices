@@ -8,13 +8,20 @@ import { loadPendingRevision } from '@/lib/stories-loader';
 
 /** The article fields a revision replaces. Placement, art and dates are left alone. */
 const CONTENT_COLS = ['kicker', 'title', 'hook', 'caveat', 'one_number', 'evidence', 'body', 'frame_check'] as const;
-type Content = Record<(typeof CONTENT_COLS)[number], unknown>;
+// A revision also keeps the metric ids its copy quotes, so a re-check audits against the same series.
+type Content = Record<(typeof CONTENT_COLS)[number], unknown> & { metric_ids_used?: string[] };
 
 export const DEFAULT_UPDATE_NOTE =
   'Rewritten in our news format, with every figure re-checked against the latest official data.';
 
 const pick = (row: Record<string, unknown>): Content =>
   Object.fromEntries(CONTENT_COLS.map((k) => [k, row[k]])) as Content;
+
+/** Revision content: the article fields plus the metric ids its copy quotes. */
+const pickRevision = (row: Record<string, unknown>): Content => ({
+  ...pick(row),
+  ...(Array.isArray(row.metric_ids_used) && row.metric_ids_used.length ? { metric_ids_used: row.metric_ids_used as string[] } : {}),
+});
 
 /** Plain text of an article body, for the writer's brief. */
 function bodyText(blocks: StoryBlock[]): string {
@@ -41,6 +48,7 @@ async function loadPublished(slug: string) {
 export async function refreshStory(
   slug: string,
   onEvent: (event: FoundryEvent) => void,
+  brief?: string,
 ): Promise<{ revisionId: string; title: string; check: FactCheck }> {
   const db = createClient();
   // Fail before the (slow) rewrite if the revisions table is missing (agent/supabase/32_story_revisions.sql).
@@ -56,8 +64,9 @@ export async function refreshStory(
     hook: String(row.hook),
     published: String(row.published),
     text: bodyText(((row.body as { blocks?: StoryBlock[] })?.blocks) ?? []),
+    brief: brief?.trim() || undefined,
   };
-  const { story, check } = await draftStory(db, pitch, onEvent, { audit: true, prior });
+  const { story, check, ids } = await draftStory(db, pitch, onEvent, { audit: true, prior });
 
   const content: Content = {
     kicker: story.kicker,
@@ -65,9 +74,10 @@ export async function refreshStory(
     hook: story.hook,
     caveat: story.caveat,
     one_number: story.one_number,
-    evidence: story.evidence,
+    evidence: { ...story.evidence, metric_ids: [...ids] },
     body: story.body,
     frame_check: Boolean(story.frame_check),
+    metric_ids_used: story.metric_ids_used ?? [],
   };
   const now = new Date().toISOString();
   await db.from('story_revisions').update({ status: 'discarded', resolved_at: now })
@@ -131,10 +141,14 @@ async function pitchMetricIds(pitchId: string | null): Promise<string[]> {
  */
 async function recheck(content: Content, pitchId: string | null): Promise<{ content: Content; check: StoredCheck }> {
   const db = createClient();
-  const draft = { ...(content as unknown as StructuredStory), slug_hint: '', generation_note: '', metric_ids_used: [] };
-  const { check } = await checkStory(db, draft, { metricIds: await pitchMetricIds(pitchId), audit: true });
+  // Series the copy quotes: kept on the revision and in evidence.metric_ids (saved with every article since Oct 2026).
+  const saved = ((content.evidence as { metric_ids?: string[] } | null)?.metric_ids) ?? [];
+  const used = [...new Set([...(content.metric_ids_used ?? []), ...saved])];
+  const draft = { ...(content as unknown as StructuredStory), slug_hint: '', generation_note: '', metric_ids_used: used };
+  const { check, ids } = await checkStory(db, draft, { metricIds: await pitchMetricIds(pitchId), audit: true });
+  draft.evidence = { ...draft.evidence, metric_ids: [...ids] };
   return {
-    content: pick(draft as unknown as Record<string, unknown>),
+    content: pickRevision(draft as unknown as Record<string, unknown>),
     check: { ok: check.ok, issues: check.issues, warnings: check.warnings ?? [], checked_at: new Date().toISOString() },
   };
 }
@@ -145,7 +159,14 @@ export async function saveRevisionContent(slug: string, content: Content) {
   const pending = await loadPendingRevision(row.story_id);
   if (!pending) throw new Error(`/stories/${slug} has no pending revision`);
   const { error } = await createClient().from('story_revisions')
-    .update({ content: pick(content as Record<string, unknown>), check: { ...(pending.check ?? {}), ok: false, stale: true } })
+    // Keep the metric ids the revision already quotes when the editor's copy does not carry them (desk saves).
+    .update({
+      content: pickRevision({
+        metric_ids_used: (pending.content as Record<string, unknown>).metric_ids_used,
+        ...(content as Record<string, unknown>),
+      }),
+      check: { ...(pending.check ?? {}), ok: false, stale: true },
+    })
     .eq('revision_id', pending.revision_id);
   if (error) throw new Error(error.message);
 }
@@ -172,15 +193,43 @@ export async function discardRevision(slug: string) {
 }
 
 /** Re-check a draft story in place after editing (charts refilled, unverifiable quotes removed). */
-export async function recheckDraft(slug: string): Promise<StoredCheck> {
+export async function recheckDraft(slug: string, extraMetrics: string[] = []): Promise<StoredCheck> {
   const db = createClient();
-  const { data: row } = await db.from('stories').select('*').eq('slug', slug).maybeSingle();
-  if (!row) throw new Error(`No database story at /stories/${slug}`);
-  if (row.status !== 'draft') throw new Error(`/stories/${slug} is ${row.status}; re-check applies to drafts and revisions`);
-  const { content, check } = await recheck(pick(row), row.pitch_id);
-  const { error } = await db.from('stories').update({ ...content, updated_at: new Date().toISOString() }).eq('slug', slug);
+  const row = await loadDraft(slug);
+  const { content, check } = await recheck({ ...pick(row), metric_ids_used: extraMetrics }, row.pitch_id as string | null);
+  // Only the article columns go back on the story row (metric ids live on revisions, not stories).
+  const { error } = await db.from('stories').update({ ...pick(content as Record<string, unknown>), updated_at: new Date().toISOString() }).eq('slug', slug);
   if (error) throw new Error(error.message);
   return check;
+}
+
+async function loadDraft(slug: string) {
+  const { data: row } = await createClient().from('stories').select('*').eq('slug', slug).maybeSingle();
+  if (!row) throw new Error(`No database story at /stories/${slug}`);
+  if (row.status !== 'draft') throw new Error(`/stories/${slug} is ${row.status}, not a draft`);
+  return row as Record<string, unknown>;
+}
+
+/** Draft stories awaiting the editor, newest first. */
+export async function listDrafts() {
+  const { data, error } = await createClient().from('stories')
+    .select('slug, title, updated_at, pitch_id').eq('status', 'draft').order('updated_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/** A draft's copy, in the same shape as a revision's. */
+export async function loadDraftContent(slug: string): Promise<Content> {
+  return pick(await loadDraft(slug));
+}
+
+/** Apply exact-text edits to a draft, then re-check it. */
+export async function editDraft(slug: string, edits: CopyEdit[], extraMetrics: string[] = []): Promise<StoredCheck> {
+  const edited = editContent(await loadDraftContent(slug), edits);
+  const { error } = await createClient().from('stories')
+    .update({ ...pick(edited as Record<string, unknown>), updated_at: new Date().toISOString() }).eq('slug', slug);
+  if (error) throw new Error(error.message);
+  return recheckDraft(slug, extraMetrics);
 }
 
 /** A find-and-replace on a revision's copy (headline, deck, paragraphs, chart and timeline text). */
@@ -205,7 +254,11 @@ export function editContent(content: Content, edits: CopyEdit[]): Content {
   for (const b of blocks) {
     for (const k of ['text', 'title', 'subtitle', 'alt', 'caption']) if (k in b) b[k] = edit(b[k]);
     if (Array.isArray(b.items)) b.items = b.items.map(edit);
-    if (Array.isArray(b.events)) for (const ev of b.events as Record<string, unknown>[]) { ev.label = edit(ev.label); ev.date = edit(ev.date); }
+    if (Array.isArray(b.events)) {
+      for (const ev of b.events as Record<string, unknown>[]) { ev.label = edit(ev.label); ev.date = edit(ev.date); }
+      // An event whose label is edited down to nothing is removed.
+      b.events = (b.events as Record<string, unknown>[]).filter((ev) => String(ev.label ?? '').trim());
+    }
   }
   // A paragraph edited down to nothing is removed (an editor deleting a duplicate, say).
   (next.body as { blocks: Record<string, unknown>[] }).blocks = blocks.filter((b) => b.type !== 'paragraph' || String(b.text ?? '').trim());
@@ -220,9 +273,12 @@ export function editContent(content: Content, edits: CopyEdit[]): Content {
     });
   }
   // Footnotes too: a wrong source link or citation is corrected the same way.
+  // A footnote's link can be targeted on its own as "[^n] <url>", for when two footnotes share a link.
   for (const f of ((next.evidence as { footnotes?: Record<string, unknown>[] })?.footnotes ?? [])) {
     f.text = edit(f.text);
-    f.url = edit(f.url);
+    const tag = `[^${f.n}] `;
+    const keyed = edit(`${tag}${f.url ?? ''}`) as string;
+    f.url = keyed.startsWith(tag) && keyed !== `${tag}${f.url ?? ''}` ? keyed.slice(tag.length) : edit(f.url);
   }
   const missed = edits.filter((e) => !hits.get(e));
   if (missed.length) throw new Error(`edit text not found: ${missed.map((e) => JSON.stringify(e.find)).join(', ')}`);
