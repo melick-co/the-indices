@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { ChartSeriesPoint, StoryBlock, StoryChartBlock } from '@/lib/story-types';
+import type { ChartSeriesPoint, StoryBlock, StoryChartBlock, StoryOneNumber } from '@/lib/story-types';
 
 /**
  * Fill story chart series from stored observations.
@@ -13,6 +13,14 @@ const DEFAULT_TIMELINE = 12;
 
 type Obs = { entity: string; period: string; value: number };
 type MetricMeta = { metric_id: string; name: string; unit: string | null; source_org: string | null; source_dataset: string | null };
+
+const fmt = (n: number) => n.toLocaleString('en-AU', { maximumFractionDigits: 2 });
+const isPercent = (unit: string | null | undefined) => /percent|per cent|%/i.test(unit ?? '');
+
+/** Subtitle per NEWS-STYLE.md §4.4: what is measured, units, timeframe. */
+function subtitleOf(meta: MetricMeta | null, span: string) {
+  return [meta?.name, meta?.unit, span].filter(Boolean).join(', ');
+}
 
 export type BindResult = { chart: StoryChartBlock; ok: boolean; issue?: string };
 
@@ -96,14 +104,18 @@ export async function bindChart(db: SupabaseClient, chart: StoryChartBlock): Pro
     const recent = own.slice(-Math.max(2, spec.last ?? DEFAULT_TIMELINE));
     if (recent.length < 2) return { chart, ok: false, issue: `not enough ${entity} history for ${spec.metric_id}` };
     const last = recent[recent.length - 1];
+    const span = `${recent[0].period} to ${last.period}`;
     return {
       ok: true,
       chart: {
         ...chart,
-        kind: 'timeline',
+        // Change over time: a line that draws in, unless the writer asked for bars.
+        kind: chart.kind === 'timeline' ? 'timeline' : 'line',
         series: recent.map((o, i) => ({ label: o.period, value: o.value, ...(i === recent.length - 1 ? { highlight: true } : {}) })),
         alt_series: undefined,
-        caption: chart.caption?.trim() || sourceLine(meta, `${recent[0].period} to ${last.period}`),
+        subtitle: chart.subtitle?.trim() || subtitleOf(meta, span),
+        alt: chart.alt?.trim() || `${chart.title ?? meta?.name ?? spec.metric_id}: ${fmt(last.value)} in ${last.period}, from ${fmt(recent[0].value)} in ${recent[0].period}.`,
+        caption: chart.caption?.trim() || sourceLine(meta, span),
         bound: { metric_id: spec.metric_id, period: last.period },
       },
     };
@@ -128,6 +140,7 @@ export async function bindChart(db: SupabaseClient, chart: StoryChartBlock): Pro
     alt = { alt_series: altSeries, bound: { alt_metric_id: spec.alt_metric_id, alt_period: altPeriod! } };
   }
 
+  const home = series.find((p) => p.highlight);
   return {
     ok: true,
     chart: {
@@ -135,6 +148,8 @@ export async function bindChart(db: SupabaseClient, chart: StoryChartBlock): Pro
       kind: chart.kind === 'rank_swap' && alt.alt_series ? 'rank_swap' : 'bars',
       series,
       alt_series: alt.alt_series,
+      subtitle: chart.subtitle?.trim() || subtitleOf(meta, period),
+      alt: chart.alt?.trim() || `${chart.title ?? meta?.name ?? spec.metric_id}: ${home ? `Australia ${fmt(home.value)}, ` : ''}highest ${series[0].label} ${fmt(series[0].value)} (${period}).`,
       caption: chart.caption?.trim() || sourceLine(meta, period),
       bound: { metric_id: spec.metric_id, period, ...alt.bound },
     },
@@ -160,4 +175,35 @@ export async function bindStoryCharts(
     }
   }
   return { blocks: out, issues, chartMetricIds };
+}
+
+/**
+ * Hero stat card: when one_number names a metric, its value, period and
+ * comparison with a year earlier come from the store, not the model.
+ * Percent series compare in points; others in percent change.
+ */
+export async function bindOneNumber(
+  db: SupabaseClient, one: StoryOneNumber | null | undefined,
+): Promise<{ one: StoryOneNumber | null | undefined; issue?: string }> {
+  if (!one?.metric_id) return { one };
+  const [obs, meta] = await Promise.all([loadObservations(db, one.metric_id), loadMeta(db, one.metric_id)]);
+  const own = obs.filter((o) => o.entity === HOME).sort((a, b) => a.period.localeCompare(b.period));
+  const last = own.at(-1);
+  if (!last) return { one, issue: `one number metric ${one.metric_id} has no Australian observations` };
+  // A year earlier: same quarter/month last year, or the previous year for annual data.
+  const prevPeriod = /^\d{4}-Q\d$/.test(last.period) || /^\d{4}-\d{2}$/.test(last.period) || /^\d{4}$/.test(last.period)
+    ? `${Number(last.period.slice(0, 4)) - 1}${last.period.slice(4)}`
+    : null;
+  const prev = prevPeriod ? own.find((o) => o.period === prevPeriod) : undefined;
+  const pct = isPercent(meta?.unit);
+  const value = `${fmt(last.value)}${pct ? '%' : ''}`;
+  let comparison: string | undefined;
+  let direction: StoryOneNumber['direction'];
+  if (prev) {
+    const change = pct ? last.value - prev.value : prev.value ? (last.value / prev.value - 1) * 100 : 0;
+    direction = Math.abs(change) < 0.05 ? 'flat' : change > 0 ? 'up' : 'down';
+    const size = pct ? `${fmt(Math.abs(change))} pts` : `${fmt(Math.abs(change))}%`;
+    comparison = direction === 'flat' ? `unchanged on ${prevPeriod}` : `${direction} ${size} on ${prevPeriod}`;
+  }
+  return { one: { ...one, value, period: last.period, comparison, direction } };
 }

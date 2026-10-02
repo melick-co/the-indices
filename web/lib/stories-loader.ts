@@ -39,6 +39,8 @@ type DbStoryRow = {
   hero_image_url?: string | null;
   hero_image_alt?: string | null;
   art?: unknown;
+  update_note?: string | null;
+  updated_on?: string | null;
 };
 
 function inferFrameCheck(kicker: string, title: string): boolean {
@@ -94,6 +96,8 @@ function rowToStory(row: DbStoryRow): Story {
     status: (row.status as Story['status']) ?? 'published',
     staticBody: false,
     storyId: row.story_id,
+    updateNote: row.update_note ?? null,
+    updatedOn: row.updated_on ?? null,
   }, overlay);
 }
 
@@ -105,12 +109,8 @@ function staticToStory(s: Story): Story {
   };
 }
 
-const STORY_COLS = [
-  'story_id', 'pitch_id', 'slug', 'status', 'kicker', 'title', 'hook', 'caveat',
-  'published', 'one_number', 'evidence', 'body', 'frame_check',
-  'home_section', 'home_rank', 'pinned_hero',
-  'hero_image_url', 'hero_image_alt', 'art',
-].join(', ');
+// All columns: new optional ones (update_note, updated_on) then never break the page before their migration runs.
+const STORY_COLS = '*';
 
 async function loadDeskOverlays(): Promise<Map<string, DeskOverlay>> {
   const supabase = createClient();
@@ -278,4 +278,29 @@ export async function attachGeneratedArtToStory(
   const { error } = await supabase.from('stories').update(patch).eq('slug', slug);
   if (error) throw new Error(error.message);
   return art;
+}
+
+/** Article content held by a pending refresh (story_revisions, lib/refresh-story.ts). */
+export type RevisionContent = {
+  kicker: string; title: string; hook: string; caveat: string;
+  one_number: StoryOneNumber; evidence: StoryEvidence; body: StoryBody; frame_check: boolean;
+};
+
+/** The pending revision for a story, if any (for ?revision=1 previews). */
+export async function loadPendingRevision(storyId: string) {
+  const { data } = await createClient().from('story_revisions')
+    .select('revision_id, content, check, created_at')
+    .eq('story_id', storyId).eq('status', 'pending').maybeSingle();
+  return data as {
+    revision_id: string; content: RevisionContent; check: { ok: boolean; issues: string[] } | null; created_at: string;
+  } | null;
+}
+
+/** A story with a revision's content in place of the live copy. */
+export function withRevision(story: Story, c: RevisionContent): Story {
+  return {
+    ...story,
+    kicker: c.kicker, title: c.title, hook: c.hook, caveat: c.caveat,
+    oneNumber: c.one_number, evidence: c.evidence, body: c.body, frameCheck: c.frame_check,
+  };
 }

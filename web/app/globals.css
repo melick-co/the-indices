@@ -4241,6 +4241,93 @@ html:has(.site-shell--ops) body {
 .story-hero-video .story-hero-art { margin: 0; }
 .story-hero-video .figure-cap { margin-top: 8px; }
 
+/* ---------- news style (agent/NEWS-STYLE.md) ---------- */
+.story-deck {
+  font-size: 1.12rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  margin: 6px 0 18px;
+  max-width: 44rem;
+}
+.hero-stat {
+  border-top: 3px solid var(--ink);
+  border-bottom: 1px solid var(--rule);
+  padding: 14px 0 12px;
+  margin: 0 0 22px;
+}
+.hero-stat-value {
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 7vw, 4rem);
+  line-height: 1;
+  color: var(--pen);
+  font-variant-numeric: tabular-nums;
+}
+.hero-stat-label { margin-top: 6px; font-size: .95rem; }
+.hero-stat-compare { margin-top: 4px; font-family: var(--font-mono); font-size: .78rem; color: var(--ink-soft); }
+.hero-stat-compare.up, .hero-stat-compare.down { color: var(--ink); }
+.hero-stat-source { margin-top: 6px; font-family: var(--font-mono); font-size: .7rem; color: var(--ink-soft); }
+
+.fn-ref { font-family: var(--font-mono); font-size: .62em; line-height: 0; margin-left: 1px; }
+.fn-ref a { color: var(--pen); text-decoration: none; }
+.fn-ref a:hover { text-decoration: underline; }
+
+.story-chart-subtitle { font-family: var(--font-mono); font-size: .72rem; color: var(--ink-soft); margin: -2px 0 12px; }
+.story-chart { margin-left: 0; margin-right: 0; }
+
+.story-line { display: block; width: 100%; height: auto; overflow: visible; }
+.story-line-axis { stroke: var(--rule); stroke-width: 1; }
+.story-line-path {
+  fill: none; stroke: var(--ink); stroke-width: 2.25;
+  stroke-dasharray: 1; stroke-dashoffset: 1;
+  transition: stroke-dashoffset 1.3s cubic-bezier(.22,.61,.36,1);
+}
+.story-line-path.drawn { stroke-dashoffset: 0; }
+.story-line-dot { fill: var(--ink-soft); }
+.story-line-dot.key { fill: var(--pen); opacity: 0; transition: opacity .3s ease 1.2s; }
+.story-line-label { font-family: var(--font-mono); font-size: 12px; fill: var(--ink-soft); }
+.story-line-label.key { fill: var(--pen); font-weight: 600; opacity: 0; transition: opacity .3s ease 1.25s; }
+.story-line-dot.key.shown, .story-line-label.key.shown { opacity: 1; }
+.story-line-tick { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-soft); }
+
+.story-quote { margin: 26px 0; padding: 0 0 0 18px; border-left: 3px solid var(--pen); }
+.story-quote p { font-family: var(--font-display); font-size: 1.25rem; line-height: 1.4; margin: 0 0 8px; }
+.story-quote footer { font-family: var(--font-mono); font-size: .76rem; color: var(--ink-soft); }
+
+.story-timeline ol { list-style: none; margin: 8px 0 0; padding: 0; border-left: 2px solid var(--rule); }
+.story-timeline li {
+  position: relative; padding: 0 0 14px 18px;
+  opacity: 0; transform: translateY(6px);
+  transition: opacity .5s ease, transform .5s ease;
+}
+.story-timeline li.shown { opacity: 1; transform: none; }
+.story-timeline li::before {
+  content: ''; position: absolute; left: -6px; top: 5px; width: 10px; height: 10px;
+  border-radius: 50%; background: var(--paper); border: 2px solid var(--ink);
+}
+.story-timeline li:last-child::before { background: var(--pen); border-color: var(--pen); }
+.story-timeline-date { display: block; font-family: var(--font-mono); font-size: .74rem; color: var(--ink-soft); }
+.story-timeline-label { display: block; font-size: .95rem; }
+
+.story-sources { margin: 36px 0 24px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.story-sources h2 { font-size: 1rem; margin: 0 0 8px; }
+.story-sources ol { margin: 0; padding-left: 1.4rem; font-size: .82rem; line-height: 1.5; color: var(--ink-soft); }
+.story-sources li { margin-bottom: 4px; scroll-margin-top: 80px; }
+.story-sources li:target { background: color-mix(in srgb, var(--pen) 10%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .story-line-path { transition: none; stroke-dashoffset: 0; }
+  .story-line-dot.key, .story-line-label.key { opacity: 1; transition: none; }
+  .story-timeline li { opacity: 1; transform: none; transition: none; }
+}
+
+/* Reader-facing note on a revised article (story_revisions). */
+.story-update-note {
+  margin: -0.4rem 0 1rem;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
 /* ---------- blackletter nameplate (public site; desk pages use OpsNav) ---------- */
 :root {
   --masthead-bg: #1d2a48;

@@ -10,9 +10,14 @@ const YEAR = (n) => Number.isInteger(n) && n >= 1900 && n <= 2100;
 // Words that introduce an identifier rather than a figure: "ABS 6345.0", "cat. no. 5206.0", "Table D2".
 const IDENT_BEFORE = /(?:\bABS|\bcat(?:alogue)?\.?(?:\s*no\.?)?|\btable|\bseries(?:\s*id)?)\s*$/i;
 
+const MONTH = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?';
+const MONTH_AFTER = new RegExp(`^\\s*${MONTH}\\b`, 'i');
+const MONTH_BEFORE = new RegExp(`\\b${MONTH}\\s*$`, 'i');
+
 export function numbersIn(text) {
   const out = [];
-  const src = String(text ?? '');
+  // Footnote markers ("rose 18%[^15]") cite a source; they are not figures.
+  const src = String(text ?? '').replace(/\[\^\d+\]/g, '');
   const re = /(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*(%|pp|per ?cent|bps?|basis points)?/gi;
   for (const m of src.matchAll(re)) {
     const n = Number((m[1] + (m[2] ?? '')).replace(/,/g, ''));
@@ -23,6 +28,9 @@ export function numbersIn(text) {
     if (!unit && IDENT_BEFORE.test(before)) continue;
     // ABS catalogue numbers are written "6345.0".
     if (!unit && /^\d{4}$/.test(m[1]) && m[2] === '.0' && !/\$\s*$/.test(before)) continue;
+    // Days of the month ("30 September", "September 30") are dates, not figures.
+    if (!unit && Number.isInteger(n) && n >= 1 && n <= 31 && !m[2]
+      && (MONTH_AFTER.test(src.slice(m.index + m[0].length)) || MONTH_BEFORE.test(before))) continue;
     // Small bare integers are counts ("three hikes", "5 suburbs"); years are dates.
     if (!unit && Number.isInteger(n) && n <= 12) continue;
     if (YEAR(n) && !unit) continue;

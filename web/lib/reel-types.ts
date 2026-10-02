@@ -176,6 +176,8 @@ export function collectStoryNumbers(story: Story): number[] {
       if (block.title) found.push(...numbersIn(block.title));
     } else if (block.type === 'layers') {
       for (const item of block.items) found.push(...numbersIn(item));
+    } else if (block.type === 'timeline') {
+      for (const ev of block.events) found.push(...numbersIn(`${ev.date} ${ev.label}`));
     } else {
       found.push(...numbersIn(block.text));
     }

@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase-server';
 import { runFoundryTurn, type FoundryEvent } from '@/lib/foundry-agent';
 import { CHARTER, MODEL } from '@/lib/research-agent';
 import { articleFromApprovedPitch, type StructuredStory } from '@/lib/article-from-pitch';
-import { bindStoryCharts } from '@/lib/chart-from-data';
+import { bindOneNumber, bindStoryCharts } from '@/lib/chart-from-data';
+import { checkStyle, splitLongParagraphs, verifyQuotes } from '@/lib/style-check';
 import { factCheckStory, type FactCheck } from '@/lib/fact-check';
 import { auditClaims, reviseForChecks } from '@/lib/claim-audit';
 import { canonicalMetricId, loadKnownMetrics, normaliseMetricIds } from '../../agent/scripts/lib/metric-ids.mjs';
@@ -50,11 +51,12 @@ Follow EDITORIAL story structure:
 Voice: Australian English. No em dashes. Headlines state the finding, not the topic.
 Every number must trace to tier 1/2 sources in the evidence table.`;
 
-function loadEditorialCharter() {
+/** A document from agent/ (EDITORIAL.md, NEWS-STYLE.md), wherever the app runs from. */
+function loadAgentDoc(file: string) {
   for (const p of [
-    path.join(process.cwd(), '..', 'agent', 'EDITORIAL.md'),
-    path.join(process.cwd(), 'agent', 'EDITORIAL.md'),
-    path.join(process.cwd(), '.agent', 'EDITORIAL.md'),
+    path.join(process.cwd(), '..', 'agent', file),
+    path.join(process.cwd(), 'agent', file),
+    path.join(process.cwd(), '.agent', file),
   ]) {
     try {
       return readFileSync(p, 'utf8');
@@ -64,6 +66,10 @@ function loadEditorialCharter() {
   }
   return '';
 }
+
+const loadEditorialCharter = () => loadAgentDoc('EDITORIAL.md');
+/** The house news style (WSJ/AFR structure); every article follows it. */
+export const loadNewsStyle = () => loadAgentDoc('NEWS-STYLE.md');
 
 export { articleFromApprovedPitch };
 
@@ -115,6 +121,11 @@ ${JSON.stringify(metrics, null, 2)}
 </linked_metrics>
 
 Research task:
+0. Find direct quotes from named principals (RBA statements, ministers' releases, company filings,
+   official speeches) that bear on the story. Use fetch_url on the primary page and copy each quote
+   VERBATIM with the speaker, their title, where and when it was said, and the exact URL. Never
+   paraphrase inside quotation marks. Also list the dated events (date and what happened) the story
+   relies on.
 1. Verify every claim against tier 1/2 data. Pull exact numbers with periods and sources.
 2. Build the evidence table rows the story rests on.
 3. Draft the layered narrative prose (opening frame → shifts → corrected frame).
@@ -173,44 +184,61 @@ ${available || '(none linked; use search_metrics findings from the research note
 Research notes:
 ${researchText.slice(0, 12000)}
 
-Return JSON matching this schema exactly:
+<house_news_style>
+${loadNewsStyle()}
+</house_news_style>
+
+Write the article to the house news style above: every MUST rule applies. Return JSON matching this schema exactly:
 {
-  "kicker": "Topic · Frame check (short label)",
-  "title": "news headline: the finding, with its number when it lands; active verb; under 90 chars; AU English",
-  "hook": "one-line standfirst for the card: why this matters now",
-  "caveat": "hostile reader objection, specific",
-  "one_number": { "value": "the headline number", "label": "what it measures" },
+  "kicker": "Topic · short section label",
+  "title": "HEADLINE: 6-12 words, a claim in active voice and present tense, strong verb, a number or named actor; no question, no colon",
+  "hook": "DECK: 20-35 words, the so-what or second-most-important fact; headline + deck must tell the whole story; footnote markers like [^2] after figures",
+  "caveat": "the sceptic's strongest objection in one sentence (also shown in the Caveat box)",
+  "one_number": { "value": "the headline number", "label": "what it measures, with period", "metric_id": "stored metric_id behind the number (value and year-on-year comparison are filled from the store)", "footnote": 1 },
   "evidence": {
-    "table": { "head": ["col1", ...], "rows": [["cell", ...], ...] } or omit if no table,
-    "sources": [{ "metric": "...", "org": "...", "tier": 1|2, "url": "https://...", "period": "...", "basis": "..." }]
+    "table": { "head": ["col1", ...], "rows": [["cell", ...], ...] } or omit,
+    "sources": [{ "metric": "...", "org": "...", "tier": 1|2, "url": "https://...", "period": "...", "basis": "..." }],
+    "footnotes": [{ "n": 1, "text": "Organisation, Title or dataset, date, page/section", "url": "https://..." }]
   },
   "body": {
     "blocks": [
-      { "type": "paragraph", "text": "..." },
-      { "type": "paragraph", "text": "..." },
-      { "type": "layers", "items": ["...", "...", "..."] },
-      { "type": "chart", "kind": "bars|rank_swap|timeline", "title": "what the chart shows",
-        "data": { "metric_id": "one of the stored metric_ids", "mode": "latest_by_entity|timeline",
-                  "entities": ["AUS","NZL","CAN"], "entity": "AUS", "last": 12, "alt_metric_id": "for rank_swap only" } },
-      { "type": "heading", "text": "..." },
-      { "type": "paragraph", "text": "..." },
-      { "type": "pull", "text": "..." },
-      { "type": "paragraph", "text": "..." }
+      { "type": "paragraph", "role": "lede", "text": "..." },
+      { "type": "paragraph", "role": "nut", "text": "..." },
+      { "type": "paragraph", "role": "evidence", "text": "...[^1]" },
+      { "type": "chart", "kind": "line|bars|rank_swap", "title": "takeaway headline", "subtitle": "what is measured, units, timeframe", "alt": "the takeaway for screen readers", "footnote": 1,
+        "data": { "metric_id": "a stored metric_id", "mode": "timeline|latest_by_entity", "entities": ["AUS","NZL"], "entity": "AUS", "last": 12, "alt_metric_id": "rank_swap only" } },
+      { "type": "quote", "text": "verbatim words", "speaker": "Full Name", "title": "Title, Organisation", "said": "where and when", "source_url": "https://exact page", "footnote": 3 },
+      { "type": "paragraph", "role": "evidence", "text": "..." },
+      { "type": "paragraph", "role": "context", "text": "..." },
+      { "type": "timeline", "title": "takeaway headline", "events": [{ "date": "29 September 2026", "label": "what happened", "footnote": 4 }] },
+      { "type": "paragraph", "role": "to_be_sure", "text": "..." },
+      { "type": "paragraph", "role": "whats_next", "text": "..." },
+      { "type": "paragraph", "role": "kicker", "text": "..." }
     ]
   },
   "metric_ids_used": ["every stored metric_id whose values the copy quotes"],
-  "slug_hint": "3-5 word slug from topic",
+  "slug_hint": "3-5 word slug",
   "generation_note": "one line on what the story does",
-  "frame_check": true if this corrects a widely shared frame (denominator flip, viral claim check, rank surprise, two-truths gap) else false
+  "frame_check": true if this corrects a widely shared frame, else false
 }
 
-Rules:
-- Standard news structure, in the block order shown: paragraph 1 is the lede (who, what, when, and the newsworthy finding with its number, in one or two sentences); paragraph 2 is the nut graf (why it matters now and what it changes for readers); the layers are the data that shifts the picture, in the sequence from EDITORIAL.md; then a section heading, context and supporting data, a pull line with the corrected frame, and a closing paragraph on the caveat and what to watch next (next release, next decision). Write the copy itself, never labels like "Lede:". Short paragraphs. No em dashes.
-- Headline: attention-grabbing because the finding is surprising, never because it withholds it. No questions, no "you won't believe", no puns that hide the number.
-- Every number in the copy must be a stored value (or a change between stored periods, a gap to a peer, or a rank) for a metric in metric_ids_used. Do not quote figures that exist only in web search results: name the claim without its number instead. Unsupported numbers stop the article from publishing.
-- Charts: give "data" with a stored metric_id and leave out "series"; values are filled from the store. latest_by_entity compares countries at Australia's latest period; timeline shows one entity over time. For rank_swap give alt_metric_id (for example absolute vs per person).
-- Include exactly one chart block.
-- All sources must be tier 1 or 2.
+Rules (in addition to the house style):
+- Block order follows the skeleton: lede, nut graf by paragraph 4, evidence ordered strongest first with a chart
+  right after the paragraph it supports, quote (if any) by paragraph 6, context, timeline if 3+ dated events,
+  to be sure, what's next, kicker. Every paragraph has a role. Paragraphs of 1-3 sentences; average sentence
+  under 25 words; spell out one to nine; A$ on first mention of dollars; "said" for attribution; no hype words.
+- One chart per major data point (most stories need 2-3). Each chart: takeaway title, subtitle, alt, footnote,
+  and "data" with a stored metric_id; leave out "series" (values are filled from the store). Use "line" for
+  change over time, "bars" for comparisons. Never two charts in a row without a paragraph between.
+- Footnotes: put [^n] after every figure and after every attributed fact; every chart, quote and timeline event
+  carries a footnote number; evidence.footnotes lists each n once, primary sources first (official data,
+  filings, statements). Number footnotes in order of first appearance.
+- Quotes: only text that appears word for word on source_url (from the research notes). It is checked; an
+  unverifiable quote is removed. If the research found no such quote, include no quote block.
+- Every number in the copy must be a stored value (or a change between stored periods, a gap to a peer, or a
+  rank) for a metric in metric_ids_used. Do not quote figures that exist only in web search results: name the
+  claim without its number instead. Unsupported numbers stop the article from publishing.
+- All sources must be tier 1 or 2. Write the copy itself, never labels like "Lede:". No em dashes.
 - Prefer frame_check true for Caveat's core archetypes.`,
       }],
     }),
@@ -251,29 +279,37 @@ export type PublishOptions = {
   audit?: boolean;
 };
 
-export async function publishStoryFromPitch(
-  pitchId: string,
+type SupabaseClient = ReturnType<typeof createClient>;
+
+/** A published article being refreshed: the writer keeps its finding unless newer data changes it. */
+export type PriorArticle = { title: string; hook: string; published: string; text: string };
+
+function priorArticleBrief(prior: PriorArticle) {
+  return `
+
+<published_article date="${prior.published}">
+${prior.title}
+${prior.hook}
+
+${prior.text.slice(0, 8000)}
+</published_article>
+
+This is a refresh of the article above, published ${prior.published}. Rewrite it in the house news style with
+the latest stored data. Keep its finding if the data still supports it; if newer data changes the finding, the
+new copy says so plainly. Do not mention that the article was rewritten; the page carries an update note.`;
+}
+
+/** Research, write and check an article for a pitch, with revision rounds. Saves nothing. */
+export async function draftStory(
+  supabase: SupabaseClient,
+  pitch: Record<string, unknown>,
   onEvent: (event: FoundryEvent) => void,
-  opts: PublishOptions = {},
-): Promise<PublishResult> {
-  const supabase = createClient();
-
-  const { data: pitch, error } = await supabase.from('pitches').select('*').eq('id', pitchId).single();
-  if (error || !pitch) throw new Error('Pitch not found');
-  if (pitch.state !== 'approved') {
-    throw new Error(`Pitch must be approved before publishing (current state: ${pitch.state})`);
-  }
-
-  const { data: existing } = await supabase.from('stories')
-    .select('slug, status').eq('pitch_id', pitchId).maybeSingle();
-  if (existing?.status === 'published') {
-    throw new Error(`Story already published at /stories/${existing.slug}`);
-  }
-
+  opts: PublishOptions & { prior?: PriorArticle },
+): Promise<{ story: StructuredStory; check: FactCheck }> {
   onEvent({ type: 'tool_start', name: 'load', label: 'Loading pitch and metrics', at: new Date().toISOString() });
 
   const metricIds = [
-    ...new Set([...(pitch.metric_ids ?? []), ...(pitch.resurface_metrics ?? [])]),
+    ...new Set([...((pitch.metric_ids as string[] | null) ?? []), ...((pitch.resurface_metrics as string[] | null) ?? [])]),
   ] as string[];
   const metrics = await loadMetricContext(metricIds);
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
@@ -291,7 +327,7 @@ export async function publishStoryFromPitch(
     story = articleFromApprovedPitch(pitch);
   } else {
     const charter = loadEditorialCharter();
-    const researchPrompt = buildResearchPrompt(pitch, metrics, charter);
+    const researchPrompt = buildResearchPrompt(pitch, metrics, charter) + (opts.prior ? priorArticleBrief(opts.prior) : '');
 
     onEvent({ type: 'tool_start', name: 'research', label: 'Researching story data', at: new Date().toISOString() });
 
@@ -342,24 +378,37 @@ export async function publishStoryFromPitch(
         b.type === 'layers' ? { ...b, items: b.items.map(unlabel) }
           : 'text' in b && typeof b.text === 'string' ? { ...b, text: unlabel(b.text) } : b),
     };
-    const bound = await bindStoryCharts(supabase, draft.body.blocks);
+    // Quotes run only if found word for word on their source page; unverifiable ones are removed.
+    const quotes = await verifyQuotes(draft.body.blocks);
+    for (const d of quotes.dropped) onEvent({ type: 'tool_result', name: 'quotes', label: `Quote removed: ${d}`, at: new Date().toISOString() });
+    const bound = await bindStoryCharts(supabase, splitLongParagraphs(quotes.blocks));
     draft.body = { blocks: bound.blocks };
+    if (draft.one_number?.metric_id) draft.one_number.metric_id = canonical(draft.one_number.metric_id);
+    const hero = await bindOneNumber(supabase, draft.one_number);
+    if (hero.one) draft.one_number = hero.one;
     const ids = new Set(metricIds);
+    if (draft.one_number?.metric_id && !hero.issue) ids.add(draft.one_number.metric_id);
     for (const id of draft.metric_ids_used ?? []) ids.add(id);
     for (const id of normaliseMetricIds([...queried], known).linked) ids.add(id);
     for (const id of bound.chartMetricIds) ids.add(id);
     const result = await factCheckStory(supabase, draft, [...ids]);
-    result.issues.unshift(...bound.issues);
-    result.ok = result.ok && bound.issues.length === 0;
+    result.issues.unshift(...bound.issues, ...(hero.issue ? [hero.issue] : []));
+    // House news style (NEWS-STYLE.md): MUST items block; the rest are warnings for the editor.
+    const style = checkStyle(draft);
+    result.issues.push(...style.issues.map((i) => `style: ${i}`));
+    result.warnings = style.warnings;
+    const figuresOk = result.ok && bound.issues.length === 0 && !hero.issue;
+    result.ok = figuresOk && style.ok;
 
-    // Figures exist in the data; now check each claim uses them truthfully.
-    if (result.ok && apiKey && opts.audit) {
+    // Figures exist in the data; now check each claim uses them truthfully. Runs even when only
+    // style failed, so a held draft reaches the editor with its claims already audited.
+    if (figuresOk && apiKey && opts.audit) {
       onEvent({ type: 'tool_start', name: 'audit', label: 'Auditing every claim against stored data', at: new Date().toISOString() });
       try {
         const audit = await auditClaims(supabase, draft, [...ids]);
         result.claims = audit.claims;
         for (const c of audit.unsupported) result.issues.push(`claim not supported by stored data: "${c.claim}" (${c.evidence})`);
-        result.ok = audit.ok;
+        result.ok = result.ok && audit.ok;
       } catch (e) {
         result.ok = false;
         result.issues.push(`claim audit failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -371,11 +420,14 @@ export async function publishStoryFromPitch(
   let { check, ids: checkedIds } = await checkStory(story);
 
   // Up to MAX_REVISIONS rounds: correct or drop what the checks could not support, then check again.
-  const rounds = opts.audit ? MAX_REVISIONS : 0;
+  // One extra round when the draft is nearly there (only style items, or at most three items of any
+  // kind): a long lede or one stray claim is cheap to fix and usually fixed in one more pass.
+  const styleOnly = () => check.issues.every((i) => i.startsWith('style:')) || check.issues.length <= 3;
+  let rounds = opts.audit ? MAX_REVISIONS : 0;
   for (let round = 1; !check.ok && apiKey && story.body.blocks.length && round <= rounds; round++) {
-    onEvent({ type: 'tool_start', name: 'revise', label: `Revision ${round}: ${check.issues.length} unsupported item(s)`, at: new Date().toISOString() });
+    onEvent({ type: 'tool_start', name: 'revise', label: `Revision ${round}: ${check.issues.length} item(s) to fix`, at: new Date().toISOString() });
     try {
-      const revised = await reviseForChecks(supabase, story, check.issues, [...checkedIds]);
+      const revised = await reviseForChecks(supabase, story, check.issues, [...checkedIds], loadNewsStyle());
       const next = await checkStory(revised);
       story = revised;
       check = next.check;
@@ -384,8 +436,32 @@ export async function publishStoryFromPitch(
       check.issues.push(`revision ${round} failed: ${e instanceof Error ? e.message : String(e)}`);
       break;
     }
+    if (round === rounds && rounds === MAX_REVISIONS && !check.ok && styleOnly()) rounds++;
   }
-  if (!check.ok && rounds) check.issues.unshift(`unsupported after ${rounds} revision round(s):`);
+  if (!check.ok && rounds) check.issues.unshift(`not fixed after ${rounds} revision round(s):`);
+  return { story, check };
+}
+
+export async function publishStoryFromPitch(
+  pitchId: string,
+  onEvent: (event: FoundryEvent) => void,
+  opts: PublishOptions = {},
+): Promise<PublishResult> {
+  const supabase = createClient();
+
+  const { data: pitch, error } = await supabase.from('pitches').select('*').eq('id', pitchId).single();
+  if (error || !pitch) throw new Error('Pitch not found');
+  if (pitch.state !== 'approved') {
+    throw new Error(`Pitch must be approved before publishing (current state: ${pitch.state})`);
+  }
+
+  const { data: existing } = await supabase.from('stories')
+    .select('slug, status').eq('pitch_id', pitchId).maybeSingle();
+  if (existing?.status === 'published') {
+    throw new Error(`Story already published at /stories/${existing.slug}`);
+  }
+
+  const { story, check } = await draftStory(supabase, pitch, onEvent, opts);
 
   const slug = existing?.slug ?? await uniqueSlug(story.slug_hint || story.title);
   const now = new Date().toISOString();

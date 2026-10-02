@@ -14,6 +14,11 @@ assert.deepEqual(rank.top.slice(0, 3), ['1. NOR 236', '2. CHE 224', '3. AUS 223'
 assert.deepEqual(numbersIn('Three hikes in 2026 took the cash rate to 4.6% over 5 meetings'), [4.6]);
 assert.deepEqual(numbersIn('$12,689 billion; 0.8pp gap; 97.6 per cent'), [12689, 0.8, 97.6]);
 
+// Footnote markers and days of the month are not figures.
+assert.deepEqual(numbersIn('Credit grew 7.3%[^14] in the year to 31 August 2026.'), [7.3]);
+assert.deepEqual(numbersIn('The board met on 29 September; the rate is 4.6%[^2].'), [4.6]);
+assert.deepEqual(numbersIn('Sales fell 30% by September 30, to 28 stores.'), [30, 28]);
+
 // Identifiers are not figures: ABS catalogue numbers, table and series codes.
 assert.deepEqual(numbersIn('ABS 6345.0 shows wages up 3.4%'), [3.4]);
 assert.deepEqual(numbersIn('Source: ABS cat. no. 5206.0, Table 12; series A2325846C'), []);

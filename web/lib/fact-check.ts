@@ -58,6 +58,8 @@ export type FactCheck = {
   unsupported: Array<{ where: string; value: number }>;
   /** Claim-by-claim audit (lib/claim-audit.ts), run once the figures pass. */
   claims?: Array<{ claim: string; verdict: string; evidence: string }>;
+  /** House-style notes that do not block publishing (style-check.ts). */
+  warnings?: string[];
 };
 
 type Obs = { entity: string; period: string; value: number };
@@ -97,6 +99,9 @@ function storyTexts(story: CheckableStory): Array<{ where: string; text: string 
   story.body.blocks.forEach((b, i) => {
     if (b.type === 'layers') b.items.forEach((t, k) => out.push({ where: `layer ${i + 1}.${k + 1}`, text: t }));
     else if (b.type === 'chart') out.push({ where: `chart ${i + 1} title`, text: (b as StoryChartBlock).title ?? '' });
+    else if (b.type === 'timeline') b.events.forEach((e, k) => out.push({ where: `timeline ${i + 1}.${k + 1}`, text: e.label }));
+    // A verified quote is the speaker's words, checked against its source page (style-check.ts), not the store.
+    else if (b.type === 'quote') return;
     else if ('text' in b) out.push({ where: `${b.type} ${i + 1}`, text: b.text });
   });
   for (const [r, row] of (story.evidence?.table?.rows ?? []).entries()) {

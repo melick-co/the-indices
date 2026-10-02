@@ -512,6 +512,42 @@ function BlockFields({ block, onChange }: { block: StoryBlock; onChange: (b: Sto
     );
   }
   if (block.type === 'chart') return <ChartFields chart={block} onChange={onChange} />;
+  if (block.type === 'quote') {
+    const field = (key: 'text' | 'speaker' | 'title' | 'said' | 'source_url', label: string, rows = 1) => (
+      <label className="desk-label" key={key}>
+        {label}
+        <textarea className="studio-field" rows={rows} value={block[key] ?? ''}
+          // An edited quote must be re-verified against its source before it counts as verified.
+          onChange={(e) => onChange({ ...block, [key]: e.target.value, verified: false })} />
+      </label>
+    );
+    return (
+      <div>
+        {field('text', 'Quote (verbatim)', 3)}
+        {field('speaker', 'Speaker')}
+        {field('title', 'Title and organisation')}
+        {field('said', 'Where and when said')}
+        {field('source_url', 'Source URL')}
+      </div>
+    );
+  }
+  if (block.type === 'timeline') {
+    return (
+      <div>
+        <input className="studio-field" value={block.title}
+          onChange={(e) => onChange({ ...block, title: e.target.value })} />
+        <textarea className="studio-field" rows={Math.max(3, block.events.length + 1)}
+          value={block.events.map((ev) => `${ev.date} | ${ev.label}`).join('\n')}
+          onChange={(e) => onChange({
+            ...block,
+            events: e.target.value.split('\n').map((line) => {
+              const [date, ...rest] = line.split('|');
+              return { date: (date ?? '').trim(), label: rest.join('|').trim() };
+            }).filter((ev) => ev.date || ev.label),
+          })} />
+      </div>
+    );
+  }
   return (
     <textarea
       className="studio-field"
