@@ -62,6 +62,8 @@ between things. For each, decide:
   means no reading after X is as high as the current one; the reading at X itself is normally higher
   (that is why the run ends there), so a higher value at X supports the claim rather than refuting it.
   Likewise "lowest since X".
+  Policy-rate series are dated by the day a change takes effect, usually the day after it is
+  announced; an announcement date one day before the stored period is supported.
 - "unsupported": anything else, including claims about series that are not in the reference,
   claims whose span is longer than the listed history, and figures attributed to other sources.
 

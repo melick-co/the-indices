@@ -420,8 +420,9 @@ export async function draftStory(
   let { check, ids: checkedIds } = await checkStory(story);
 
   // Up to MAX_REVISIONS rounds: correct or drop what the checks could not support, then check again.
-  // One extra round is allowed when only style items remain (a long deck, say): cheap and usually enough.
-  const styleOnly = () => check.issues.every((i) => i.startsWith('style:'));
+  // One extra round when the draft is nearly there (only style items, or at most three items of any
+  // kind): a long lede or one stray claim is cheap to fix and usually fixed in one more pass.
+  const styleOnly = () => check.issues.every((i) => i.startsWith('style:')) || check.issues.length <= 3;
   let rounds = opts.audit ? MAX_REVISIONS : 0;
   for (let round = 1; !check.ok && apiKey && story.body.blocks.length && round <= rounds; round++) {
     onEvent({ type: 'tool_start', name: 'revise', label: `Revision ${round}: ${check.issues.length} item(s) to fix`, at: new Date().toISOString() });
