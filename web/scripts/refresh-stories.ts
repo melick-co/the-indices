@@ -11,6 +11,7 @@
  *   ... --recheck <slug>  # re-run every check on the revision as it stands
  *   ... --sources <slug>  # read-only: check the live article's sourced statements against its source documents
  *   ... --discard <slug>  # drop the pending revision; the live article is untouched
+ *   ... --publish <slug>  # publish an approved draft: re-checked first, published only if it still passes
  *   ... --drafts          # list draft stories; with --recheck/--show/--edit, slugs that are drafts are handled as
  *                         # drafts (edited and re-checked in place; they are not live)
  *
@@ -20,7 +21,7 @@
  * current version in story_revisions and adds the reader-facing update note.
  */
 import {
-  applyRevision, discardRevision, editContent, editDraft, listDrafts, loadDraftContent, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
+  applyRevision, discardRevision, editContent, editDraft, listDrafts, loadDraftContent, publishDraft, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
   type CopyEdit,
 } from '@/lib/refresh-story';
 import type { StoryBlock } from '@/lib/story-types';
@@ -36,6 +37,7 @@ const recheckOnly = process.argv.includes('--recheck');
 const sourcesOnly = process.argv.includes('--sources');
 const discard = process.argv.includes('--discard');
 const draftsList = process.argv.includes('--drafts');
+const publish = process.argv.includes('--publish');
 const words = (t: string) => t.replace(/\[\^\d+\]/g, '').trim().split(/\s+/).filter(Boolean).length;
 const slugs = [
   ...process.argv.slice(2).filter((a) => !a.startsWith('--')),
@@ -69,6 +71,14 @@ async function main() {
         const r = await verifySourcedStatements(createClient(), data as never);
         log(`  ${r.checked} sourced statement(s) checked; ${r.issues.length} problem(s).`);
         for (const i of r.issues) log(`    - ${i}`);
+        continue;
+      }
+      if (publish) {
+        const extra = (process.env.REVISION_METRICS ?? '').split(/[\s,]+/).filter(Boolean);
+        const r = await publishDraft(slug, extra);
+        log(r.published ? '  Published (passed every check).' : `  Not published: held (${r.check.issues.length} issue(s)):`);
+        for (const i of r.published ? [] : r.check.issues) log(`    - ${i}`);
+        if (!r.published) failed++;
         continue;
       }
       // Drafts (held new articles) are shown, edited and re-checked in place.

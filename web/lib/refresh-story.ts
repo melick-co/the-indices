@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase-server';
-import { checkStory, draftStory, type PriorArticle } from '@/lib/generate-story';
+import { checkStory, draftStory, goLiveFromPitch, type PriorArticle } from '@/lib/generate-story';
 import type { StructuredStory } from '@/lib/article-from-pitch';
 import type { FoundryEvent } from '@/lib/foundry-agent';
 import type { FactCheck } from '@/lib/fact-check';
@@ -309,4 +309,21 @@ export async function startRevisionFromLive(slug: string) {
     story_id: row.story_id, status: 'pending', content: pick(row), check: null, note: 'Correction to the live copy',
   });
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Publish a held draft the editor has approved: re-check it first, and publish only if it still passes
+ * every check (data and sources can change between approval and publishing).
+ */
+export async function publishDraft(slug: string, extraMetrics: string[] = []): Promise<{ check: StoredCheck; published: boolean }> {
+  const row = await loadDraft(slug);
+  const check = await recheckDraft(slug, extraMetrics);
+  if (!check.ok) return { check, published: false };
+  if (row.pitch_id) await goLiveFromPitch(String(row.pitch_id));
+  else {
+    const now = new Date().toISOString();
+    const { error } = await createClient().from('stories').update({ status: 'published', published: now.slice(0, 10), updated_at: now }).eq('slug', slug);
+    if (error) throw new Error(error.message);
+  }
+  return { check, published: true };
 }
