@@ -43,6 +43,10 @@ on:
         description: 'story-revision-edit: metric ids the revised copy quotes, added to what the re-check audits against.'
         required: false
         default: ''
+      drop:
+        description: 'story-revision-edit on a draft: block positions to remove (as story-revision-show numbers them).'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -297,6 +301,7 @@ jobs:
           REVISION_NOTE: ${{ inputs.note }}
           REFRESH_BRIEF: ${{ inputs.brief }}
           REVISION_METRICS: ${{ inputs.metrics }}
+          REVISION_DROP: ${{ inputs.drop }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

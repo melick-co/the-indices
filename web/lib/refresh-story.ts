@@ -224,8 +224,13 @@ export async function loadDraftContent(slug: string): Promise<Content> {
 }
 
 /** Apply exact-text edits to a draft, then re-check it. */
-export async function editDraft(slug: string, edits: CopyEdit[], extraMetrics: string[] = []): Promise<StoredCheck> {
-  const edited = editContent(await loadDraftContent(slug), edits);
+export async function editDraft(slug: string, edits: CopyEdit[], extraMetrics: string[] = [], dropBlocks: number[] = []): Promise<StoredCheck> {
+  const content = await loadDraftContent(slug);
+  if (dropBlocks.length) {
+    const body = content.body as { blocks: unknown[] };
+    body.blocks = body.blocks.filter((_, i) => !dropBlocks.includes(i));
+  }
+  const edited = edits.length ? editContent(content, edits) : content;
   const { error } = await createClient().from('stories')
     .update({ ...pick(edited as Record<string, unknown>), updated_at: new Date().toISOString() }).eq('slug', slug);
   if (error) throw new Error(error.message);

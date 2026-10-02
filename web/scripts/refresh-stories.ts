@@ -85,12 +85,15 @@ async function main() {
             else if (b.type === 'layers') for (const t of b.items) log(`  ${i}. [layer] ${t}`);
             else if (b.type === 'quote') log(`  ${i}. [quote] "${b.text}" (${b.speaker})`);
             else if (b.type === 'heading' || b.type === 'pull') log(`  ${i}. [${b.type}] ${b.text}`);
+            else log(`  ${i}. [${(b as { type?: string }).type ?? 'unknown'}] ${JSON.stringify(b).slice(0, 160)}`);
           }
           for (const f of ((draft.evidence as { footnotes?: { n: number; text: string; url?: string }[] })?.footnotes ?? [])) log(`  [^${f.n}] ${f.text} ${f.url ?? '(no link)'}`);
           continue;
         }
         const edits = editMode ? JSON.parse(process.env.REVISION_EDITS || '[]') as CopyEdit[] : [];
-        const check = edits.length ? await editDraft(slug, edits, extra) : await recheckDraft(slug, extra);
+        // REVISION_DROP removes blocks by position (as --show numbers them), e.g. leftovers from an older format.
+        const drop = (process.env.REVISION_DROP ?? '').split(/[\s,]+/).filter(Boolean).map(Number);
+        const check = edits.length || drop.length ? await editDraft(slug, edits, extra, drop) : await recheckDraft(slug, extra);
         log(`  [draft] "${draft.title}"${edits.length ? ` (${edits.length} edit(s))` : ''}`);
         log(check.ok ? '  Passed every check.' : `  Held (${check.issues.length} issue(s)):`);
         for (const i of check.issues) log(`    - ${i}`);
