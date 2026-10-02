@@ -55,4 +55,18 @@ export const RBA_SERIES = [
     source_id: 'rba_stats',
     source_dataset: 'F17 10y zero-coupon',
   },
+  {
+    // The official mortgage-serviceability measure (Oct 2026), in place of industry affordability indices.
+    metric_id: 'housing_repayments_income_au',
+    file: 'e13-data.csv',
+    column: 'Payments; Housing; Total; Scheduled repayments to income',
+    name: 'Housing loan scheduled repayments to household disposable income',
+    unit: 'percent',
+    basis: 'Scheduled repayments on all housing loans / household disposable income (RBA E13, series LPHTSPRI)',
+    direction: 'higher_is_more_pressure',
+    category: 'households',
+    cadence: 'quarterly',
+    source_id: 'rba_stats',
+    source_dataset: 'E13 housing loan payments',
+  },
 ];

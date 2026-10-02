@@ -17,6 +17,7 @@ const dryRun = process.argv.includes('--dry-run');
 const RBA = 'https://www.rba.gov.au';
 const UA = { 'user-agent': 'Mozilla/5.0 (compatible; caveat-sources/0.1)' };
 const year = new Date().getUTCFullYear();
+const FIRST_YEAR = 2022;
 
 // ABS release pages the stored series come from; each lists its next release date.
 const ABS_RELEASES = [
@@ -44,17 +45,16 @@ async function links(indexUrl, pattern) {
 }
 
 async function main() {
-  const urls = [
-    // Monetary policy decisions and other media releases, this year and last.
-    ...(await links(`${RBA}/media-releases/${year}/`, /\/media-releases\/\d{4}\/mr-\d+-\d+\.html$/)),
-    ...(await links(`${RBA}/media-releases/${year - 1}/`, /\/media-releases\/\d{4}\/mr-\d+-\d+\.html$/)),
-    // Board minutes (the index lists future meetings too; those 404 and are skipped).
-    ...(await links(`${RBA}/monetary-policy/rba-board-minutes/${year}/`, /\/rba-board-minutes\/\d{4}\/\d{4}-\d{2}-\d{2}\.html$/)),
-    ...(await links(`${RBA}/monetary-policy/rba-board-minutes/${year - 1}/`, /\/rba-board-minutes\/\d{4}\/\d{4}-\d{2}-\d{2}\.html$/)),
-    // Speeches this year.
-    ...(await links(`${RBA}/speeches/${year}/`, /\/speeches\/\d{4}\/sp-[a-z0-9-]+\.html$/)),
-    ...ABS_RELEASES,
-  ];
+  // Decisions and minutes back to 2022 (the current tightening and easing cycles), speeches this year.
+  const years = Array.from({ length: year - FIRST_YEAR + 1 }, (_, i) => year - i);
+  const urls = [];
+  for (const y of years) {
+    urls.push(...await links(`${RBA}/media-releases/${y}/`, /\/media-releases\/\d{4}\/mr-\d+-\d+\.html$/));
+    // The minutes index lists future meetings too; those 404 and are skipped.
+    urls.push(...await links(`${RBA}/monetary-policy/rba-board-minutes/${y}/`, /\/rba-board-minutes\/\d{4}\/\d{4}-\d{2}-\d{2}\.html$/));
+  }
+  urls.push(...await links(`${RBA}/speeches/${year}/`, /\/speeches\/\d{4}\/sp-[a-z0-9-]+\.html$/));
+  urls.push(...ABS_RELEASES);
   console.log(`${urls.length} candidate documents`);
   if (dryRun) { for (const u of urls) console.log(`  ${u}`); return; }
 

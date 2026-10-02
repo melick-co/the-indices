@@ -237,7 +237,8 @@ Rules (in addition to the house style):
   page it came from. Anything stored data cannot show (what minutes, statements or speeches said; scheduled
   release or meeting dates; events) needs [^n] on its sentence pointing at that page; if you have no URL for
   it, leave the claim out. These statements are checked against the cited page's text, so say only what the
-  page says. A footnote's text is a citation only (publisher, title, number, date), never a claim.
+  page says. A footnote's text is a citation only (publisher, title, number, date), never a claim. Each timeline
+  event cites the release for that event (that decision's own RBA media release, say), not a later document.
 - Quotes: only text that appears word for word on source_url (from the research notes). It is checked; an
   unverifiable quote is removed. If the research found no such quote, include no quote block.
 - Every number in the copy must be a stored value (or a change between stored periods, a gap to a peer, or a
@@ -387,8 +388,8 @@ ${prior.text.slice(0, 8000)}
 </published_article>
 
 This is a refresh of the article above, published ${prior.published}. Rewrite it in the house news style with
-the latest stored data. Keep its finding if the data still supports it; if newer data changes the finding, the
-new copy says so plainly. Do not mention that the article was rewritten; the page carries an update note.`;
+the latest stored data. Keep its finding, and lead the headline with it, if the data still supports it; if newer
+data changes the finding, the new copy says so plainly. Every footnote keeps a url to the exact page. Do not mention that the article was rewritten; the page carries an update note.`;
 }
 
 /** Research, write and check an article for a pitch, with revision rounds. Saves nothing. */
