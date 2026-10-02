@@ -430,7 +430,7 @@ export async function draftStory(
   pitch: Record<string, unknown>,
   onEvent: (event: FoundryEvent) => void,
   opts: PublishOptions & { prior?: PriorArticle },
-): Promise<{ story: StructuredStory; check: FactCheck }> {
+): Promise<{ story: StructuredStory; check: FactCheck; ids: Set<string> }> {
   onEvent({ type: 'tool_start', name: 'load', label: 'Loading pitch and metrics', at: new Date().toISOString() });
 
   const metricIds = [
@@ -510,7 +510,7 @@ export async function draftStory(
     if (round === rounds && rounds === MAX_REVISIONS && !check.ok && styleOnly()) rounds++;
   }
   if (!check.ok && rounds) check.issues.unshift(`not fixed after ${rounds} revision round(s):`);
-  return { story, check };
+  return { story, check, ids: checkedIds };
 }
 
 export async function publishStoryFromPitch(
@@ -532,7 +532,8 @@ export async function publishStoryFromPitch(
     throw new Error(`Story already published at /stories/${existing.slug}`);
   }
 
-  const { story, check } = await draftStory(supabase, pitch, onEvent, opts);
+  const { story, check, ids } = await draftStory(supabase, pitch, onEvent, opts);
+  const checkedIdsForSave = ids;
 
   const slug = existing?.slug ?? await uniqueSlug(story.slug_hint || story.title);
   const now = new Date().toISOString();
@@ -549,7 +550,7 @@ export async function publishStoryFromPitch(
       caveat: story.caveat,
       published: today,
       one_number: story.one_number,
-      evidence: story.evidence,
+      evidence: { ...story.evidence, metric_ids: [...checkedIdsForSave] },
       body: story.body,
       frame_check: Boolean(story.frame_check),
       updated_at: now,
@@ -565,7 +566,7 @@ export async function publishStoryFromPitch(
       caveat: story.caveat,
       published: today,
       one_number: story.one_number,
-      evidence: story.evidence,
+      evidence: { ...story.evidence, metric_ids: [...checkedIdsForSave] },
       body: story.body,
       frame_check: Boolean(story.frame_check),
     });

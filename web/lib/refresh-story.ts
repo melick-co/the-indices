@@ -66,7 +66,7 @@ export async function refreshStory(
     text: bodyText(((row.body as { blocks?: StoryBlock[] })?.blocks) ?? []),
     brief: brief?.trim() || undefined,
   };
-  const { story, check } = await draftStory(db, pitch, onEvent, { audit: true, prior });
+  const { story, check, ids } = await draftStory(db, pitch, onEvent, { audit: true, prior });
 
   const content: Content = {
     kicker: story.kicker,
@@ -74,7 +74,7 @@ export async function refreshStory(
     hook: story.hook,
     caveat: story.caveat,
     one_number: story.one_number,
-    evidence: story.evidence,
+    evidence: { ...story.evidence, metric_ids: [...ids] },
     body: story.body,
     frame_check: Boolean(story.frame_check),
     metric_ids_used: story.metric_ids_used ?? [],
@@ -141,8 +141,12 @@ async function pitchMetricIds(pitchId: string | null): Promise<string[]> {
  */
 async function recheck(content: Content, pitchId: string | null): Promise<{ content: Content; check: StoredCheck }> {
   const db = createClient();
-  const draft = { ...(content as unknown as StructuredStory), slug_hint: '', generation_note: '', metric_ids_used: content.metric_ids_used ?? [] };
-  const { check } = await checkStory(db, draft, { metricIds: await pitchMetricIds(pitchId), audit: true });
+  // Series the copy quotes: kept on the revision and in evidence.metric_ids (saved with every article since Oct 2026).
+  const saved = ((content.evidence as { metric_ids?: string[] } | null)?.metric_ids) ?? [];
+  const used = [...new Set([...(content.metric_ids_used ?? []), ...saved])];
+  const draft = { ...(content as unknown as StructuredStory), slug_hint: '', generation_note: '', metric_ids_used: used };
+  const { check, ids } = await checkStory(db, draft, { metricIds: await pitchMetricIds(pitchId), audit: true });
+  draft.evidence = { ...draft.evidence, metric_ids: [...ids] };
   return {
     content: pickRevision(draft as unknown as Record<string, unknown>),
     check: { ok: check.ok, issues: check.issues, warnings: check.warnings ?? [], checked_at: new Date().toISOString() },

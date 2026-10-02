@@ -208,8 +208,13 @@ function sanitiseEvidence(evidence: StoryEvidence): StoryEvidence {
       rows: evidence.table.rows.map((r) => r.map((c) => c ?? '')),
     }
     : undefined;
-  if (table && !table.head.length) return { sources };
-  return { table, sources };
+  // Keep footnotes and the quoted metric ids: the desk edits sources and the table, not these.
+  const kept = {
+    ...(evidence.footnotes ? { footnotes: evidence.footnotes } : {}),
+    ...(evidence.metric_ids?.length ? { metric_ids: evidence.metric_ids } : {}),
+  };
+  if (table && !table.head.length) return { sources, ...kept };
+  return { table, sources, ...kept };
 }
 
 function sanitiseBody(body: StoryBody): StoryBody {

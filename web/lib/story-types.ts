@@ -21,6 +21,8 @@ export interface StoryEvidence {
   table?: { head: string[]; rows: string[][] };
   sources: SourceRow[];
   footnotes?: Footnote[];
+  /** Stored metric ids the copy quotes, so later re-checks audit against the same series. Not rendered. */
+  metric_ids?: string[];
 }
 
 export interface StoryOneNumber {
