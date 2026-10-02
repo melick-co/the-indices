@@ -80,13 +80,17 @@ async function main() {
           log(`  Deck (${words(String(draft.hook))} words): ${draft.hook}`);
           for (const [i, b] of ((draft.body as { blocks?: StoryBlock[] })?.blocks ?? []).entries()) {
             if (b.type === 'paragraph') log(`  ${i}. [${b.role ?? 'p'}] (${words(b.text)}w) ${b.text}`);
-            else if (b.type === 'chart') log(`  ${i}. [chart] ${b.title ?? ''}`);
-            else if (b.type === 'timeline') for (const ev of b.events) log(`  ${i}. [timeline] ${ev.date}: ${ev.label}`);
+            else if (b.type === 'chart') log(`  ${i}. [chart ^${b.footnote ?? '-'}] ${b.title ?? ''}`);
+            else if (b.type === 'timeline') for (const ev of b.events) log(`  ${i}. [timeline ^${ev.footnote ?? '-'}] ${ev.date}: ${ev.label}`);
             else if (b.type === 'layers') for (const t of b.items) log(`  ${i}. [layer] ${t}`);
             else if (b.type === 'quote') log(`  ${i}. [quote] "${b.text}" (${b.speaker})`);
             else if (b.type === 'heading' || b.type === 'pull') log(`  ${i}. [${b.type}] ${b.text}`);
             else log(`  ${i}. [${(b as { type?: string }).type ?? 'unknown'}] ${JSON.stringify(b).slice(0, 160)}`);
           }
+          const table = (draft.evidence as { table?: { head: string[]; rows: string[][] } })?.table;
+          if (table) { log(`  [table] ${table.head.join(' | ')}`); table.rows.forEach((r, i) => log(`  [row ${i + 1}] ${r.join(' | ')}`)); }
+          const one = draft.one_number as { value?: string; label?: string; footnote?: number } | null;
+          if (one) log(`  [one_number ^${one.footnote ?? '-'}] ${one.value} ${one.label}`);
           for (const f of ((draft.evidence as { footnotes?: { n: number; text: string; url?: string }[] })?.footnotes ?? [])) log(`  [^${f.n}] ${f.text} ${f.url ?? '(no link)'}`);
           continue;
         }

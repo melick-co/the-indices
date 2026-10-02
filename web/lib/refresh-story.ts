@@ -278,7 +278,7 @@ export function editContent(content: Content, edits: CopyEdit[]): Content {
       const joined = r.map((c) => String(c ?? '')).join(' | ');
       const edited = edit(joined) as string;
       return (edited !== joined ? edited.split(' | ') : r).map(edit);
-    });
+    }).filter((r) => r.some((c) => String(c ?? '').trim()));  // a row edited to nothing is removed
   }
   // Footnotes too: a wrong source link or citation is corrected the same way.
   // A footnote's link can be targeted on its own as "[^n] <url>", for when two footnotes share a link.
