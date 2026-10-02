@@ -41,6 +41,7 @@ async function loadPublished(slug: string) {
 export async function refreshStory(
   slug: string,
   onEvent: (event: FoundryEvent) => void,
+  brief?: string,
 ): Promise<{ revisionId: string; title: string; check: FactCheck }> {
   const db = createClient();
   // Fail before the (slow) rewrite if the revisions table is missing (agent/supabase/32_story_revisions.sql).
@@ -56,6 +57,7 @@ export async function refreshStory(
     hook: String(row.hook),
     published: String(row.published),
     text: bodyText(((row.body as { blocks?: StoryBlock[] })?.blocks) ?? []),
+    brief: brief?.trim() || undefined,
   };
   const { story, check } = await draftStory(db, pitch, onEvent, { audit: true, prior });
 

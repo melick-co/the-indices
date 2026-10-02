@@ -11,6 +11,7 @@
  *   ... --sources <slug>  # read-only: check the live article's sourced statements against its source documents
  *   ... --discard <slug>  # drop the pending revision; the live article is untouched
  *
+ * A refresh takes an editor's brief from REFRESH_BRIEF (e.g. a correction that reverses the finding).
  * Slugs may also come from STORY_SLUGS (space or comma separated). A refresh never changes the live
  * article: it saves a pending revision to preview at /stories/<slug>?revision=1. Applying archives the
  * current version in story_revisions and adds the reader-facing update note.
@@ -96,7 +97,7 @@ async function main() {
         log(`  Applied: "${r.title}"`);
         continue;
       }
-      const r = await refreshStory(slug, onEvent);
+      const r = await refreshStory(slug, onEvent, process.env.REFRESH_BRIEF);
       log(`  Revision ${r.revisionId}: "${r.title}"`);
       log(`  Preview: /stories/${slug}?revision=1`);
       if (r.check.ok) log('  Passed every check.');

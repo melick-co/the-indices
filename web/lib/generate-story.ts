@@ -236,7 +236,8 @@ Rules (in addition to the house style):
   filings, statements). Number footnotes in order of first appearance. Every footnote has the "url" of the exact
   page it came from. Anything stored data cannot show (what minutes, statements or speeches said; scheduled
   release or meeting dates; events) needs [^n] on its sentence pointing at that page; if you have no URL for
-  it, leave the claim out. These statements are checked against the cited page's text, so say only what the
+  it, leave the claim out. Cite figures to the statistical table or release they come from, and events (a
+  rate decision, say) to the release that announced them. These statements are checked against the cited page's text, so say only what the
   page says. A footnote's text is a citation only (publisher, title, number, date), never a claim. Each timeline
   event cites the release for that event (that decision's own RBA media release, say), not a later document.
 - Quotes: only text that appears word for word on source_url (from the research notes). It is checked; an
@@ -375,7 +376,11 @@ export async function checkStory(supabase: SupabaseClient, draft: StructuredStor
 }
 
 /** A published article being refreshed: the writer keeps its finding unless newer data changes it. */
-export type PriorArticle = { title: string; hook: string; published: string; text: string };
+export type PriorArticle = {
+  title: string; hook: string; published: string; text: string;
+  /** The editor's instructions for this refresh (e.g. a correction that reverses the finding); they win. */
+  brief?: string;
+};
 
 function priorArticleBrief(prior: PriorArticle) {
   return `
@@ -389,7 +394,13 @@ ${prior.text.slice(0, 8000)}
 
 This is a refresh of the article above, published ${prior.published}. Rewrite it in the house news style with
 the latest stored data. Keep its finding, and lead the headline with it, if the data still supports it; if newer
-data changes the finding, the new copy says so plainly. Every footnote keeps a url to the exact page. Do not mention that the article was rewritten; the page carries an update note.`;
+data changes the finding, the new copy says so plainly. Every footnote keeps a url to the exact page. Do not mention that the article was rewritten; the page carries an update note.${prior.brief ? `
+
+<editor_brief>
+${prior.brief}
+</editor_brief>
+
+Follow the editor's brief. Where it conflicts with the instructions above, the brief wins.` : ''}`;
 }
 
 /** Research, write and check an article for a pitch, with revision rounds. Saves nothing. */

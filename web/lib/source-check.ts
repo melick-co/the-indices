@@ -39,6 +39,10 @@ export function inSource(evidence: string, bodies: string[]): boolean {
   return fragments.length > 0 && fragments.every((f) => docs.some((b) => b.includes(bare(f))));
 }
 
+// Statistical tables and data APIs: their figures are checked against stored data by the claim audit, and
+// the pages themselves are lists of files, not text to check statements against.
+const DATA_TABLE = /rba\.gov\.au\/statistics\/tables|data\.api\.abs\.gov\.au|explore\.data\.abs\.gov\.au|data-explorer\.oecd\.org|sdmx\.oecd\.org|data\.imf\.org|stats\.bis\.org|data\.worldbank\.org/i;
+
 /** Sourced statements and dated events in the article, with the footnotes they cite. */
 function claimsOf(story: Checkable): Claim[] {
   const out: Claim[] = [];
@@ -86,7 +90,7 @@ export async function verifySourcedStatements(
   // Load each cited document once.
   const docs = new Map<string, Doc | { error: string }>();
   for (const url of new Set(claims.flatMap((c) => c.footnotes.map((n) => urlOf.get(n) ?? '')))) {
-    if (url) docs.set(url, await ensureDocument(db, url) as Doc | { error: string });
+    if (url && !DATA_TABLE.test(url)) docs.set(url, await ensureDocument(db, url) as Doc | { error: string });
   }
   const unreadable = new Set<string>();
   for (const [url, d] of docs) {
@@ -94,7 +98,7 @@ export async function verifySourcedStatements(
   }
 
   const checkable = claims
-    .map((c) => ({ ...c, docs: c.footnotes.map((n) => urlOf.get(n) ?? '').filter((u) => u && !unreadable.has(u)) }))
+    .map((c) => ({ ...c, docs: c.footnotes.map((n) => urlOf.get(n) ?? '').filter((u) => u && !unreadable.has(u) && !DATA_TABLE.test(u)) }))
     .filter((c) => c.docs.length);
   if (!checkable.length) return { issues, checked: 0 };
 
