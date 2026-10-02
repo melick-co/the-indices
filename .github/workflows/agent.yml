@@ -8,17 +8,20 @@ on:
     - cron: '15 9 * * *'
     - cron: '30 21 * * *'
     - cron: '30 9 * * *'
-    - cron: '30 20 * * *'
-    - cron: '0 2 * * *'
-    - cron: '0 14 * * *'
-    - cron: '0 22 * * *'
-    - cron: '0 3 * * *'
+    - cron: '37 13 * * *'
+    - cron: '7 2 * * *'
+    - cron: '7 11 * * *'
+    - cron: '7 16 * * *'
+    # Scheduled runs often start hours late (worst seen: 6.5h), so the article chain runs from mid-afternoon UTC
+    # (sources 02:07, scout 03:07, trending 11:07, daily 13:37, articles 16:07 = 3am Sydney) and lands before
+    # breakfast even when delayed. Odd minutes avoid the top-of-hour queue.
+    - cron: '7 3 * * *'
   workflow_dispatch:
     inputs:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-drafts, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, story-refresh(-apply): story slug(s). Space separated.'
@@ -98,7 +101,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' &&
       (inputs.task == 'trending' || inputs.task == 'trending-review' || inputs.task == 'both') ||
-      github.event_name == 'schedule' && github.event.schedule == '0 14 * * *'
+      github.event_name == 'schedule' && github.event.schedule == '7 11 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -153,7 +156,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' &&
       (inputs.task == 'daily' || inputs.task == 'both') ||
-      github.event_name == 'schedule' && github.event.schedule == '30 20 * * *'
+      github.event_name == 'schedule' && github.event.schedule == '37 13 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -229,11 +232,11 @@ jobs:
 
   articles:
     # Daily auto-articles from all-5 pitches (web/scripts/auto-articles.ts).
-    # 22:00 UTC is 8am Sydney, after the morning daily taste run.
+    # 16:07 UTC (3am Sydney), after the daily taste run, so articles land by breakfast despite schedule delays.
     if: >-
       github.event_name == 'workflow_dispatch' &&
       (inputs.task == 'articles' || inputs.task == 'articles-dry-run' || inputs.task == 'articles-draft') ||
-      github.event_name == 'schedule' && github.event.schedule == '0 22 * * *'
+      github.event_name == 'schedule' && github.event.schedule == '7 16 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     defaults:
@@ -270,7 +273,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' &&
       (inputs.task == 'story-refresh' || inputs.task == 'story-refresh-apply' || startsWith(inputs.task, 'story-revision-')
-        || inputs.task == 'story-sources')
+        || inputs.task == 'story-sources' || inputs.task == 'story-drafts')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     defaults:
@@ -287,7 +290,7 @@ jobs:
           npx tsx --import ./scripts/node-shims.mjs scripts/refresh-stories.ts
           ${{ inputs.task == 'story-refresh-apply' && '--apply' || inputs.task == 'story-revision-show' && '--show'
           || inputs.task == 'story-revision-edit' && '--edit' || inputs.task == 'story-revision-recheck' && '--recheck'
-          || inputs.task == 'story-sources' && '--sources' || inputs.task == 'story-revision-discard' && '--discard' || '' }}
+          || inputs.task == 'story-sources' && '--sources' || inputs.task == 'story-revision-discard' && '--discard' || inputs.task == 'story-drafts' && '--drafts' || '' }}
         env:
           STORY_SLUGS: ${{ inputs.pitch }}
           REVISION_EDITS: ${{ inputs.edits }}
@@ -301,11 +304,11 @@ jobs:
 
   scout:
     # Daily source scout (agent/scripts/scout-sources.mjs): adopt official series that
-    # research suggested or pitches keep asking for, load them, re-link pitches. 03:00 UTC.
+    # research suggested or pitches keep asking for, load them, re-link pitches. 03:07 UTC.
     if: >-
       github.event_name == 'workflow_dispatch' &&
       (inputs.task == 'scout' || inputs.task == 'scout-dry-run') ||
-      github.event_name == 'schedule' && github.event.schedule == '0 3 * * *'
+      github.event_name == 'schedule' && github.event.schedule == '7 3 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     defaults:
@@ -378,7 +381,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' &&
       (inputs.task == 'sources' || inputs.task == 'both' || inputs.task == 'documents') ||
-      github.event_name == 'schedule' && github.event.schedule == '0 2 * * *'
+      github.event_name == 'schedule' && github.event.schedule == '7 2 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:

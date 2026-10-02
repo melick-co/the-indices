@@ -11,6 +11,8 @@
  *   ... --recheck <slug>  # re-run every check on the revision as it stands
  *   ... --sources <slug>  # read-only: check the live article's sourced statements against its source documents
  *   ... --discard <slug>  # drop the pending revision; the live article is untouched
+ *   ... --drafts          # list draft stories; with --recheck/--show/--edit, slugs that are drafts are handled as
+ *                         # drafts (edited and re-checked in place; they are not live)
  *
  * A refresh takes an editor's brief from REFRESH_BRIEF (e.g. a correction that reverses the finding).
  * Slugs may also come from STORY_SLUGS (space or comma separated). A refresh never changes the live
@@ -18,7 +20,7 @@
  * current version in story_revisions and adds the reader-facing update note.
  */
 import {
-  applyRevision, discardRevision, editContent, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
+  applyRevision, discardRevision, editContent, editDraft, listDrafts, loadDraftContent, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
   type CopyEdit,
 } from '@/lib/refresh-story';
 import type { StoryBlock } from '@/lib/story-types';
@@ -33,6 +35,7 @@ const editMode = process.argv.includes('--edit');
 const recheckOnly = process.argv.includes('--recheck');
 const sourcesOnly = process.argv.includes('--sources');
 const discard = process.argv.includes('--discard');
+const draftsList = process.argv.includes('--drafts');
 const words = (t: string) => t.replace(/\[\^\d+\]/g, '').trim().split(/\s+/).filter(Boolean).length;
 const slugs = [
   ...process.argv.slice(2).filter((a) => !a.startsWith('--')),
@@ -45,6 +48,12 @@ const onEvent = (e: FoundryEvent) => {
 };
 
 async function main() {
+  if (draftsList && !slugs.length) {
+    const drafts = await listDrafts();
+    log(`${drafts.length} draft(s):`);
+    for (const d of drafts) log(`  ${d.slug}  (${String(d.updated_at).slice(0, 10)})  ${d.title}`);
+    return;
+  }
   if (!slugs.length) throw new Error('Name at least one story slug');
   let failed = 0;
   for (const slug of slugs) {
@@ -60,6 +69,29 @@ async function main() {
         const r = await verifySourcedStatements(createClient(), data as never);
         log(`  ${r.checked} sourced statement(s) checked; ${r.issues.length} problem(s).`);
         for (const i of r.issues) log(`    - ${i}`);
+        continue;
+      }
+      // Drafts (held new articles) are shown, edited and re-checked in place.
+      const draft = (show || editMode || recheckOnly) ? await loadDraftContent(slug).catch(() => null) : null;
+      if (draft) {
+        const extra = (process.env.REVISION_METRICS ?? '').split(/[\s,]+/).filter(Boolean);
+        if (show) {
+          log(`  [draft] ${draft.title} (${words(String(draft.title))} words)`);
+          log(`  Deck (${words(String(draft.hook))} words): ${draft.hook}`);
+          for (const b of ((draft.body as { blocks?: StoryBlock[] })?.blocks ?? [])) {
+            if (b.type === 'paragraph') log(`  [${b.role ?? 'p'}] (${words(b.text)}w) ${b.text}`);
+            else if (b.type === 'chart') log(`  [chart] ${b.title ?? ''}`);
+            else if (b.type === 'timeline') for (const ev of b.events) log(`  [timeline] ${ev.date}: ${ev.label}`);
+          }
+          for (const f of ((draft.evidence as { footnotes?: { n: number; text: string; url?: string }[] })?.footnotes ?? [])) log(`  [^${f.n}] ${f.text} ${f.url ?? '(no link)'}`);
+          continue;
+        }
+        const edits = editMode ? JSON.parse(process.env.REVISION_EDITS || '[]') as CopyEdit[] : [];
+        const check = edits.length ? await editDraft(slug, edits, extra) : await recheckDraft(slug, extra);
+        log(`  [draft] "${draft.title}"${edits.length ? ` (${edits.length} edit(s))` : ''}`);
+        log(check.ok ? '  Passed every check.' : `  Held (${check.issues.length} issue(s)):`);
+        for (const i of check.issues) log(`    - ${i}`);
+        for (const w of check.warnings) log(`    ~ ${w}`);
         continue;
       }
       if (show) {

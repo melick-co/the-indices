@@ -189,15 +189,43 @@ export async function discardRevision(slug: string) {
 }
 
 /** Re-check a draft story in place after editing (charts refilled, unverifiable quotes removed). */
-export async function recheckDraft(slug: string): Promise<StoredCheck> {
+export async function recheckDraft(slug: string, extraMetrics: string[] = []): Promise<StoredCheck> {
   const db = createClient();
-  const { data: row } = await db.from('stories').select('*').eq('slug', slug).maybeSingle();
-  if (!row) throw new Error(`No database story at /stories/${slug}`);
-  if (row.status !== 'draft') throw new Error(`/stories/${slug} is ${row.status}; re-check applies to drafts and revisions`);
-  const { content, check } = await recheck(pick(row), row.pitch_id);
-  const { error } = await db.from('stories').update({ ...content, updated_at: new Date().toISOString() }).eq('slug', slug);
+  const row = await loadDraft(slug);
+  const { content, check } = await recheck({ ...pick(row), metric_ids_used: extraMetrics }, row.pitch_id as string | null);
+  // Only the article columns go back on the story row (metric ids live on revisions, not stories).
+  const { error } = await db.from('stories').update({ ...pick(content as Record<string, unknown>), updated_at: new Date().toISOString() }).eq('slug', slug);
   if (error) throw new Error(error.message);
   return check;
+}
+
+async function loadDraft(slug: string) {
+  const { data: row } = await createClient().from('stories').select('*').eq('slug', slug).maybeSingle();
+  if (!row) throw new Error(`No database story at /stories/${slug}`);
+  if (row.status !== 'draft') throw new Error(`/stories/${slug} is ${row.status}, not a draft`);
+  return row as Record<string, unknown>;
+}
+
+/** Draft stories awaiting the editor, newest first. */
+export async function listDrafts() {
+  const { data, error } = await createClient().from('stories')
+    .select('slug, title, updated_at, pitch_id').eq('status', 'draft').order('updated_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/** A draft's copy, in the same shape as a revision's. */
+export async function loadDraftContent(slug: string): Promise<Content> {
+  return pick(await loadDraft(slug));
+}
+
+/** Apply exact-text edits to a draft, then re-check it. */
+export async function editDraft(slug: string, edits: CopyEdit[], extraMetrics: string[] = []): Promise<StoredCheck> {
+  const edited = editContent(await loadDraftContent(slug), edits);
+  const { error } = await createClient().from('stories')
+    .update({ ...pick(edited as Record<string, unknown>), updated_at: new Date().toISOString() }).eq('slug', slug);
+  if (error) throw new Error(error.message);
+  return recheckDraft(slug, extraMetrics);
 }
 
 /** A find-and-replace on a revision's copy (headline, deck, paragraphs, chart and timeline text). */
