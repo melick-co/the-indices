@@ -281,6 +281,83 @@ export type PublishOptions = {
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
+const unlabel = (t: string) => t.replace(/^\s*(?:lede|nut graf|layer \d+|context|closing)\s*:\s*/i, '');
+
+export type CheckContext = {
+  /** Metrics the pitch links; the copy may quote them. */
+  metricIds: string[];
+  /** Metrics the research step read. */
+  queried?: Set<string>;
+  /** Run the claim audit (needs ANTHROPIC_API_KEY). */
+  audit?: boolean;
+  onEvent?: (event: FoundryEvent) => void;
+};
+
+/**
+ * Every publishing check, without rewriting: normalise ids, drop unverifiable quotes, build charts and
+ * the hero number from the store, check figures and house style, and audit claims. Mutates `draft`.
+ */
+export async function checkStory(supabase: SupabaseClient, draft: StructuredStory, ctx: CheckContext) {
+  const known = await loadKnownMetrics(supabase);
+  const canonical = (id?: string) => (id ? canonicalMetricId(id, known) : id);
+  const onEvent = ctx.onEvent ?? (() => {});
+  const metricIds = ctx.metricIds;
+  const queried = ctx.queried ?? new Set<string>();
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  const opts = { audit: ctx.audit };
+
+  for (const b of draft.body?.blocks ?? []) {
+    const c = b as StoryChartBlock;
+    if (c.type === 'chart' && c.data) {
+      c.data.metric_id = canonical(c.data.metric_id)!;
+      if (c.data.alt_metric_id) c.data.alt_metric_id = canonical(c.data.alt_metric_id);
+    }
+  }
+  draft.metric_ids_used = normaliseMetricIds(draft.metric_ids_used ?? [], known).linked;
+  draft.body = {
+    blocks: (draft.body?.blocks ?? []).map((b) =>
+      b.type === 'layers' ? { ...b, items: b.items.map(unlabel) }
+        : 'text' in b && typeof b.text === 'string' ? { ...b, text: unlabel(b.text) } : b),
+  };
+  // Quotes run only if found word for word on their source page; unverifiable ones are removed.
+  const quotes = await verifyQuotes(draft.body.blocks);
+  for (const d of quotes.dropped) onEvent({ type: 'tool_result', name: 'quotes', label: `Quote removed: ${d}`, at: new Date().toISOString() });
+  const bound = await bindStoryCharts(supabase, splitLongParagraphs(quotes.blocks));
+  draft.body = { blocks: bound.blocks };
+  if (draft.one_number?.metric_id) draft.one_number.metric_id = canonical(draft.one_number.metric_id);
+  const hero = await bindOneNumber(supabase, draft.one_number);
+  if (hero.one) draft.one_number = hero.one;
+  const ids = new Set(metricIds);
+  if (draft.one_number?.metric_id && !hero.issue) ids.add(draft.one_number.metric_id);
+  for (const id of draft.metric_ids_used ?? []) ids.add(id);
+  for (const id of normaliseMetricIds([...queried], known).linked) ids.add(id);
+  for (const id of bound.chartMetricIds) ids.add(id);
+  const result = await factCheckStory(supabase, draft, [...ids]);
+  result.issues.unshift(...bound.issues, ...(hero.issue ? [hero.issue] : []));
+  // House news style (NEWS-STYLE.md): MUST items block; the rest are warnings for the editor.
+  const style = checkStyle(draft);
+  result.issues.push(...style.issues.map((i) => `style: ${i}`));
+  result.warnings = style.warnings;
+  const figuresOk = result.ok && bound.issues.length === 0 && !hero.issue;
+  result.ok = figuresOk && style.ok;
+
+  // Figures exist in the data; now check each claim uses them truthfully. Runs even when only
+  // style failed, so a held draft reaches the editor with its claims already audited.
+  if (figuresOk && apiKey && opts.audit) {
+    onEvent({ type: 'tool_start', name: 'audit', label: 'Auditing every claim against stored data', at: new Date().toISOString() });
+    try {
+      const audit = await auditClaims(supabase, draft, [...ids]);
+      result.claims = audit.claims;
+      for (const c of audit.unsupported) result.issues.push(`claim not supported by stored data: "${c.claim}" (${c.evidence})`);
+      result.ok = result.ok && audit.ok;
+    } catch (e) {
+      result.ok = false;
+      result.issues.push(`claim audit failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return { check: result, ids };
+}
+
 /** A published article being refreshed: the writer keeps its finding unless newer data changes it. */
 export type PriorArticle = { title: string; hook: string; published: string; text: string };
 
@@ -359,65 +436,9 @@ export async function draftStory(
   // Charts take their values from the store, then every figure is checked against it.
   onEvent({ type: 'tool_start', name: 'check', label: 'Building charts from stored data and checking figures', at: new Date().toISOString() });
   // Models still reach for old metric names (e.g. trimmed_mean_cpi); map them to real ids.
-  const known = await loadKnownMetrics(supabase);
-  const canonical = (id?: string) => (id ? canonicalMetricId(id, known) : id);
-  const unlabel = (t: string) => t.replace(/^\s*(?:lede|nut graf|layer \d+|context|closing)\s*:\s*/i, '');
 
-  /** Normalise ids, build charts from the store, then check figures and audit claims. */
-  const checkStory = async (draft: StructuredStory) => {
-    for (const b of draft.body?.blocks ?? []) {
-      const c = b as StoryChartBlock;
-      if (c.type === 'chart' && c.data) {
-        c.data.metric_id = canonical(c.data.metric_id)!;
-        if (c.data.alt_metric_id) c.data.alt_metric_id = canonical(c.data.alt_metric_id);
-      }
-    }
-    draft.metric_ids_used = normaliseMetricIds(draft.metric_ids_used ?? [], known).linked;
-    draft.body = {
-      blocks: (draft.body?.blocks ?? []).map((b) =>
-        b.type === 'layers' ? { ...b, items: b.items.map(unlabel) }
-          : 'text' in b && typeof b.text === 'string' ? { ...b, text: unlabel(b.text) } : b),
-    };
-    // Quotes run only if found word for word on their source page; unverifiable ones are removed.
-    const quotes = await verifyQuotes(draft.body.blocks);
-    for (const d of quotes.dropped) onEvent({ type: 'tool_result', name: 'quotes', label: `Quote removed: ${d}`, at: new Date().toISOString() });
-    const bound = await bindStoryCharts(supabase, splitLongParagraphs(quotes.blocks));
-    draft.body = { blocks: bound.blocks };
-    if (draft.one_number?.metric_id) draft.one_number.metric_id = canonical(draft.one_number.metric_id);
-    const hero = await bindOneNumber(supabase, draft.one_number);
-    if (hero.one) draft.one_number = hero.one;
-    const ids = new Set(metricIds);
-    if (draft.one_number?.metric_id && !hero.issue) ids.add(draft.one_number.metric_id);
-    for (const id of draft.metric_ids_used ?? []) ids.add(id);
-    for (const id of normaliseMetricIds([...queried], known).linked) ids.add(id);
-    for (const id of bound.chartMetricIds) ids.add(id);
-    const result = await factCheckStory(supabase, draft, [...ids]);
-    result.issues.unshift(...bound.issues, ...(hero.issue ? [hero.issue] : []));
-    // House news style (NEWS-STYLE.md): MUST items block; the rest are warnings for the editor.
-    const style = checkStyle(draft);
-    result.issues.push(...style.issues.map((i) => `style: ${i}`));
-    result.warnings = style.warnings;
-    const figuresOk = result.ok && bound.issues.length === 0 && !hero.issue;
-    result.ok = figuresOk && style.ok;
-
-    // Figures exist in the data; now check each claim uses them truthfully. Runs even when only
-    // style failed, so a held draft reaches the editor with its claims already audited.
-    if (figuresOk && apiKey && opts.audit) {
-      onEvent({ type: 'tool_start', name: 'audit', label: 'Auditing every claim against stored data', at: new Date().toISOString() });
-      try {
-        const audit = await auditClaims(supabase, draft, [...ids]);
-        result.claims = audit.claims;
-        for (const c of audit.unsupported) result.issues.push(`claim not supported by stored data: "${c.claim}" (${c.evidence})`);
-        result.ok = result.ok && audit.ok;
-      } catch (e) {
-        result.ok = false;
-        result.issues.push(`claim audit failed: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-    return { check: result, ids };
-  };
-
-  let { check, ids: checkedIds } = await checkStory(story);
+  const ctx: CheckContext = { metricIds, queried, audit: opts.audit, onEvent };
+  let { check, ids: checkedIds } = await checkStory(supabase, story, ctx);
 
   // Up to MAX_REVISIONS rounds: correct or drop what the checks could not support, then check again.
   // One extra round when the draft is nearly there (only style items, or at most three items of any
@@ -428,7 +449,7 @@ export async function draftStory(
     onEvent({ type: 'tool_start', name: 'revise', label: `Revision ${round}: ${check.issues.length} item(s) to fix`, at: new Date().toISOString() });
     try {
       const revised = await reviseForChecks(supabase, story, check.issues, [...checkedIds], loadNewsStyle());
-      const next = await checkStory(revised);
+      const next = await checkStory(supabase, revised, ctx);
       story = revised;
       check = next.check;
       checkedIds = next.ids;

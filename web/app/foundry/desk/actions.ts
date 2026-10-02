@@ -13,6 +13,9 @@ import type {
   StoryOneNumber,
 } from '@/lib/story-types';
 import { attachGeneratedArt, isStaticStorySlug, parseStoryArt } from '@/lib/story-art';
+import {
+  applyRevision, discardRevision, recheckDraft, recheckRevision, saveRevisionContent, type StoredCheck,
+} from '@/lib/refresh-story';
 
 function revalidateStory(slug: string) {
   revalidatePath('/');
@@ -286,10 +289,8 @@ export async function saveStoryCopy(slug: string, payload: StoryCopyPayload) {
     title: payload.title.trim(),
     hook: payload.hook.trim(),
     caveat: payload.caveat.trim(),
-    one_number: {
-      value: payload.oneNumber.value.trim(),
-      label: payload.oneNumber.label.trim(),
-    },
+    // Keep the hero number's binding (metric_id, period, comparison); the desk edits value and label.
+    one_number: { ...payload.oneNumber, value: payload.oneNumber.value.trim(), label: payload.oneNumber.label.trim() },
     frame_check: Boolean(payload.frameCheck),
     published: payload.published?.slice(0, 10) || new Date().toISOString().slice(0, 10),
     body: sanitiseBody(payload.body),
@@ -402,4 +403,61 @@ export async function attachRenderToStory(slug: string, render: DeskRender, asHe
     prompt: render.prompt || undefined,
     id: `render-${render.renderId}`,
   });
+}
+
+/** The copy fields a revision holds, sanitised the same way as a desk save. */
+function revisionContent(payload: StoryCopyPayload) {
+  requireText('Title', payload.title);
+  requireText('Kicker', payload.kicker);
+  requireText('Hook', payload.hook);
+  requireText('Caveat', payload.caveat);
+  return {
+    kicker: payload.kicker.trim(),
+    title: payload.title.trim(),
+    hook: payload.hook.trim(),
+    caveat: payload.caveat.trim(),
+    one_number: { ...payload.oneNumber, value: payload.oneNumber.value.trim(), label: payload.oneNumber.label.trim() },
+    evidence: sanitiseEvidence(payload.evidence),
+    body: sanitiseBody(payload.body),
+    frame_check: Boolean(payload.frameCheck),
+  };
+}
+
+/** Save edits to a published story's pending revision (the live article is untouched). */
+export async function saveRevisionCopy(slug: string, payload: StoryCopyPayload) {
+  await requireAdmin();
+  await saveRevisionContent(slug, revisionContent(payload));
+  revalidateStory(slug);
+}
+
+/**
+ * "Fix and re-check": save the editor's copy, then run every publishing check on it (figures, charts from
+ * stored data, house style, quotes, claim audit) without rewriting it.
+ */
+export async function recheckStory(slug: string, payload: StoryCopyPayload, target: 'draft' | 'revision'): Promise<StoredCheck> {
+  await requireAdmin();
+  if (target === 'revision') {
+    await saveRevisionContent(slug, revisionContent(payload));
+    const check = await recheckRevision(slug);
+    revalidateStory(slug);
+    return check;
+  }
+  await saveStoryCopy(slug, payload);
+  const check = await recheckDraft(slug);
+  revalidateStory(slug);
+  return check;
+}
+
+/** Put a story's pending revision live. `force` is the editor overriding a failed check. */
+export async function applyStoryRevision(slug: string, force = false) {
+  await requireAdmin();
+  const result = await applyRevision(slug, { force });
+  revalidateStory(slug);
+  return result;
+}
+
+export async function discardStoryRevision(slug: string) {
+  await requireAdmin();
+  await discardRevision(slug);
+  revalidateStory(slug);
 }

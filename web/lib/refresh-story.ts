@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
-import { draftStory, type PriorArticle } from '@/lib/generate-story';
+import { checkStory, draftStory, type PriorArticle } from '@/lib/generate-story';
+import type { StructuredStory } from '@/lib/article-from-pitch';
 import type { FoundryEvent } from '@/lib/foundry-agent';
 import type { FactCheck } from '@/lib/fact-check';
 import type { StoryBlock } from '@/lib/story-types';
@@ -112,4 +113,72 @@ export async function applyRevision(slug: string, opts: { note?: string; force?:
   if (error) throw new Error(error.message);
   await db.from('story_revisions').update({ status: 'applied', resolved_at: now }).eq('revision_id', pending.revision_id);
   return { slug, title: String(pending.content.title) };
+}
+
+/** Stored check result: what the desk shows next to a draft or revision. */
+export type StoredCheck = { ok: boolean; issues: string[]; warnings: string[]; checked_at: string };
+
+/** Metric ids the copy may quote: the pitch's links plus everything the story's charts use. */
+async function pitchMetricIds(pitchId: string | null): Promise<string[]> {
+  if (!pitchId) return [];
+  const { data } = await createClient().from('pitches').select('metric_ids, resurface_metrics').eq('id', pitchId).maybeSingle();
+  return [...new Set([...(data?.metric_ids ?? []), ...(data?.resurface_metrics ?? [])])] as string[];
+}
+
+/**
+ * Run every publishing check on edited copy, without rewriting it (the desk's "Re-check").
+ * Returns the checked content: unverifiable quotes removed, charts and the hero number refilled from the store.
+ */
+async function recheck(content: Content, pitchId: string | null): Promise<{ content: Content; check: StoredCheck }> {
+  const db = createClient();
+  const draft = { ...(content as unknown as StructuredStory), slug_hint: '', generation_note: '', metric_ids_used: [] };
+  const { check } = await checkStory(db, draft, { metricIds: await pitchMetricIds(pitchId), audit: true });
+  return {
+    content: pick(draft as unknown as Record<string, unknown>),
+    check: { ok: check.ok, issues: check.issues, warnings: check.warnings ?? [], checked_at: new Date().toISOString() },
+  };
+}
+
+/** Save editor changes to a story's pending revision. */
+export async function saveRevisionContent(slug: string, content: Content) {
+  const row = await loadPublished(slug);
+  const pending = await loadPendingRevision(row.story_id);
+  if (!pending) throw new Error(`/stories/${slug} has no pending revision`);
+  const { error } = await createClient().from('story_revisions')
+    .update({ content: pick(content as Record<string, unknown>), check: { ...(pending.check ?? {}), ok: false, stale: true } })
+    .eq('revision_id', pending.revision_id);
+  if (error) throw new Error(error.message);
+}
+
+/** Re-check a pending revision after editing, and store the result. */
+export async function recheckRevision(slug: string): Promise<StoredCheck> {
+  const row = await loadPublished(slug);
+  const pending = await loadPendingRevision(row.story_id);
+  if (!pending) throw new Error(`/stories/${slug} has no pending revision`);
+  const { content, check } = await recheck(pending.content as unknown as Content, row.pitch_id);
+  const { error } = await createClient().from('story_revisions')
+    .update({ content, check }).eq('revision_id', pending.revision_id);
+  if (error) throw new Error(error.message);
+  return check;
+}
+
+/** Drop a pending revision; the live article is untouched. */
+export async function discardRevision(slug: string) {
+  const row = await loadPublished(slug);
+  const { error } = await createClient().from('story_revisions')
+    .update({ status: 'discarded', resolved_at: new Date().toISOString() })
+    .eq('story_id', row.story_id).eq('status', 'pending');
+  if (error) throw new Error(error.message);
+}
+
+/** Re-check a draft story in place after editing (charts refilled, unverifiable quotes removed). */
+export async function recheckDraft(slug: string): Promise<StoredCheck> {
+  const db = createClient();
+  const { data: row } = await db.from('stories').select('*').eq('slug', slug).maybeSingle();
+  if (!row) throw new Error(`No database story at /stories/${slug}`);
+  if (row.status !== 'draft') throw new Error(`/stories/${slug} is ${row.status}; re-check applies to drafts and revisions`);
+  const { content, check } = await recheck(pick(row), row.pitch_id);
+  const { error } = await db.from('stories').update({ ...content, updated_at: new Date().toISOString() }).eq('slug', slug);
+  if (error) throw new Error(error.message);
+  return check;
 }
