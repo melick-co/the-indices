@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
+import { sydneyTime } from '@/lib/events';
+import { publisherOf } from '../../agent/scripts/lib/html-text.mjs';
 import {
   ASK_INSTRUCTIONS,
   BRAINSTORM_INSTRUCTIONS,
@@ -85,6 +87,8 @@ function toolLabel(name: string, input: Record<string, unknown>): string {
       return 'Looking up data sources';
     case 'search_metrics':
       return `Searching metrics for "${String(input.query ?? '').slice(0, 40)}"`;
+    case 'add_watch_item':
+      return `Adding to the watch list: ${String(input.title ?? '').slice(0, 50)}`;
     default:
       return name;
   }
@@ -169,6 +173,46 @@ async function searchMetrics(query: string) {
   return { metrics: data ?? [] };
 }
 
+/**
+ * Research found a scheduled release, decision or recurring report that will move a story's numbers: put it
+ * on the newsroom watch list (events, or watch_rules for recurring items). Whether it is official is decided
+ * by its source domain, not the model: private sources are reminders, never citable figures.
+ */
+async function addWatchItem(input: Record<string, unknown>) {
+  const supabase = createClient();
+  const title = String(input.title ?? '').trim();
+  const institution = String(input.institution ?? '').trim();
+  if (!title || !institution) return { error: 'title and institution are required' };
+  const sourceUrl = input.source_url ? String(input.source_url) : null;
+  const official = Boolean(sourceUrl && publisherOf(sourceUrl));
+  const series = `foundry:${`${institution} ${title}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)}`;
+  const metricIds = Array.isArray(input.metric_ids) ? (input.metric_ids as unknown[]).map(String) : [];
+  const notes = input.reason ? String(input.reason).slice(0, 500) : null;
+  const recurrence = input.recurrence ? String(input.recurrence) : '';
+  if (recurrence) {
+    if (!['weekly', 'fortnightly', 'monthly', 'quarterly'].includes(recurrence)) return { error: 'recurrence must be weekly, fortnightly, monthly or quarterly' };
+    const { error } = await supabase.from('watch_rules').upsert({
+      institution, title, series, cadence: recurrence,
+      weekday: input.weekday != null ? Number(input.weekday) : null,
+      day_of_month: input.day_of_month != null ? Number(input.day_of_month) : null,
+      time_local: String(input.time_local ?? '10:00'), official, source_url: sourceUrl, metric_ids: metricIds,
+      notes, origin: 'foundry',
+    }, { onConflict: 'series', ignoreDuplicates: true });
+    return error ? { error: error.message } : { added: 'recurring rule', series, official };
+  }
+  const date = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(input.date ?? ''));
+  if (!date) return { error: 'give a date (YYYY-MM-DD) or a recurrence' };
+  const [hh, mm] = String(input.time_local ?? '11:30').split(':').map(Number);
+  const at = sydneyTime(Number(date[1]), Number(date[2]), Number(date[3]), hh || 0, mm || 0);
+  if (at.getTime() < Date.now()) return { error: 'that date has passed' };
+  const { error } = await supabase.from('events').upsert({
+    event_key: `${series}:${date[0]}`, kind: 'announcement', institution, series, title,
+    scheduled_at: at.toISOString(), status: 'scheduled', metric_ids: metricIds, source_url: sourceUrl,
+    official, origin: 'foundry', notes,
+  }, { onConflict: 'event_key', ignoreDuplicates: true });
+  return error ? { error: error.message } : { added: 'event', event_key: `${series}:${date[0]}`, official };
+}
+
 async function executeTool(name: string, input: Record<string, unknown>) {
   const supabase = createClient();
   if (name === 'query_data') {
@@ -186,6 +230,9 @@ async function executeTool(name: string, input: Record<string, unknown>) {
   }
   if (name === 'search_metrics') {
     return searchMetrics(String(input.query ?? ''));
+  }
+  if (name === 'add_watch_item') {
+    return addWatchItem(input);
   }
   return { error: `Unknown tool: ${name}` };
 }
@@ -238,6 +285,31 @@ function buildTools(metricList: string, intent: FoundryIntent) {
           url: { type: 'string', description: 'http(s) URL to fetch' },
         },
         required: ['url'],
+      },
+    },
+    {
+      name: 'add_watch_item',
+      description:
+        'Put an upcoming release, decision, announcement or recurring report on the newsroom watch list when your ' +
+        'research finds one that will move the numbers in this story (e.g. "ABS releases the September CPI on ' +
+        '28 October", "Cotality publishes clearance rates every Tuesday", "the Fair Work annual wage review ' +
+        'decision is due in June"). Give a date for one-off items or a recurrence for regular ones, and the ' +
+        'official URL where it will appear. Items from non-official sources are kept as reminders only.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'What will be released or decided' },
+          institution: { type: 'string', description: 'Who publishes it, e.g. ABS, RBA, Treasury, Cotality' },
+          date: { type: 'string', description: 'YYYY-MM-DD for a one-off item' },
+          time_local: { type: 'string', description: 'Sydney time HH:MM if known (ABS 11:30, RBA decisions 14:30)' },
+          recurrence: { type: 'string', enum: ['weekly', 'fortnightly', 'monthly', 'quarterly'] },
+          weekday: { type: 'number', description: 'For weekly/fortnightly: 0 = Sunday … 6 = Saturday' },
+          day_of_month: { type: 'number', description: 'For monthly/quarterly' },
+          source_url: { type: 'string', description: 'Where it will be published' },
+          metric_ids: { type: 'array', items: { type: 'string' }, description: 'Stored series it will move, if any' },
+          reason: { type: 'string', description: 'Why it matters to this story' },
+        },
+        required: ['title', 'institution'],
       },
     },
     { type: 'web_search_20250305', name: 'web_search', max_uses: webMaxUses },

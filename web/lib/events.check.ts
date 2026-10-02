@@ -22,3 +22,14 @@ assert.deepEqual(refPeriodOf('Wage Price Index, Australia, September 2026'), { y
 assert.deepEqual(refPeriodOf('Total Value of Dwellings, June Quarter 2026'), { year: 2026, month: 6 });
 assert.equal(refPeriodOf('Something else'), null);
 console.log('refPeriodOf: ok');
+import { expandRules } from './events';
+const rules = expandRules([{
+  institution: 'Cotality', title: 'Cotality weekly clearance rates', series: 'cotality:clearance-weekly', cadence: 'weekly',
+  weekday: 2, day_of_month: null, time_local: '10:00', start_date: '2026-01-01', end_date: null, official: false,
+  source_url: null, metric_ids: [], notes: null, origin: 'manual',
+}], 14, new Date('2026-09-30T00:00:00Z'));
+assert.deepEqual(rules.map((r) => [r.event_key, r.scheduled_at, r.official]), [
+  ['cotality:clearance-weekly:2026-10-06', '2026-10-05T23:00:00.000Z', false],
+  ['cotality:clearance-weekly:2026-10-13', '2026-10-12T23:00:00.000Z', false],
+]);
+console.log('expandRules: ok');

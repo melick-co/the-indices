@@ -64,18 +64,25 @@ export const RBA_DECISION_METRICS = ['cash_rate_au', 'rba_hike_prob_market_au', 
 
 // ---------- times ----------
 
-/** A Sydney wall-clock time as a UTC Date (handles AEST/AEDT). */
-export function sydneyTime(y: number, m: number, d: number, hh: number, mm: number): Date {
+/** A wall-clock time in a time zone as a UTC Date (handles daylight saving). */
+export function zonedTime(tz: string, y: number, m: number, d: number, hh: number, mm: number): Date {
   const guess = new Date(Date.UTC(y, m - 1, d, hh, mm));
-  const local = new Date(guess.toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
+  const local = new Date(guess.toLocaleString('en-US', { timeZone: tz }));
   const utc = new Date(guess.toLocaleString('en-US', { timeZone: 'UTC' }));
   return new Date(guess.getTime() - (local.getTime() - utc.getTime()));
+}
+
+/** A Sydney wall-clock time as a UTC Date (handles AEST/AEDT). */
+export function sydneyTime(y: number, m: number, d: number, hh: number, mm: number): Date {
+  return zonedTime('Australia/Sydney', y, m, d, hh, mm);
 }
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
 // ---------- the calendar (watch list) ----------
 
-type Scheduled = Pick<EventRow, 'event_key' | 'kind' | 'institution' | 'series' | 'title' | 'metric_ids' | 'source_url'> & { scheduled_at: string };
+type Scheduled = Pick<EventRow, 'event_key' | 'kind' | 'institution' | 'series' | 'title' | 'metric_ids' | 'source_url'> & {
+  scheduled_at: string; official?: boolean; origin?: string; notes?: string | null;
+};
 
 /** "Next Release 18/11/2026 Wage Price Index, Australia, September 2026" lines on stored ABS release pages. */
 export function absCalendar(pages: Array<{ url: string; body: string }>): Scheduled[] {
@@ -119,6 +126,166 @@ export async function rbaCalendar(years: number[]): Promise<Scheduled[]> {
     }
   }
   return [...new Map(out.map((e) => [e.event_key, e])).values()];
+}
+
+const MONTH_INDEX: Record<string, number> = {
+  january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+  jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+};
+const pad = (n: number) => String(n).padStart(2, '0');
+const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+
+/** Other ABS releases worth having on the watch list as milestones (no stored series yet, so no triggers). */
+export const ABS_MILESTONES: RegExp[] = [
+  /^Monthly Household Spending Indicator/i, /^Retail Trade, Australia/i, /^Job Vacancies, Australia/i,
+  /^International Trade in Goods/i, /^Balance of Payments and International Investment Position/i,
+  /^Building Activity, Australia/i, /^Building Approvals, Australia/i, /^Lending Indicators/i,
+  /^Producer Price Indexes, Australia/i, /^Selected Living Cost Indexes/i, /^Average Weekly Earnings/i,
+  /^Business Indicators, Australia/i, /^Overseas Migration/i, /^Government Finance Statistics/i,
+  /^Labour Account Australia/i, /^Residential Property Price Indexes/i, /^Characteristics of Employment/i,
+];
+
+/** Every ABS release we track or watch, from the ABS release calendar (six months ahead). */
+export async function absReleaseCalendar(months = 6): Promise<Scheduled[]> {
+  const out: Scheduled[] = [];
+  const now = new Date();
+  for (let i = 0; i < months; i++) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + i, 1));
+    const ym = `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}`;
+    const doc = await fetchDocument(`https://www.abs.gov.au/release-calendar/future-releases/${ym}/all`) as { error?: string; body: string };
+    if (doc.error) continue;
+    const lines = doc.body.split('\n').map((l) => l.trim());
+    for (let j = 0; j < lines.length; j++) {
+      const when = /^[A-Za-z]+ (\d{1,2}) ([A-Za-z]+) (\d{4}) (\d{1,2}):(\d{2})(am|pm)/.exec(lines[j]);
+      if (!when) continue;
+      const title = lines[j + 1] ?? '';
+      const ref = lines.slice(j + 2, j + 7).find((l) => /^Reference period /i.test(l))?.replace(/^Reference period /i, '');
+      const full = ref ? `${title}, ${ref}` : title;
+      const rel = RELEASES.find((r) => r.title.test(title));
+      const milestone = !rel && ABS_MILESTONES.some((re) => re.test(title));
+      if (!rel && !milestone) continue;
+      let hh = Number(when[4]) % 12;
+      if (when[6] === 'pm') hh += 12;
+      const at = sydneyTime(Number(when[3]), MONTH_INDEX[when[2].toLowerCase()], Number(when[1]), hh, Number(when[5]));
+      const series = rel?.series ?? `abs:${slug(title.replace(/, Australia$/i, ''))}`;
+      out.push({
+        event_key: `${series}:${isoDate(at)}`, kind: 'release', institution: 'ABS', series, title: full,
+        metric_ids: rel?.metric_ids ?? [], source_url: rel?.url ?? null, scheduled_at: at.toISOString(),
+      });
+    }
+  }
+  return [...new Map(out.map((e) => [e.event_key, e])).values()];
+}
+
+/** RBA statistical tables we load (released at 11.30am), from the RBA's weekly release schedule. */
+const RBA_TABLES: Record<string, { name: string; metric_ids: string[] }> = {
+  D1: { name: 'Growth in Selected Financial Aggregates', metric_ids: ['credit_housing_12m_au'] },
+  D2: { name: 'Lending and Credit Aggregates', metric_ids: ['household_credit_bn'] },
+  E2: { name: 'Household Finances: Selected Ratios', metric_ids: ['household_debt_income_au'] },
+  E13: { name: 'Housing Loan Payments', metric_ids: ['housing_repayments_income_au'] },
+};
+
+export async function rbaTableCalendar(): Promise<Scheduled[]> {
+  const doc = await fetchDocument('https://www.rba.gov.au/schedules-events/schedule.html') as { error?: string; body: string };
+  if (doc.error) return [];
+  const year = Number(/Week commencing \d{1,2} [A-Za-z]+ (\d{4})/.exec(doc.body)?.[1] ?? new Date().getUTCFullYear());
+  const out: Scheduled[] = [];
+  for (const m of doc.body.matchAll(/- ([A-Z]\d{1,2}(?:\.\d)?) [A-Za-z]+, (\d{1,2}) ([A-Za-z]{3}) (\d{1,2})\.(\d{2}) (am|pm)/g)) {
+    const code = m[1];
+    const table = RBA_TABLES[code];
+    if (!table) continue;
+    let hh = Number(m[4]) % 12;
+    if (m[6] === 'pm') hh += 12;
+    const at = sydneyTime(year, MONTH_INDEX[m[3].toLowerCase()], Number(m[2]), hh, Number(m[5]));
+    out.push({
+      event_key: `rba:table-${code.toLowerCase()}:${isoDate(at)}`, kind: 'release', institution: 'RBA',
+      series: `rba:table-${code.toLowerCase()}`, title: `RBA statistical table ${code} (${table.name})`,
+      metric_ids: table.metric_ids, source_url: `https://www.rba.gov.au/statistics/tables/#${code.toLowerCase()}`,
+      scheduled_at: at.toISOString(),
+    });
+  }
+  return [...new Map(out.map((e) => [e.event_key, e])).values()];
+}
+
+/** Statements on Monetary Policy (Feb, May, Aug, Nov decisions) and minutes (two weeks after each meeting). */
+export function rbaPublications(meetings: Scheduled[]): Scheduled[] {
+  const out: Scheduled[] = [];
+  for (const meet of meetings) {
+    const [, , day] = meet.event_key.split(':');
+    const [y, m, d] = day.split('-').map(Number);
+    const mon = MONTHS[m - 1];
+    if ([2, 5, 8, 11].includes(m)) {
+      out.push({
+        event_key: `rba:smp:${day}`, kind: 'announcement', institution: 'RBA', series: 'rba:smp',
+        title: `RBA Statement on Monetary Policy, ${MONTH_NAMES[m - 1][0].toUpperCase()}${MONTH_NAMES[m - 1].slice(1)} ${y}`,
+        metric_ids: [], source_url: `https://www.rba.gov.au/publications/smp/${y}/${mon}/`, scheduled_at: meet.scheduled_at,
+      });
+    }
+    const minutesDay = new Date(Date.UTC(y, m - 1, d + 14));
+    const at = sydneyTime(minutesDay.getUTCFullYear(), minutesDay.getUTCMonth() + 1, minutesDay.getUTCDate(), 11, 30);
+    out.push({
+      event_key: `rba:minutes:${isoDate(at)}`, kind: 'announcement', institution: 'RBA', series: 'rba:minutes',
+      title: `Minutes of the RBA Monetary Policy Board meeting of ${d} ${MONTH_NAMES[m - 1][0].toUpperCase()}${MONTH_NAMES[m - 1].slice(1)} ${y}`,
+      metric_ids: [], source_url: `https://www.rba.gov.au/monetary-policy/rba-board-minutes/${y}/${day}.html`,
+      scheduled_at: at.toISOString(),
+    });
+  }
+  return out;
+}
+
+/** US Federal Reserve (FOMC) decisions: 2pm Washington time on the meeting's second day. */
+export async function fedCalendar(): Promise<Scheduled[]> {
+  const doc = await fetchDocument('https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm') as { error?: string; body: string };
+  if (doc.error) return [];
+  const flat = doc.body.replace(/\n/g, ' / ');
+  const out: Scheduled[] = [];
+  for (const section of flat.matchAll(/(\d{4}) FOMC Meetings(.*?)(?=\d{4} FOMC Meetings|$)/g)) {
+    const year = Number(section[1]);
+    for (const m of section[2].matchAll(/(January|February|March|April|May|June|July|August|September|October|November|December)(?:\/(January|February|March|April|May|June|July|August|September|October|November|December))? \/ (\d{1,2})-(\d{1,2})/g)) {
+      const month = MONTH_INDEX[(m[2] ?? m[1]).toLowerCase()];
+      const day = Number(m[4]);
+      const at = zonedTime('America/New_York', year, month, day, 14, 0);
+      out.push({
+        event_key: `fed:decision:${year}-${pad(month)}-${pad(day)}`, kind: 'decision', institution: 'US Federal Reserve',
+        series: 'fed:decision', title: `US Federal Reserve (FOMC) decision, ${day} ${MONTH_NAMES[month - 1][0].toUpperCase()}${MONTH_NAMES[month - 1].slice(1)} ${year}`,
+        metric_ids: [], scheduled_at: at.toISOString(),
+        source_url: `https://www.federalreserve.gov/newsevents/pressreleases/monetary${year}${pad(month)}${pad(day)}a.htm`,
+      });
+    }
+  }
+  return out;
+}
+
+export type WatchRule = {
+  institution: string; title: string; series: string; cadence: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly';
+  weekday: number | null; day_of_month: number | null; time_local: string; start_date: string; end_date: string | null;
+  official: boolean; source_url: string | null; metric_ids: string[]; notes: string | null; origin: string;
+};
+
+/** Expand recurring watch rules into dated events for the next `days` days (Sydney time). */
+export function expandRules(rules: WatchRule[], days = 60, from = new Date()): Scheduled[] {
+  const out: Scheduled[] = [];
+  for (const r of rules) {
+    const [hh, mm] = r.time_local.split(':').map(Number);
+    const start = new Date(`${r.start_date}T00:00:00Z`);
+    for (let i = 0; i <= days; i++) {
+      const d = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate() + i));
+      if (d < start || (r.end_date && d > new Date(`${r.end_date}T00:00:00Z`))) continue;
+      const weeks = Math.round((d.getTime() - start.getTime()) / (7 * 864e5));
+      const hit = r.cadence === 'weekly' ? d.getUTCDay() === r.weekday
+        : r.cadence === 'fortnightly' ? d.getUTCDay() === r.weekday && weeks % 2 === 0
+          : r.cadence === 'monthly' ? d.getUTCDate() === r.day_of_month
+            : d.getUTCDate() === r.day_of_month && (d.getUTCMonth() - start.getUTCMonth() + 12) % 3 === 0;
+      if (!hit) continue;
+      const at = sydneyTime(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), hh, mm);
+      out.push({
+        event_key: `${r.series}:${isoDate(d)}`, kind: 'release', institution: r.institution, series: r.series,
+        title: r.title, metric_ids: r.metric_ids, source_url: r.source_url, scheduled_at: at.toISOString(),
+        official: r.official, origin: 'rule', notes: r.notes,
+      });
+    }
+  }
+  return out;
 }
 
 /** Add future events to the watch list; existing rows (past or already processed) are left alone. */
@@ -228,7 +395,7 @@ export async function eventsContext(db: SupabaseClient, metricIds: string[]): Pr
   const since = isoDate(new Date(Date.now() - 2 * 365 * 864e5));
   const [{ data: past, error }, { data: next }] = await Promise.all([
     db.from('events').select('title, occurred_on, series, outcome, factors, summary, source_url')
-      .in('status', ['occurred', 'processed']).overlaps('metric_ids', ids).gte('occurred_on', since)
+      .in('status', ['occurred', 'processed']).eq('official', true).overlaps('metric_ids', ids).gte('occurred_on', since)
       .order('occurred_on', { ascending: false }).limit(12),
     db.from('events').select('title, scheduled_at, source_url')
       .eq('status', 'scheduled').overlaps('metric_ids', ids).gte('scheduled_at', new Date().toISOString())
