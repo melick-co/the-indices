@@ -403,6 +403,27 @@ ${prior.brief}
 Follow the editor's brief. Where it conflicts with the instructions above, the brief wins.` : ''}`;
 }
 
+/**
+ * Revisions return the whole article and sometimes drop footnote and source links on the way. Put back any
+ * link a revised footnote lost, from the previous version's footnote with the same number and citation (or
+ * the same citation under a new number).
+ */
+export function keepSourceLinks(before: StructuredStory, after: StructuredStory): StructuredStory {
+  const prior = before.evidence?.footnotes ?? [];
+  const byText = new Map(prior.filter((f) => f.url).map((f) => [f.text.trim().toLowerCase(), f.url!]));
+  const byN = new Map(prior.filter((f) => f.url).map((f) => [f.n, { url: f.url!, text: f.text.trim().toLowerCase() }]));
+  for (const f of after.evidence?.footnotes ?? []) {
+    if (f.url) continue;
+    const text = f.text.trim().toLowerCase();
+    const same = byN.get(f.n);
+    f.url = byText.get(text) ?? (same && (same.text === text || text.startsWith(same.text.slice(0, 40))) ? same.url : undefined);
+    if (!f.url) delete f.url;
+  }
+  const sources = new Map((before.evidence?.sources ?? []).filter((s) => s.url).map((s) => [`${s.org}|${s.metric}`, s.url]));
+  for (const s of after.evidence?.sources ?? []) if (!s.url) s.url = sources.get(`${s.org}|${s.metric}`) ?? '';
+  return after;
+}
+
 /** Research, write and check an article for a pitch, with revision rounds. Saves nothing. */
 export async function draftStory(
   supabase: SupabaseClient,
@@ -477,7 +498,7 @@ export async function draftStory(
   for (let round = 1; !check.ok && apiKey && story.body.blocks.length && round <= rounds; round++) {
     onEvent({ type: 'tool_start', name: 'revise', label: `Revision ${round}: ${check.issues.length} item(s) to fix`, at: new Date().toISOString() });
     try {
-      const revised = await reviseForChecks(supabase, story, check.issues, [...checkedIds], loadNewsStyle());
+      const revised = keepSourceLinks(story, await reviseForChecks(supabase, story, check.issues, [...checkedIds], loadNewsStyle()));
       const next = await checkStory(supabase, revised, ctx);
       story = revised;
       check = next.check;
