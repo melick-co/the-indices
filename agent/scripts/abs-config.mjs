@@ -175,6 +175,20 @@ export const ABS_SERIES = [
     source_id: 'abs_ana',
     verified: true,
   },
+  // The headline Labour Force measure, so a jobs release can trigger the events watcher (Oct 2026).
+  {
+    metric_id: 'unemployment_rate_au',
+    name: 'Australia unemployment rate (ABS Labour Force)',
+    dataflow: 'LF',
+    dataKey: 'M13.3.1599.20.AUS.M', // unemployment rate | persons | 15+ | seasonally adjusted | Australia | monthly
+    lastN: 60,
+    unit: 'percent',
+    basis: 'Unemployment rate, persons aged 15 and over, seasonally adjusted, monthly (ABS Labour Force)',
+    direction: 'higher_is_less_pressure',
+    category: 'labour',
+    source_id: 'abs_lf',
+    verified: true,
+  },
 ];
 
 /**

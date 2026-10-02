@@ -16,12 +16,16 @@ on:
     # (sources 02:07, scout 03:07, trending 11:07, daily 13:37, articles 16:07 = 3am Sydney) and lands before
     # breakfast even when delayed. Odd minutes avoid the top-of-hour queue.
     - cron: '7 3 * * *'
+    # Events: build the watch list after the nightly document load, and a weekday fallback for the watcher
+    # (Supabase dispatches it at each event's exact time once its GitHub token is set; see 34_events.sql).
+    - cron: '23 2 * * *'
+    - cron: '41 0-8 * * 1-5'
   workflow_dispatch:
     inputs:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-drafts, story-publish, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-drafts, story-publish, events-calendar, events-backfill, events-watch, events-list, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, story-refresh(-apply): story slug(s). Space separated.'
@@ -306,6 +310,53 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  events:
+    # The events store (web/scripts/events.ts): watch list, past decisions, and the watcher that records a
+    # release, refreshes the articles that quote it and writes the breaking story for significant ones.
+    if: >-
+      github.event_name == 'workflow_dispatch' && startsWith(inputs.task, 'events-') ||
+      github.event_name == 'schedule' && (github.event.schedule == '23 2 * * *' || github.event.schedule == '41 0-8 * * 1-5')
+    runs-on: ubuntu-latest
+    timeout-minutes: 170
+    defaults:
+      run: { working-directory: web }
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm ci --silent
+      - run: npm install @supabase/supabase-js --no-save --silent
+        working-directory: agent
+      - name: Load the latest data and documents
+        # The watcher needs the new statement or release and its numbers before it can record the event.
+        if: inputs.task == 'events-watch' || github.event.schedule == '41 0-8 * * 1-5'
+        continue-on-error: true
+        working-directory: agent
+        run: |
+          node scripts/load-sources.mjs abs
+          node scripts/load-sources.mjs rba
+          node scripts/load-documents.mjs --recent
+      - name: Ensure ffmpeg (breaking-story clip)
+        if: inputs.task == 'events-watch' || github.event.schedule == '41 0-8 * * 1-5'
+        continue-on-error: true
+        timeout-minutes: 4
+        run: |
+          npm install --no-save --silent ffmpeg-static@5.3.0
+          echo "FFMPEG_PATH=$(node -p "require('ffmpeg-static')")" >> "$GITHUB_ENV"
+      - name: Events
+        run: >-
+          npx tsx --import ./scripts/node-shims.mjs scripts/events.ts
+          ${{ (inputs.task == 'events-calendar' || github.event.schedule == '23 2 * * *') && '--calendar' || '' }}
+          ${{ inputs.task == 'events-backfill' && '--backfill' || '' }}
+          ${{ (inputs.task == 'events-watch' || github.event.schedule == '41 0-8 * * 1-5') && '--watch' || '' }}
+          ${{ inputs.task == 'events-list' && '--list' || '' }}
 
   scout:
     # Daily source scout (agent/scripts/scout-sources.mjs): adopt official series that
