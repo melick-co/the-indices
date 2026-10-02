@@ -50,6 +50,7 @@ async function main() {
           else if (b.type === 'timeline') for (const ev of b.events) log(`  [timeline] ${ev.date}: ${ev.label}`);
           else if (b.type === 'heading' || b.type === 'pull') log(`  [${b.type}] ${b.text}`);
         }
+        for (const f of ((content.evidence as { footnotes?: { n: number; text: string; url?: string }[] })?.footnotes ?? [])) log(`  [^${f.n}] ${f.text} ${f.url ?? '(no link)'}`);
         log(`  Last check: ${check?.ok ? 'passed' : `held: ${(check?.issues ?? []).join(' | ')}`}`);
         continue;
       }

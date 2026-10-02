@@ -232,7 +232,10 @@ Rules (in addition to the house style):
   change over time, "bars" for comparisons. Never two charts in a row without a paragraph between.
 - Footnotes: put [^n] after every figure and after every attributed fact; every chart, quote and timeline event
   carries a footnote number; evidence.footnotes lists each n once, primary sources first (official data,
-  filings, statements). Number footnotes in order of first appearance.
+  filings, statements). Number footnotes in order of first appearance. Every footnote has the "url" of the exact
+  page it came from. Anything stored data cannot show (what minutes, statements or speeches said; scheduled
+  release or meeting dates; events) needs [^n] on its sentence pointing at that page; if you have no URL for
+  it, leave the claim out.
 - Quotes: only text that appears word for word on source_url (from the research notes). It is checked; an
   unverifiable quote is removed. If the research found no such quote, include no quote block.
 - Every number in the copy must be a stored value (or a change between stored periods, a gap to a peer, or a
