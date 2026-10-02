@@ -158,24 +158,32 @@ Respond ONLY with JSON:
   const factors = (reply.factors ?? [])
     .filter((f) => f?.quote && inSource(f.quote, [body]))
     .map((f) => ({ ...f, source_url: doc.url }));
-  // The rate from stored data: the cash rate in effect on or after the decision day.
-  const day = doc.published ?? '';
-  const { data: obs } = await db.from('observations').select('period, value')
-    .eq('metric_id', 'cash_rate_au').gte('period', day).order('period').limit(1);
-  const { data: prior } = await db.from('observations').select('period, value')
-    .eq('metric_id', 'cash_rate_au').lt('period', day).order('period', { ascending: false }).limit(1);
-  const rate = obs?.[0]?.value ?? prior?.[0]?.value ?? null;
+  const { rate, previous } = await rateAround(db, doc.published ?? '');
   return {
     outcome: {
       decision: reply.decision ?? 'unknown',
       change_bp: reply.change_bp ?? null,
       cash_rate: rate,
-      previous_rate: prior?.[0]?.value ?? null,
+      previous_rate: previous,
       statement_url: doc.url,
     },
     factors,
     summary: reply.summary ?? '',
   };
+}
+
+/**
+ * The cash rate after an RBA decision and before it, from stored data. Changes take effect the day after the
+ * announcement, so the rate "after" is the latest change effective within three days of the decision.
+ */
+export async function rateAround(db: SupabaseClient, day: string): Promise<{ rate: number | null; previous: number | null }> {
+  if (!day) return { rate: null, previous: null };
+  const plus3 = new Date(Date.parse(`${day}T00:00:00Z`) + 3 * 864e5).toISOString().slice(0, 10);
+  const [{ data: after }, { data: before }] = await Promise.all([
+    db.from('observations').select('period, value').eq('metric_id', 'cash_rate_au').lte('period', plus3).order('period', { ascending: false }).limit(1),
+    db.from('observations').select('period, value').eq('metric_id', 'cash_rate_au').lte('period', day).order('period', { ascending: false }).limit(1),
+  ]);
+  return { rate: after?.[0]?.value ?? null, previous: before?.[0]?.value ?? null };
 }
 
 /** Latest two stored values for each of a release's series, and whether the move is significant. */

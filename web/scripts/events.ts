@@ -19,7 +19,7 @@
  */
 import { createClient } from '@/lib/supabase-server';
 import {
-  RELEASES, absCalendar, eventsContext, extractRbaDecision, rbaCalendar, releaseOutcome, scheduleEvents, type EventRow,
+  RELEASES, absCalendar, eventsContext, extractRbaDecision, rateAround, rbaCalendar, releaseOutcome, scheduleEvents, type EventRow,
 } from '@/lib/events';
 import { applyRevision, refreshStory } from '@/lib/refresh-story';
 import { goLiveFromPitch, publishStoryFromPitch } from '@/lib/generate-story';
@@ -57,8 +57,15 @@ async function backfill() {
   let added = 0;
   for (const doc of docs ?? []) {
     const key = `rba:decision:${doc.published}`;
-    const { data: have } = await db.from('events').select('status').eq('event_key', key).maybeSingle();
-    if (have && have.status !== 'scheduled') continue;
+    const { data: have } = await db.from('events').select('status, outcome').eq('event_key', key).maybeSingle();
+    if (have && have.status !== 'scheduled') {
+      // Already recorded: just make sure the rates match stored data (cheap; no model call).
+      const { rate, previous } = await rateAround(db, doc.published);
+      const outcome = { ...(have.outcome ?? {}), cash_rate: rate, previous_rate: previous };
+      await db.from('events').update({ outcome, updated_at: new Date().toISOString() }).eq('event_key', key);
+      log(`  ${doc.published}: ${(have.outcome as { decision?: string })?.decision ?? '?'} ${previous ?? '?'}% → ${rate ?? '?'}%`);
+      continue;
+    }
     const { outcome, factors, summary } = await extractRbaDecision(db, doc);
     const row = {
       event_key: key, kind: 'decision', institution: 'RBA', series: 'rba:decision',
@@ -70,7 +77,7 @@ async function backfill() {
     const { error } = await db.from('events').upsert(row, { onConflict: 'event_key' });
     if (error) throw new Error(error.message);
     added++;
-    log(`  ${doc.published}: ${(outcome.decision as string) ?? '?'} → ${outcome.cash_rate ?? '?'}% (${factors.length} factor(s))`);
+    log(`  ${doc.published}: ${(outcome.decision as string) ?? '?'} ${outcome.previous_rate ?? '?'}% → ${outcome.cash_rate ?? '?'}% (${factors.length} factor(s))`);
   }
   log(`Backfill: ${added} RBA decision(s) recorded.`);
 }
