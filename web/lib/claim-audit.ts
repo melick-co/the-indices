@@ -3,7 +3,7 @@ import { callClaudeJson } from '../../agent/scripts/lib/claude.mjs';
 import { buildReference } from '../../agent/scripts/lib/revise-pitches.mjs';
 import type { CheckableStory } from '@/lib/fact-check';
 import type { StructuredStory } from '@/lib/article-from-pitch';
-import { isDocumentSourced } from '@/lib/source-check';
+import { DATA_TABLE, isDocumentSourced } from '@/lib/source-check';
 import { rawSentences } from '@/lib/style-check';
 
 /**
@@ -27,7 +27,14 @@ function articleText(story: CheckableStory) {
   for (const b of story.body.blocks) {
     if (b.type === 'layers') parts.push(...b.items.map((t) => `- ${t}`));
     else if (b.type === 'chart') parts.push(`[CHART: ${b.title ?? ''}]`);
-    else if (b.type === 'timeline') parts.push(...b.events.map((e) => `- ${e.date}: ${e.label}`));
+    else if (b.type === 'timeline') {
+      // Events cited to a document are checked against it by the source check.
+      const urls = new Map((story.evidence?.footnotes ?? []).map((f) => [f.n, f.url ?? '']));
+      for (const e of b.events) {
+        const url = e.footnote ? urls.get(e.footnote) ?? '' : '';
+        parts.push(url && !DATA_TABLE.test(url) ? `- ${e.date}: [SOURCED EVENT, checked against its cited document; do not audit]` : `- ${e.date}: ${e.label}`);
+      }
+    }
     // Quotes are verified word for word against their source; their content is the speaker's, not a data claim.
     else if (b.type === 'quote') parts.push(`[QUOTE from ${b.speaker}, verified against source; do not audit]`);
     else if ('text' in b) {

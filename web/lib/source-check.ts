@@ -82,7 +82,9 @@ function excerpt(doc: Doc, claim: string, budget = 2400): string {
     picked.push(l);
     size += l.line.length;
   }
-  return picked.sort((a, b) => a.i - b.i).map((l) => l.line).join('\n');
+  // Always lead with the document's opening (title, number, date: covers and release headers carry them).
+  const head = doc.body.slice(0, 500);
+  return [head, ...picked.sort((a, b) => a.i - b.i).map((l) => l.line)].join('\n');
 }
 
 export async function verifySourcedStatements(
