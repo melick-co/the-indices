@@ -346,7 +346,8 @@ jobs:
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
       - name: Ensure ffmpeg
-        if: inputs.task == 'hero-media'
+        # Also for hero-image: ffmpeg re-encodes the 2K PNG for the web (without it the raw ~7 MB file is used).
+        if: inputs.task == 'hero-media' || inputs.task == 'hero-image'
         continue-on-error: true
         timeout-minutes: 4
         run: |
