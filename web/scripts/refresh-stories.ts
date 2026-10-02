@@ -9,13 +9,14 @@
  *                         # live copy, for corrections), then re-check it. --apply takes REVISION_NOTE as the update note.
  *   ... --recheck <slug>  # re-run every check on the revision as it stands
  *   ... --sources <slug>  # read-only: check the live article's sourced statements against its source documents
+ *   ... --discard <slug>  # drop the pending revision; the live article is untouched
  *
  * Slugs may also come from STORY_SLUGS (space or comma separated). A refresh never changes the live
  * article: it saves a pending revision to preview at /stories/<slug>?revision=1. Applying archives the
  * current version in story_revisions and adds the reader-facing update note.
  */
 import {
-  applyRevision, editContent, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
+  applyRevision, discardRevision, editContent, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
   type CopyEdit,
 } from '@/lib/refresh-story';
 import type { StoryBlock } from '@/lib/story-types';
@@ -29,6 +30,7 @@ const show = process.argv.includes('--show');
 const editMode = process.argv.includes('--edit');
 const recheckOnly = process.argv.includes('--recheck');
 const sourcesOnly = process.argv.includes('--sources');
+const discard = process.argv.includes('--discard');
 const words = (t: string) => t.replace(/\[\^\d+\]/g, '').trim().split(/\s+/).filter(Boolean).length;
 const slugs = [
   ...process.argv.slice(2).filter((a) => !a.startsWith('--')),
@@ -46,6 +48,11 @@ async function main() {
   for (const slug of slugs) {
     log(`\n/stories/${slug}`);
     try {
+      if (discard) {
+        await discardRevision(slug);
+        log('  Discarded the pending revision.');
+        continue;
+      }
       if (sourcesOnly) {
         const { data } = await createClient().from('stories').select('evidence, body').eq('slug', slug).single();
         const r = await verifySourcedStatements(createClient(), data as never);
