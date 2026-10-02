@@ -207,6 +207,8 @@ export function editContent(content: Content, edits: CopyEdit[]): Content {
     if (Array.isArray(b.items)) b.items = b.items.map(edit);
     if (Array.isArray(b.events)) for (const ev of b.events as Record<string, unknown>[]) ev.label = edit(ev.label);
   }
+  // A paragraph edited down to nothing is removed (an editor deleting a duplicate, say).
+  (next.body as { blocks: Record<string, unknown>[] }).blocks = blocks.filter((b) => b.type !== 'paragraph' || String(b.text ?? '').trim());
   const table = (next.evidence as { table?: { rows: unknown[][] } })?.table;
   if (table) table.rows = table.rows.map((r) => r.map(edit));
   const missed = edits.filter((e) => !hits.get(e));
