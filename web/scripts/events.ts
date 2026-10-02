@@ -3,6 +3,7 @@
  *
  *   npx tsx --import ./scripts/node-shims.mjs scripts/events.ts --calendar   # add upcoming RBA meetings and ABS releases
  *   ... --backfill   # record past RBA decisions (and their factors) from stored statements
+ *   ... --history    # record past ABS releases since 2022 (release date, figures, release page) as milestones
  *   ... --watch      # process events that have fallen due (see below)
  *   ... --list       # recent and upcoming events
  *
@@ -19,7 +20,7 @@
  */
 import { createClient } from '@/lib/supabase-server';
 import {
-  RELEASES, absCalendar, eventsContext, extractRbaDecision, rbaCalendar, releaseOutcome, scheduleEvents, type EventRow,
+  RELEASES, absCalendar, absHistory, eventsContext, refPeriodOf, releasePage, extractRbaDecision, rateAround, rbaCalendar, releaseOutcome, scheduleEvents, type EventRow,
 } from '@/lib/events';
 import { applyRevision, refreshStory } from '@/lib/refresh-story';
 import { goLiveFromPitch, publishStoryFromPitch } from '@/lib/generate-story';
@@ -57,8 +58,15 @@ async function backfill() {
   let added = 0;
   for (const doc of docs ?? []) {
     const key = `rba:decision:${doc.published}`;
-    const { data: have } = await db.from('events').select('status').eq('event_key', key).maybeSingle();
-    if (have && have.status !== 'scheduled') continue;
+    const { data: have } = await db.from('events').select('status, outcome').eq('event_key', key).maybeSingle();
+    if (have && have.status !== 'scheduled') {
+      // Already recorded: just make sure the rates match stored data (cheap; no model call).
+      const { rate, previous } = await rateAround(db, doc.published);
+      const outcome = { ...(have.outcome ?? {}), cash_rate: rate, previous_rate: previous };
+      await db.from('events').update({ outcome, updated_at: new Date().toISOString() }).eq('event_key', key);
+      log(`  ${doc.published}: ${(have.outcome as { decision?: string })?.decision ?? '?'} ${previous ?? '?'}% → ${rate ?? '?'}%`);
+      continue;
+    }
     const { outcome, factors, summary } = await extractRbaDecision(db, doc);
     const row = {
       event_key: key, kind: 'decision', institution: 'RBA', series: 'rba:decision',
@@ -70,9 +78,18 @@ async function backfill() {
     const { error } = await db.from('events').upsert(row, { onConflict: 'event_key' });
     if (error) throw new Error(error.message);
     added++;
-    log(`  ${doc.published}: ${(outcome.decision as string) ?? '?'} → ${outcome.cash_rate ?? '?'}% (${factors.length} factor(s))`);
+    log(`  ${doc.published}: ${(outcome.decision as string) ?? '?'} ${outcome.previous_rate ?? '?'}% → ${outcome.cash_rate ?? '?'}% (${factors.length} factor(s))`);
   }
   log(`Backfill: ${added} RBA decision(s) recorded.`);
+}
+
+async function history() {
+  let total = 0;
+  for (const rel of RELEASES.filter((r) => r.metric_ids.length)) {
+    log(`${rel.series}:`);
+    total += await absHistory(db, rel, 2022, log);
+  }
+  log(`History: ${total} past release(s) recorded.`);
 }
 
 async function list() {
@@ -116,8 +133,11 @@ async function record(e: EventRow): Promise<boolean> {
       return false;
     }
     const ro = await releaseOutcome(db, rel.metric_ids, rel.thresholds);
+    // Cite this release's own page ("…/sep-2026"), not latest-release, whose content moves on.
+    const ref = refPeriodOf(e.title);
+    const own = ref ? await releasePage(rel.url.replace(/\/latest-release$/, ''), ref.year, ref.month) : null;
     Object.assign(e, {
-      outcome: { values: ro.values, reasons: ro.reasons }, occurred_on: day, source_url: rel.url,
+      outcome: { values: ro.values, reasons: ro.reasons }, occurred_on: day, source_url: own?.url ?? rel.url,
       significance: ro.significant ? 'breaking' : 'refresh', status: 'occurred',
       summary: ro.significant ? `Significant: ${ro.reasons.join('; ')}` : 'Routine release',
     });
@@ -251,8 +271,9 @@ async function watch() {
 async function main() {
   if (arg('--calendar')) await calendar();
   if (arg('--backfill')) await backfill();
+  if (arg('--history')) await history();
   if (arg('--watch')) await watch();
-  if (arg('--list') || !['--calendar', '--backfill', '--watch'].some(arg)) await list();
+  if (arg('--list') || !['--calendar', '--backfill', '--history', '--watch'].some(arg)) await list();
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
