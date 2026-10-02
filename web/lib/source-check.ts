@@ -23,9 +23,12 @@ const norm = (t: string) => t.toLowerCase().replace(/[‘’]/g, "'").replace(/[
 const terms = (t: string) => new Set(norm(t).replace(/[^a-z0-9'./ -]/g, ' ').replace(/[.,](?!\d)/g, ' ').split(' ')
   .filter((w) => (/\d/.test(w) ? w.length >= 2 : w.length > 3 && !STOP.has(w))));
 
-/** True when the quoted evidence is really in the source: each fragment (split at ellipses) of 3+ words is found. */
+/**
+ * True when the quoted evidence is really in the source: each fragment of 3+ words is found. Evidence is split
+ * at ellipses and between sentences, since models often join passages from different parts of a page.
+ */
 function inSource(evidence: string, bodies: string[]): boolean {
-  const fragments = evidence.split(/\.\.\.|…|\[\.\.\.\]/)
+  const fragments = evidence.split(/\.\.\.|…|\[\.\.\.\]|(?<=[.!?])\s+(?=[A-Z"“(])/)
     .map((f) => norm(f).replace(/^["'“‘\s]+|["'”’\s.,;:]+$/g, ''))
     .filter((f) => f.split(' ').length >= 3);
   return fragments.length > 0 && fragments.every((f) => bodies.some((b) => b.includes(f)));
