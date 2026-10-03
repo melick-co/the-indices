@@ -13,7 +13,7 @@ import type { StoryBlock, StoryEvidence } from '@/lib/story-types';
  * story is held.
  */
 
-type Checkable = { evidence?: StoryEvidence | null; body: { blocks: StoryBlock[] } };
+type Checkable = { hook?: string | null; evidence?: StoryEvidence | null; body: { blocks: StoryBlock[] } };
 type Claim = { id: number; text: string; footnotes: number[] };
 type Doc = { url: string; title?: string | null; body: string };
 
@@ -50,6 +50,11 @@ export function inSource(evidence: string, bodies: string[]): boolean {
 // the pages themselves are lists of files, not text to check statements against.
 export const DATA_TABLE = /rba\.gov\.au\/statistics\/tables|data\.api\.abs\.gov\.au|explore\.data\.abs\.gov\.au|data-explorer\.oecd\.org|sdmx\.oecd\.org|data\.imf\.org|stats\.bis\.org|data\.worldbank\.org/i;
 
+/** What a decision or report did, beyond what someone said: "the 2024 decision estimated…", "the Commission found…". */
+const DOCUMENT_VERBS = /\b(?:estimated|estimates|measured|found|finds|awarded|decided|determined|calculated|concluded|cited|states|set)\b/i;
+/** A sentence that reports what a source said, did or published (checked against the source, not stored data). */
+const reportsSource = (s: string) => ATTRIBUTION.test(s) || DOCUMENT_VERBS.test(s);
+
 /** Sourced statements and dated events in the article, with the footnotes they cite. */
 function claimsOf(story: Checkable): Claim[] {
   const out: Claim[] = [];
@@ -57,11 +62,12 @@ function claimsOf(story: Checkable): Claim[] {
     const clean = text.replace(MARKER, '').trim();
     if (clean && footnotes.length) out.push({ id: out.length + 1, text: clean, footnotes: [...new Set(footnotes)] });
   };
+  for (const s of rawSentences(story.hook ?? '')) if (reportsSource(s)) add(s, [...s.matchAll(MARKER)].map((m) => Number(m[1])));
   for (const b of story.body.blocks) {
     const texts = b.type === 'paragraph' ? [b.text] : b.type === 'layers' ? b.items : [];
     for (const t of texts) {
       for (const s of rawSentences(t)) {
-        if (ATTRIBUTION.test(s)) add(s, [...s.matchAll(MARKER)].map((m) => Number(m[1])));
+        if (reportsSource(s)) add(s, [...s.matchAll(MARKER)].map((m) => Number(m[1])));
       }
     }
     if (b.type === 'timeline') {
@@ -175,7 +181,7 @@ export async function latestOfficialDocuments(db: SupabaseClient): Promise<strin
  * these to the source check: their figures belong to the document, not to stored data.
  */
 export function isDocumentSourced(sentence: string, footnoteUrls: Map<number, string>): boolean {
-  if (!ATTRIBUTION.test(sentence)) return false;
+  if (!reportsSource(sentence)) return false;
   const urls = [...sentence.matchAll(MARKER)].map((m) => footnoteUrls.get(Number(m[1])) ?? '');
   return urls.length > 0 && urls.every((u) => u && !DATA_TABLE.test(u));
 }

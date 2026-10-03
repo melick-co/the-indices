@@ -22,7 +22,11 @@ export type ClaimVerdict = { claim: string; verdict: 'supported' | 'unsupported'
 export type ClaimAudit = { ok: boolean; claims: ClaimVerdict[]; unsupported: ClaimVerdict[] };
 
 function articleText(story: CheckableStory) {
-  const parts = [`HEADLINE: ${story.title}`, `STANDFIRST: ${story.hook.replace(/\[\^\d+\]/g, '')}`];
+  const footnoteUrls = new Map((story.evidence?.footnotes ?? []).map((f) => [f.n, f.url ?? '']));
+  // The deck is audited like a paragraph: a sentence sourced to a document is checked against that document.
+  const deck = rawSentences(story.hook).map((s) => (isDocumentSourced(s, footnoteUrls)
+    ? '[SOURCED STATEMENT, checked against its cited document; do not audit]' : s)).join(' ');
+  const parts = [`HEADLINE: ${story.title}`, `STANDFIRST: ${deck.replace(/\[\^\d+\]/g, '')}`];
   if (story.one_number) parts.push(`ONE NUMBER: ${story.one_number.value} (${story.one_number.label})`);
   for (const b of story.body.blocks) {
     if (b.type === 'layers') parts.push(...b.items.map((t) => `- ${t}`));
