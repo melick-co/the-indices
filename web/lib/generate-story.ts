@@ -141,8 +141,8 @@ Research task:
 
 7. If the story touches prices or inflation, use cpi_components to see what drove the CPI (groups, then the
    items under them: electricity, rents, insurance …), and read any component you will quote with query_data
-   on its cpi: id. Report headline CPI and the trimmed mean together, with the guard that the RBA targets the
-   trimmed mean.
+   on its cpi: id. Report headline CPI and the trimmed mean together, with the guard that the trimmed mean is the
+   RBA's preferred measure of underlying inflation.
 
 Write up findings in prose with explicit source citations. Be specific with numbers.`;
 }
