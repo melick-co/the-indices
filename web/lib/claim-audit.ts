@@ -107,7 +107,8 @@ between things. For each, decide:
 
 A CHART TITLE is a claim about the data its chart plots (listed after PLOTS). List it as "unsupported" if it
 names a measure the chart does not plot, or states a trend, comparison or finding that the plotted series do not
-show. Judge it against PLOTS and the reference, not against the article's prose.
+show. Judge it against PLOTS and the reference, not against the article's prose. A title that names its own
+starting point ("from its 2025 trough", "since 2023") is judged from that point, not from the chart's first value.
 
 A CONTRAST or PAIRING ("X rose while Y fell", "even as", "X re-accelerated as Y eased", "both", "unlike") is
 one claim: every part must hold over the SAME period. Take the period from the claim, or from the comparison it
