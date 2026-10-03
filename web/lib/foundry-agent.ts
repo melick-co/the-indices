@@ -1,3 +1,4 @@
+import { cpiId, cpiMeta, cpiObservations, isCpiId } from '../../agent/scripts/lib/cpi-components.mjs';
 import { createClient } from '@/lib/supabase-server';
 import { sydneyTime } from '@/lib/events';
 import { publisherOf } from '../../agent/scripts/lib/html-text.mjs';
@@ -89,6 +90,8 @@ function toolLabel(name: string, input: Record<string, unknown>): string {
       return `Searching metrics for "${String(input.query ?? '').slice(0, 40)}"`;
     case 'add_watch_item':
       return `Adding to the watch list: ${String(input.title ?? '').slice(0, 50)}`;
+    case 'cpi_components':
+      return `Reading CPI components${input.query ? ` (${String(input.query).slice(0, 30)})` : ''}`;
     default:
       return name;
   }
@@ -103,6 +106,8 @@ function resultDetail(name: string, out: unknown): string | undefined {
       return `${(o.rows as unknown[] | undefined)?.length ?? 0} observations`;
     case 'search_metrics':
       return `${(o.metrics as unknown[] | undefined)?.length ?? 0} metrics`;
+    case 'cpi_components':
+      return `${(o.items as unknown[] | undefined)?.length ?? 0} items, ${String(o.period ?? '')}`;
     case 'lookup_sources':
       return `${(o.sources as unknown[] | undefined)?.length ?? 0} sources`;
     case 'fetch_url': {
@@ -216,6 +221,12 @@ async function addWatchItem(input: Record<string, unknown>) {
 async function executeTool(name: string, input: Record<string, unknown>) {
   const supabase = createClient();
   if (name === 'query_data') {
+    if (isCpiId(String(input.metric_id))) {
+      const entity = String(input.entity ?? 'AUS').toUpperCase();
+      const obs = (await cpiObservations(supabase, String(input.metric_id))).filter((o) => o.entity === entity);
+      const meta = await cpiMeta(supabase, String(input.metric_id));
+      return { metric: meta, rows: obs.slice(-(Number(input.limit) || 60)) };
+    }
     let q = supabase.from('observations_labelled').select('*')
       .eq('metric_id', String(input.metric_id));
     if (input.entity) q = q.eq('entity', String(input.entity));
@@ -234,7 +245,65 @@ async function executeTool(name: string, input: Record<string, unknown>) {
   if (name === 'add_watch_item') {
     return addWatchItem(input);
   }
+  if (name === 'cpi_components') {
+    return cpiComponents(input);
+  }
   return { error: `Unknown tool: ${name}` };
+}
+
+/**
+ * The CPI broken into the items it is measured against (cpi_items / cpi_observations): one period's readings
+ * for the children of an item (default: the 11 groups), or items matching a name. Each comes with the cpi: ids
+ * that query_data, charts and the fact checks accept.
+ */
+async function cpiComponents(input: Record<string, unknown>) {
+  const supabase = createClient();
+  const frequency = String(input.frequency ?? 'M').toUpperCase() === 'Q' ? 'Q' : 'M';
+  const entity = String(input.entity ?? 'AUS').toUpperCase();
+  let items = supabase.from('cpi_items').select('index_code, name, level, series_type, sort_order, parent_code');
+  if (input.query) items = items.ilike('name', `%${String(input.query).trim()}%`);
+  else items = items.eq('parent_code', String(input.parent ?? '10001'));
+  const { data: list, error } = await items.order('sort_order').limit(60);
+  if (error) return { error: error.message };
+  if (!list?.length) return { error: 'No CPI items match. Try a broader name, or parent 10001 for the groups.' };
+  const codes = list.map((i) => i.index_code);
+  let period = input.period ? String(input.period) : null;
+  if (!period) {
+    const { data: latest } = await supabase.from('cpi_observations').select('period')
+      .eq('index_code', '10001').eq('entity', entity).eq('frequency', frequency)
+      .order('period', { ascending: false }).limit(1);
+    period = latest?.[0]?.period ?? null;
+  }
+  if (!period) return { error: 'No CPI readings stored yet.' };
+  const [{ data: obs }, { data: weights }] = await Promise.all([
+    supabase.from('cpi_observations')
+      .select('index_code, adjustment, index_value, change_period, change_annual, contribution_period_pts, contribution_annual_pts')
+      .in('index_code', codes).eq('entity', entity).eq('frequency', frequency).eq('period', period),
+    supabase.from('cpi_weights').select('index_code, period, weight_pct')
+      .in('index_code', codes).eq('entity', entity).order('period', { ascending: false }),
+  ]);
+  const q = frequency === 'Q';
+  return {
+    period, frequency, entity,
+    note: 'Cite a figure by calling query_data with its id first (ids are checkable like any stored metric). '
+      + 'When reporting CPI, give headline and trimmed mean (999902) together; the RBA targets the trimmed mean.',
+    items: list.map((i) => {
+      const rows = (obs ?? []).filter((o) => o.index_code === i.index_code);
+      const r = rows.find((o) => o.adjustment === 'original') ?? rows[0];
+      const sa = !rows.some((o) => o.adjustment === 'original');
+      return {
+        index_code: i.index_code, name: i.name, level: i.level, series_type: i.series_type,
+        weight_pct: weights?.find((w) => w.index_code === i.index_code)?.weight_pct ?? null,
+        index: r?.index_value ?? null, change_period: r?.change_period ?? null, change_annual: r?.change_annual ?? null,
+        contribution_annual_pts: r?.contribution_annual_pts ?? null,
+        ids: {
+          annual: cpiId(i.index_code, 'annual', { quarterly: q, sa }),
+          period: cpiId(i.index_code, 'period', { quarterly: q, sa }),
+          contrib_annual: cpiId(i.index_code, 'contrib_annual', { quarterly: q, sa }),
+        },
+      };
+    }),
+  };
 }
 
 function buildTools(metricList: string, intent: FoundryIntent) {
@@ -310,6 +379,25 @@ function buildTools(metricList: string, intent: FoundryIntent) {
           reason: { type: 'string', description: 'Why it matters to this story' },
         },
         required: ['title', 'institution'],
+      },
+    },
+    {
+      name: 'cpi_components',
+      description:
+        'The CPI broken into everything it is measured against (ABS: 11 groups, subgroups, expenditure classes such ' +
+        'as electricity, rents, insurance, plus analytical series like the trimmed mean, code 999902). Returns one ' +
+        "period's index, change and annual change, contribution to annual inflation and basket weight per item, " +
+        'monthly or quarterly, for Australia or a capital city, with ids (cpi:<code>:<measure>) that query_data ' +
+        'reads for history and that charts and the fact checks accept.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          parent: { type: 'string', description: 'Item code whose children to list (default 10001 = All groups → the 11 groups)' },
+          query: { type: 'string', description: 'Or find items by name, e.g. electricity, rents, trimmed mean' },
+          period: { type: 'string', description: 'YYYY-MM (monthly) or YYYY-Qn (quarterly); default latest' },
+          frequency: { type: 'string', enum: ['M', 'Q'] },
+          entity: { type: 'string', description: 'AUS (default), SYD, MEL, BNE, ADL, PER, HOB, DRW or CBR' },
+        },
       },
     },
     { type: 'web_search_20250305', name: 'web_search', max_uses: webMaxUses },

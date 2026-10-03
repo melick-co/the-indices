@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ChartSeriesPoint, StoryBlock, StoryChartBlock, StoryOneNumber } from '@/lib/story-types';
+import { CPI_ENTITY_NAMES, cpiMeta, cpiObservations, isCpiId } from '../../agent/scripts/lib/cpi-components.mjs';
 
 /**
  * Fill story chart series from stored observations.
@@ -26,6 +27,8 @@ export type BindResult = { chart: StoryChartBlock; ok: boolean; issue?: string }
 
 /** All observations for a metric, paged past PostgREST's 1000-row cap. */
 export async function loadObservations(db: SupabaseClient, metricId: string): Promise<Obs[]> {
+  // CPI components (cpi:<code>:<measure>…) live in cpi_observations.
+  if (isCpiId(metricId)) return cpiObservations(db, metricId);
   const out: Obs[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await db.from('observations')
@@ -40,6 +43,7 @@ export async function loadObservations(db: SupabaseClient, metricId: string): Pr
 }
 
 async function loadMeta(db: SupabaseClient, metricId: string): Promise<MetricMeta | null> {
+  if (isCpiId(metricId)) return cpiMeta(db, metricId);
   const { data } = await db.from('metrics')
     .select('metric_id, name, unit, source_org, source_dataset')
     .eq('metric_id', metricId).maybeSingle();
@@ -52,7 +56,7 @@ async function nameOf(db: SupabaseClient, code: string): Promise<string> {
     const { data } = await db.from('entities').select('code, name');
     entityNames = new Map((data ?? []).map((e) => [e.code.trim(), e.name]));
   }
-  return entityNames.get(code) ?? code;
+  return entityNames.get(code) ?? (CPI_ENTITY_NAMES as Record<string, string>)[code] ?? code;
 }
 
 /** The period to compare countries on: Australia's latest, else the period most entities share. */

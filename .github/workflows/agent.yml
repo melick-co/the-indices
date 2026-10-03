@@ -25,7 +25,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, story-refresh(-apply): story slug(s). Space separated.'
@@ -350,7 +350,17 @@ jobs:
         run: |
           npm install --no-save --silent ffmpeg-static@5.3.0
           echo "FFMPEG_PATH=$(node -p "require('ffmpeg-static')")" >> "$GITHUB_ENV"
+      - name: CPI components
+        # Every item the CPI is measured against (36_cpi_components.sql). Loads only when the ABS has a newer CPI
+        # than the store, so the watcher records a CPI release with its breakdown; events-cpi reloads the history.
+        if: >-
+          inputs.task == 'events-watch' || inputs.task == 'events-calendar' || inputs.task == 'events-cpi' ||
+          github.event.schedule == '41 0-8 * * 1-5' || github.event.schedule == '23 2 * * *'
+        continue-on-error: ${{ inputs.task != 'events-cpi' }}
+        working-directory: agent
+        run: node scripts/load-cpi-components.mjs ${{ inputs.task == 'events-cpi' && '--full' || '' }}
       - name: Events
+        if: inputs.task != 'events-cpi'
         run: >-
           npx tsx --import ./scripts/node-shims.mjs scripts/events.ts
           ${{ (inputs.task == 'events-calendar' || github.event.schedule == '23 2 * * *') && '--calendar' || '' }}

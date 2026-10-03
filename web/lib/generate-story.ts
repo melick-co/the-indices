@@ -139,6 +139,11 @@ Research task:
 6. If you find a scheduled release, decision or recurring report that will move this story's numbers (a date
    the data updates, a decision due, a weekly industry report), put it on the watch list with add_watch_item.
 
+7. If the story touches prices or inflation, use cpi_components to see what drove the CPI (groups, then the
+   items under them: electricity, rents, insurance …), and read any component you will quote with query_data
+   on its cpi: id. Report headline CPI and the trimmed mean together, with the guard that the RBA targets the
+   trimmed mean.
+
 Write up findings in prose with explicit source citations. Be specific with numbers.`;
 }
 
@@ -158,6 +163,7 @@ async function structureStory(
     ...metrics.map(line),
     ...(catalogue.some((m) => !linkedIds.has(m.metric_id)) ? ['Other stored metrics:'] : []),
     ...catalogue.filter((m) => !linkedIds.has(m.metric_id)).map(line),
+    'CPI components: any cpi:<index_code>:<measure>[:q][:sa] id the research read (e.g. cpi:999902:annual is the monthly trimmed mean); usable in metric_ids_used, charts and one_number like a stored metric.',
   ].join('\n');
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {

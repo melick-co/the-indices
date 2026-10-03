@@ -171,6 +171,11 @@ Place a **Sources** section at the end of every story:
 
 Each footnote must include, where applicable: **author/organisation, title, publication or dataset, date, page or section, and URL**.
 
+### 5.3 Inflation figures (MUST)
+- When a story reports CPI inflation, give **headline CPI and the trimmed mean together**, each footnoted, with the same reference period (monthly with monthly, quarterly with quarterly).
+- Add the guard in one sentence: **the RBA targets the trimmed mean** (underlying inflation), so it, not the headline, is the measure that moves rate decisions.
+- Component figures (electricity, rents, insurance) come from the stored CPI breakdown, never from memory.
+
 ---
 
 ## 6. Pre-Publish Checklist
@@ -191,6 +196,7 @@ The app must confirm every item before output:
 - [ ] "What's next" forward view present
 - [ ] Every fact, number and quote has a footnote marker
 - [ ] Sources section complete, with primary sources preferred
+- [ ] Inflation: headline CPI and trimmed mean together, with the RBA guard
 - [ ] No hype words; paragraphs of 3 sentences or fewer
 
 ---

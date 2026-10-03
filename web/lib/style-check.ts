@@ -131,6 +131,17 @@ export function checkStyle(story: Checkable): StyleCheck {
   const hype = hypeText.match(HYPE);
   if (hype) issues.push(`hype word "${hype[0]}"`);
 
+  // 5.3 Inflation: a CPI figure is reported as headline and trimmed mean together, with the guard that the
+  // RBA targets the trimmed mean (house rule, Oct 2026).
+  const pct = /\d(?:\.\d+)?\s*(?:%|per cent)/i;
+  const inflationFigures = allSentences.filter((x) => /\b(?:inflation|CPI|consumer price)/i.test(x) && pct.test(x));
+  if (inflationFigures.length) {
+    const trimmed = allSentences.filter((x) => /trimmed[- ]mean/i.test(x));
+    if (!trimmed.some((x) => pct.test(x))) issues.push('an inflation figure is reported without the trimmed mean figure; report headline CPI and trimmed mean together');
+    if (!inflationFigures.some((x) => !/trimmed[- ]mean/i.test(x) || /headline/i.test(x))) issues.push('the trimmed mean is reported without the headline CPI figure; report both together');
+    if (!trimmed.some((x) => /\bRBA\b|Reserve Bank/i.test(x))) issues.push('inflation figures need the guard that the RBA targets the trimmed mean (one sentence naming both)');
+  }
+
   // 4. Graphics: anatomy and a timeline when there are 3+ dated events.
   for (const c of charts) {
     const name = c.title ?? c.kind;

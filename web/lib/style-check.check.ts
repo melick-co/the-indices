@@ -35,6 +35,16 @@ for (const expected of [/headline is 1 words/, /deck is 2 words/, /lede is \d+ w
 }
 assert.ok(checkStyle({ ...good, title: 'A Revolutionary Shift Hits the Housing Market This Year' }).issues.some((i) => /hype word/.test(i)));
 
+// Inflation: headline and trimmed mean together, with the RBA guard.
+const withBlocks = (extra: StoryBlock[]) => ({ ...good, body: { blocks: [...good.body.blocks, ...extra] } });
+const cpiOnly = checkStyle(withBlocks([{ type: 'paragraph', role: 'context', text: 'Annual CPI inflation rose to 4.0% in August.[^2]' }]));
+assert.ok(cpiOnly.issues.some((i) => /without the trimmed mean/.test(i)), cpiOnly.issues.join('\n'));
+assert.ok(cpiOnly.issues.some((i) => /RBA targets the trimmed mean/.test(i)), cpiOnly.issues.join('\n'));
+const cpiBoth = checkStyle(withBlocks([{ type: 'paragraph', role: 'context', text: 'Annual CPI inflation rose to 4.0% in August.[^2] The trimmed mean, the measure the RBA targets, held at 3.6%.[^2]' }]));
+assert.ok(!cpiBoth.issues.some((i) => /trimmed mean|headline CPI/.test(i)), cpiBoth.issues.join('\n'));
+const trimmedOnly = checkStyle(withBlocks([{ type: 'paragraph', role: 'context', text: 'Trimmed mean inflation, which the Reserve Bank targets, held at 3.6%.[^2]' }]));
+assert.ok(trimmedOnly.issues.some((i) => /without the headline CPI/.test(i)), trimmedOnly.issues.join('\n'));
+
 // Long paragraphs split into parts of at most three sentences, markers kept with their sentence.
 const split = splitLongParagraphs([
   { type: 'paragraph', role: 'lede', text: 'Credit hit A$2,568 billion.[^1] Values fell. Rates rose to 4.60%.[^2] Borrowers are squeezed.' },
