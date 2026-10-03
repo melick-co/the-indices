@@ -15,6 +15,9 @@ export function createClient() {
   if (url && service) {
     return createServiceClient(url, service, {
       auth: { persistSession: false, autoRefreshToken: false },
+      // Always read the database as it is now. Next's data cache otherwise keeps Supabase responses across
+      // requests and deploys, so an applied revision could keep showing the previous copy.
+      global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }) },
     });
   }
   return createSessionClient();
