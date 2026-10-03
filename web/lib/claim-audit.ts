@@ -141,5 +141,6 @@ Rules:
 - List in metric_ids_used every metric_id whose values the copy quotes.
 
 Return ONLY the full article JSON in the same schema as article_json.`;
-  return await callClaudeJson(prompt, { label: 'article revision' }) as StructuredStory;
+  // Long articles (a dozen footnotes, a timeline) run past the default reply length.
+  return await callClaudeJson(prompt, { label: 'article revision', maxTokens: 32000 }) as StructuredStory;
 }

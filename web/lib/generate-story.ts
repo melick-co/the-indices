@@ -354,7 +354,7 @@ export async function checkStory(supabase: SupabaseClient, draft: StructuredStor
   // House news style (NEWS-STYLE.md): MUST items block; the rest are warnings for the editor.
   const style = checkStyle(draft);
   result.issues.push(...style.issues.map((i) => `style: ${i}`));
-  result.warnings = style.warnings;
+  result.warnings = [...(result.warnings ?? []), ...style.warnings];
   const figuresOk = result.ok && bound.issues.length === 0 && !hero.issue;
   result.ok = figuresOk && style.ok;
 

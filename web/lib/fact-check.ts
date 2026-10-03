@@ -118,9 +118,12 @@ export async function factCheckStory(
   if (!ids.length) issues.push('story is not linked to any stored metric');
 
   const allowed = new Allowed();
+  const warnings: string[] = [];
   for (const id of ids) {
     const obs = await loadObservations(db, id);
-    if (!obs.length) issues.push(`metric ${id} has no observations`);
+    // A listed series with no data adds nothing to check against; figures from it fail below, and charts or the
+    // hero number built on it fail their own checks. So it is a note for the editor, not a block.
+    if (!obs.length) warnings.push(`metric ${id} has no observations`);
     allowed.add(obs.map((o) => o.value));
     allowed.add(derivedFrom(obs));
   }
@@ -141,5 +144,6 @@ export async function factCheckStory(
     if (s.tier !== 1 && s.tier !== 2) issues.push(`source "${s.metric}" is tier ${s.tier}; headline claims need tier 1 or 2`);
   }
 
-  return { ok: issues.length === 0, issues, unsupported };
+  if (!ids.some(Boolean) || (warnings.length && warnings.length === ids.length)) issues.push('none of the story\'s metrics has stored observations');
+  return { ok: issues.length === 0, issues, unsupported, warnings };
 }
