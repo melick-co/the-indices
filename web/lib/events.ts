@@ -31,8 +31,8 @@ export const RELEASES: Array<{
 }> = [
   { series: 'abs:cpi', cadence: 'monthly', title: /^Consumer Price Index, Australia/i,
     url: 'https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/consumer-price-index-australia/latest-release',
-    metric_ids: ['cpi_annual_au', 'trimmed_mean_cpi_au', 'rent_cpi_annual_au', 'cpi_index_au'],
-    thresholds: { cpi_annual_au: 0.3, trimmed_mean_cpi_au: 0.3 } },
+    metric_ids: ['cpi_monthly_annual_au', 'trimmed_mean_cpi_monthly_au', 'cpi_annual_au', 'trimmed_mean_cpi_au', 'rent_cpi_annual_au', 'cpi_index_au'],
+    thresholds: { cpi_monthly_annual_au: 0.3, trimmed_mean_cpi_monthly_au: 0.3, cpi_annual_au: 0.3, trimmed_mean_cpi_au: 0.3 } },
   { series: 'abs:wpi', cadence: 'quarterly', title: /^Wage Price Index, Australia/i,
     url: 'https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/wage-price-index-australia/latest-release',
     metric_ids: ['wpi_annual_au', 'wpi_private_annual_au', 'wpi_public_annual_au'],

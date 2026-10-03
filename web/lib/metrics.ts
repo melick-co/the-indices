@@ -42,6 +42,7 @@ export const DIAL_SCALES: Record<string, DialScale> = {
   cash_rate_au: { min: 0, max: 8, decimals: 2 },
   bond_yield_10y_au: { min: 0, max: 8, decimals: 2 },
   cpi_annual_au: { min: 0, max: 8, decimals: 1 },
+  cpi_monthly_annual_au: { min: 0, max: 8, decimals: 1 },
   wpi_annual_au: { min: 0, max: 6, decimals: 1 },
   credit_housing_12m_au: { min: 0, max: 12, invertScale: true, decimals: 1 },
 };
