@@ -119,13 +119,26 @@ export async function applyRevision(slug: string, opts: { note?: string; force?:
   if (archiveErr) throw new Error(archiveErr.message);
   const { error } = await db.from('stories').update({
     ...pick(pending.content as Record<string, unknown>),
-    update_note: opts.note ?? DEFAULT_UPDATE_NOTE,
+    update_note: withCorrections(opts.note ?? DEFAULT_UPDATE_NOTE, row.update_note as string | null),
     updated_on: sydneyDay(),
     updated_at: now,
   }).eq('story_id', row.story_id);
   if (error) throw new Error(error.message);
   await db.from('story_revisions').update({ status: 'applied', resolved_at: now }).eq('revision_id', pending.revision_id);
   return { slug, title: String(pending.content.title) };
+}
+
+/**
+ * The note shown on the article after an apply. Corrections stay on the record: an earlier note that reports a
+ * correction is kept after the new note (unless the new note already restates it), so a later routine update
+ * does not erase it.
+ */
+export function withCorrections(note: string, previous: string | null | undefined): string {
+  const old = (previous ?? '').trim();
+  if (!old || !/\bCorrection\b/.test(old)) return note;
+  const corrections = old.split(/(?=Correction, )/).map((p) => p.trim()).filter((p) => p.startsWith('Correction'));
+  const kept = corrections.filter((c) => !note.includes(c.slice(0, 60)));
+  return [note, ...kept].join(' ');
 }
 
 /** Stored check result: what the desk shows next to a draft or revision. */
