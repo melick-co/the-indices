@@ -83,11 +83,11 @@ export default async function StoryPage({
         )}
         <div className="byline">
           {new Date(story.published).toLocaleDateString('en-AU',
-            { day: 'numeric', month: 'long', year: 'numeric' })}
+            { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
           {story.updatedOn && !revision && (
             <>
               {' · Updated '}
-              {new Date(story.updatedOn).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
+              {new Date(story.updatedOn).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
             </>
           )}
           {' · '}

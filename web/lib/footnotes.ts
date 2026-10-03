@@ -17,7 +17,13 @@ export function mergeDuplicateFootnotes<T extends Pick<StructuredStory, 'hook' |
     const same = f.url && kept.find((k) => k.url && key(k.url) === key(f.url));
     if (same) {
       const t = f.text.trim();
-      if (t && !same.text.includes(t)) same.text = `${same.text.replace(/\.?\s*$/, '.')} ${t}`;
+      // Two descriptions of the same citation ("RBA, FSR, October 2026" and "RBA, FSR, October 2026, media release
+      // MR-26-28"): keep the fuller one. Different descriptions (two tables on one page) are joined.
+      const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      const [a, b] = [norm(t), norm(same.text)];
+      const shorter = a.length < b.length ? a : b;
+      if (t && shorter.length >= 15 && (a.startsWith(b) || b.startsWith(a))) { if (t.length > same.text.length) same.text = t; }
+      else if (t && !same.text.includes(t)) same.text = `${same.text.replace(/\.?\s*$/, '.')} ${t}`;
       target.set(f.n, same);
     } else {
       const copy = { ...f };
