@@ -26,7 +26,16 @@ function articleText(story: CheckableStory) {
   // The deck is audited like a paragraph: a sentence sourced to a document is checked against that document.
   const deck = rawSentences(story.hook).map((s) => (isDocumentSourced(s, footnoteUrls)
     ? '[SOURCED STATEMENT, checked against its cited document; do not audit]' : s)).join(' ');
-  const parts = [`HEADLINE: ${story.title}`, `STANDFIRST: ${deck.replace(/\[\^\d+\]/g, '')}`];
+  // A headline cannot carry a footnote. When every figure in it is stated in a sentence that is checked against
+  // its cited document (the deck or the body), its figures are that document's, not the store's.
+  const sourcedText = [story.hook, ...story.body.blocks.flatMap((b) => ('text' in b && typeof b.text === 'string' ? [b.text] : []))]
+    .flatMap((t) => rawSentences(t)).filter((s) => isDocumentSourced(s, footnoteUrls)).join(' ');
+  const headFigures = story.title.match(/\d[\d,]*(?:\.\d+)?/g) ?? [];
+  const headSourced = headFigures.length > 0 && headFigures.every((f) => sourcedText.includes(f));
+  const parts = [
+    headSourced ? `HEADLINE: ${story.title} [its figures restate sourced statements below, checked against their cited documents; do not audit the figures]` : `HEADLINE: ${story.title}`,
+    `STANDFIRST: ${deck.replace(/\[\^\d+\]/g, '')}`,
+  ];
   if (story.one_number) parts.push(`ONE NUMBER: ${story.one_number.value} (${story.one_number.label})`);
   for (const b of story.body.blocks) {
     if (b.type === 'layers') parts.push(...b.items.map((t) => `- ${t}`));
