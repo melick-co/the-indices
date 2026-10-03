@@ -1,15 +1,12 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import SiteFooter from '@/components/SiteFooter';
-import { STORIES } from '@/content/stories';
 import { loadStoryBySlug } from '@/lib/stories-loader';
 
-export const revalidate = 900;
-export const dynamicParams = true;
-
-export function generateStaticParams() {
-  return STORIES.map((s) => ({ slug: s.slug }));
-}
+// Rendered on request: every story lives in the database, and the page reads ?preview / ?revision. (With no
+// static slugs, generateStaticParams returned [] and Next 14 treated the route as static, so reading
+// searchParams failed with DYNAMIC_SERVER_USAGE.)
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
   params,
