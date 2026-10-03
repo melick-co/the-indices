@@ -11,6 +11,7 @@
  *   ... --recheck <slug>  # re-run every check on the revision as it stands
  *   ... --sources <slug>  # read-only: check the live article's sourced statements against its source documents
  *   ... --discard <slug>  # drop the pending revision; the live article is untouched
+ *   ... --audit <slug>    # read-only: run every check on the live copy and list what it flags
  *   ... --charts <slug>   # rebuild the live article's charts from the store and re-run every check; applied with
  *                         # REVISION_NOTE (or a chart-update note) if it passes, otherwise held as a pending revision
  *   ... --figures <slug>  # dry run of the event updater: the figure edits it would make, or that it would call for
@@ -25,7 +26,7 @@
  * current version in story_revisions and adds the reader-facing update note.
  */
 import {
-  applyRevision, discardRevision, updateFigures, editContent, editDraft, listDrafts, loadDraftContent, publishDraft, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
+  applyRevision, checkLive, discardRevision, updateFigures, editContent, editDraft, listDrafts, loadDraftContent, publishDraft, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
   type CopyEdit,
 } from '@/lib/refresh-story';
 import type { StoryBlock } from '@/lib/story-types';
@@ -44,6 +45,7 @@ const draftsList = process.argv.includes('--drafts');
 const publish = process.argv.includes('--publish');
 const figures = process.argv.includes('--figures');
 const charts = process.argv.includes('--charts');
+const auditLive = process.argv.includes('--audit');
 const words = (t: string) => t.replace(/\[\^\d+\]/g, '').trim().split(/\s+/).filter(Boolean).length;
 const slugs = [
   ...process.argv.slice(2).filter((a) => !a.startsWith('--')),
@@ -70,6 +72,12 @@ async function main() {
       if (discard) {
         await discardRevision(slug);
         log('  Discarded the pending revision.');
+        continue;
+      }
+      if (auditLive) {
+        const check = await checkLive(slug);
+        log(check.ok ? '  Passes every check.' : `  Would be held (${check.issues.length} issue(s)):`);
+        for (const i of check.issues) log(`    - ${i}`);
         continue;
       }
       if (charts) {

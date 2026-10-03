@@ -155,6 +155,14 @@ async function recheck(content: Content, pitchId: string | null): Promise<{ cont
   };
 }
 
+/** Every check on the live copy, read-only: nothing is saved (charts are rebuilt only in memory). */
+export async function checkLive(slug: string): Promise<StoredCheck> {
+  const row = await loadPublished(slug);
+  const live = pickRevision(row);
+  const saved = ((live.evidence as { metric_ids?: string[] } | null)?.metric_ids) ?? [];
+  return (await recheck({ ...live, metric_ids_used: saved }, row.pitch_id)).check;
+}
+
 /** Save editor changes to a story's pending revision. */
 export async function saveRevisionContent(slug: string, content: Content) {
   const row = await loadPublished(slug);
