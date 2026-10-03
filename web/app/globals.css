@@ -276,8 +276,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   font-weight: var(--font-weight-regular);
   line-height: var(--leading-caption);
   letter-spacing: var(--tracking-caption);
-  color: #111;
-  background: var(--color-bb-orange);
+  /* The masthead navy, like the graphics (the old maroon predates the navy masthead). */
+  color: var(--masthead-ink, #fff);
+  background: var(--masthead-bg, #1d2a48);
   border: none;
   border-radius: var(--radius-buttons);
   padding: var(--spacing-21);

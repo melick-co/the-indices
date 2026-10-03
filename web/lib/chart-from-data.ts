@@ -238,7 +238,10 @@ export async function bindOneNumber(
     : null;
   const prev = prevPeriod ? own.find((o) => o.period === prevPeriod) : undefined;
   const pct = isPercent(meta?.unit);
-  const value = `${fmt(last.value)}${pct ? '%' : ''}`;
+  // Dollar series read as money: "A$1,100,000", "A$2,568 billion".
+  const aud = /\b(AUD|A\$|dollars?)\b/i.test(meta?.unit ?? '');
+  const scale = aud ? (meta?.unit ?? '').match(/\b(thousand|million|billion|trillion)\b/i)?.[1]?.toLowerCase() : undefined;
+  const value = aud ? `A$${fmt(last.value)}${scale ? ` ${scale}` : ''}` : `${fmt(last.value)}${pct ? '%' : ''}`;
   let comparison: string | undefined;
   let direction: StoryOneNumber['direction'];
   if (prev) {

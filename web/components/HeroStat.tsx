@@ -10,9 +10,10 @@ import type { StoryOneNumber } from '@/lib/story-types';
  */
 export default function HeroStat({ one }: { one: StoryOneNumber }) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const match = one.value.match(/^(-?[\d,]*\.?\d+)(.*)$/);
-  const target = match ? Number(match[1].replace(/,/g, '')) : NaN;
-  const decimals = match?.[1].split('.')[1]?.length ?? 0;
+  // An optional prefix ("A$"), the number, then any suffix ("%", " billion").
+  const match = one.value.match(/^([^\d-]*)(-?[\d,]*\.?\d+)(.*)$/);
+  const target = match ? Number(match[2].replace(/,/g, '')) : NaN;
+  const decimals = match?.[2].split('.')[1]?.length ?? 0;
   const [shown, setShown] = useState(Number.isFinite(target) ? 0 : NaN);
 
   useEffect(() => {
@@ -38,7 +39,7 @@ export default function HeroStat({ one }: { one: StoryOneNumber }) {
   }, [target]);
 
   const value = Number.isFinite(shown)
-    ? `${shown.toLocaleString('en-AU', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}${match?.[2] ?? ''}`
+    ? `${match?.[1] ?? ''}${shown.toLocaleString('en-AU', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}${match?.[3] ?? ''}`
     : one.value;
   const arrow = one.direction === 'up' ? '▲' : one.direction === 'down' ? '▼' : '';
 

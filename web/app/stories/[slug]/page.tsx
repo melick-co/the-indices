@@ -119,7 +119,10 @@ export default async function StoryPage({
           <section className="story-sources" aria-labelledby="sources-heading">
             <h2 id="sources-heading">Sources</h2>
             <ol>
-              {[...story.evidence.footnotes].sort((a, b) => a.n - b.n).map((f) => (
+              {[...story.evidence.footnotes].sort((a, b) => a.n - b.n)
+                // The link follows the text, so an address typed into the text would print twice.
+                .map((f) => ({ ...f, text: f.text.replace(/\s*https?:\/\/\S+/g, '').trim() }))
+                .map((f) => (
                 <li key={f.n} id={`fn-${f.n}`} value={f.n}>
                   {f.text}
                   {f.url && hostOf(f.url) ? <> <a href={f.url} target="_blank" rel="noreferrer">{hostOf(f.url)}</a></> : null}

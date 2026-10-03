@@ -27,6 +27,9 @@ const nextConfig = {
       { source: '/studio/:path*', destination: '/foundry/:path*', permanent: true },
       { source: '/indicators', destination: '/markets', permanent: true },
       { source: '/indicators/rba-rate-rise', destination: '/markets/rba-rate-rise', permanent: true },
+      // Renamed stories keep their old links.
+      { source: '/stories/sydney-negative-equity-rba-stale', destination: '/stories/dwelling-values-fall-household-debt-climbs', permanent: true },
+      { source: '/evidence/sydney-negative-equity-rba-stale', destination: '/evidence/dwelling-values-fall-household-debt-climbs', permanent: true },
     ];
   },
 };
