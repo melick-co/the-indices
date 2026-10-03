@@ -47,7 +47,8 @@ function articleText(story: CheckableStory) {
       const ends = (xs: typeof s) => (xs.length ? `${xs[0].label} ${xs[0].value} … ${xs[xs.length - 1].label} ${xs[xs.length - 1].value}` : '');
       const plots = b.kind === 'line' || b.kind === 'timeline'
         ? [`${b.primary_label ?? b.bound?.metric_id ?? ''}: ${ends(s)}`, ...(a.length ? [`${b.alt_label ?? b.bound?.alt_metric_id ?? ''}: ${ends(a)}`] : [])].join('; ')
-        : `${s.length} bars (${s.slice(0, 3).map((p) => `${p.label} ${p.value}`).join(', ')}…)${a.length ? ` beside ${b.alt_label ?? b.bound?.alt_metric_id}` : ''}`;
+        // No bar count: a chart may show a selection of countries, and the count is not part of its claim.
+        : `bars, highest first (${s.slice(0, 3).map((p) => `${p.label} ${p.value}`).join(', ')}…)${a.length ? ` beside ${b.alt_label ?? b.bound?.alt_metric_id}` : ''}`;
       parts.push(`[CHART TITLE: ${b.title ?? ''} | SUBTITLE: ${b.subtitle ?? ''} | PLOTS: ${plots}]`);
     }
     else if (b.type === 'timeline') {
