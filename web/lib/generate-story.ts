@@ -1,3 +1,4 @@
+import { sydneyDay } from '@/lib/dates';
 import { createClient } from '@/lib/supabase-server';
 import { runFoundryTurn, type FoundryEvent } from '@/lib/foundry-agent';
 import { CHARTER, MODEL } from '@/lib/research-agent';
@@ -550,7 +551,7 @@ export async function publishStoryFromPitch(
 
   const slug = existing?.slug ?? await uniqueSlug(story.slug_hint || story.title);
   const now = new Date().toISOString();
-  const today = now.slice(0, 10);
+  const today = sydneyDay();
 
   // Save as draft — editor previews before going live.
   if (existing?.slug) {
@@ -631,7 +632,7 @@ export async function goLiveFromPitch(pitchId: string): Promise<GoLiveResult> {
   }
 
   const now = new Date().toISOString();
-  const today = now.slice(0, 10);
+  const today = sydneyDay();
   const { error: updErr } = await supabase.from('stories').update({
     status: 'published',
     published: today,
