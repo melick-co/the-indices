@@ -41,7 +41,9 @@ export function inSource(evidence: string, bodies: string[]): boolean {
     });
   // Compare on words and figures only, so punctuation and spacing differences ("Released: 19/08/2026" for
   // "Released 19/08/2026") do not reject words that are really there.
-  const bare = (t: string) => ` ${t.replace(/[^a-z0-9%./ ]/g, ' ').replace(/\.(?!\d)/g, ' ').replace(/\s+/g, ' ').trim()} `;
+  // A full stop between a word and digits is a sentence end with a footnote number glued on by PDF extraction
+  // ("percentage point.30"), not a decimal point.
+  const bare = (t: string) => ` ${t.replace(/[^a-z0-9%./ ]/g, ' ').replace(/(?<=[a-z])\.(?=\d)/g, ' ').replace(/\.(?!\d)/g, ' ').replace(/\s+/g, ' ').trim()} `;
   const docs = bodies.map(bare);
   return fragments.length > 0 && fragments.every((f) => docs.some((b) => b.includes(bare(f))));
 }
