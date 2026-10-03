@@ -12,8 +12,11 @@
  *     Not out yet: try again on the next run, for up to two days.
  *  2. Record the outcome: the decision and its factors (quotes verified against the statement), or the new
  *     values of the release's series and whether the move is significant.
- *  3. Refresh every published article that quotes an affected series, and apply each refresh that passes
- *     every check, with an update note. At most REFRESH_PER_RUN per run; the rest go on the next run.
+ *  3. Update the figures in every published article that quotes an affected series (numbers, periods and
+ *     direction words only; charts rebuilt from the store) and apply each update that passes every check, with
+ *     an update note. If the new data changes an article's finding, it is not rewritten in place: a new article
+ *     is written and published (as for breaking stories), and the original gets a note linking to it.
+ *     At most REFRESH_PER_RUN articles per run; the rest go on the next run.
  *  4. Significant events (every RBA decision; big moves or new highs/lows in CPI, wages, jobs, GDP) get a
  *     breaking story: pitch, write and publish if it passes every check (outside the daily cap), with a hero
  *     image and, if none has run today, the narrated clip. Otherwise it is held as a draft.
@@ -22,7 +25,7 @@ import { createClient } from '@/lib/supabase-server';
 import {
   RELEASES, absCalendar, absHistory, absReleaseCalendar, eventsContext, expandRules, fedCalendar, rbaPublications, rbaTableCalendar, type WatchRule, refPeriodOf, releasePage, extractRbaDecision, rateAround, rbaCalendar, releaseOutcome, scheduleEvents, type EventRow,
 } from '@/lib/events';
-import { applyRevision, refreshStory } from '@/lib/refresh-story';
+import { updateFigures } from '@/lib/refresh-story';
 import { goLiveFromPitch, publishStoryFromPitch } from '@/lib/generate-story';
 import { generateHeroImage } from '@/lib/hero-image';
 import { generateHeroVideo } from '@/lib/hero-video';
@@ -191,8 +194,16 @@ function storyMetrics(s: { evidence: { metric_ids?: string[] } | null; body: { b
   return ids;
 }
 
+/**
+ * Keep the articles that quote the event's series current. Updates are figures only (numbers, periods,
+ * direction words, charts rebuilt from the store); an article whose finding the new data changes is left as
+ * it is, gets a note pointing to a new article, and the new article is written and published in its place.
+ */
 async function refreshAffected(e: EventRow) {
-  const actions = (e.actions ?? {}) as { queue?: string[]; applied?: string[]; held?: string[]; breaking?: unknown };
+  const actions = (e.actions ?? {}) as {
+    queue?: string[]; applied?: string[]; unchanged?: string[]; held?: string[];
+    rewritten?: Array<{ slug: string; reason: string; new_slug?: string; outcome: string }>; breaking?: unknown;
+  };
   if (!actions.queue) {
     const { data: stories } = await db.from('stories').select('slug, evidence, body, one_number').eq('status', 'published');
     actions.queue = (stories ?? [])
@@ -201,15 +212,22 @@ async function refreshAffected(e: EventRow) {
     log(`  ${actions.queue.length} published article(s) quote the affected series.`);
   }
   actions.applied ??= [];
+  actions.unchanged ??= [];
   actions.held ??= [];
-  const note = `Updated ${prettyDay(e.occurred_on!)} after the ${e.title.replace(/^RBA/, 'RBA')}: the article has been refreshed with the latest official data and every figure re-checked.`;
-  const brief = `Update this article after the ${e.title} (${e.occurred_on}). Use the latest stored data${e.summary ? ` (${e.summary})` : ''}. Keep the finding if it still holds; if the new data changes it, say so plainly. Cite each decision or release to its own source.`;
+  actions.rewritten ??= [];
+  const note = `Updated ${prettyDay(e.occurred_on!)} after the ${e.title}: figures brought up to date with the latest official data and re-checked. The analysis is unchanged.`;
   for (const slug of actions.queue.splice(0, REFRESH_PER_RUN)) {
-    log(`  Refreshing /stories/${slug}`);
+    log(`  Updating figures in /stories/${slug}`);
     try {
-      const r = await refreshStory(slug, onEvent, brief);
-      if (r.check.ok) { await applyRevision(slug, { note }); actions.applied.push(slug); log('    Applied.'); }
-      else { actions.held.push(slug); log(`    Held for the desk (${r.check.issues.length} issue(s)).`); }
+      const r = await updateFigures(slug, e, note);
+      if (r.outcome === 'applied') { actions.applied.push(slug); log(`    Applied ${r.edits?.length ?? 0} figure edit(s).`); }
+      else if (r.outcome === 'unchanged') { actions.unchanged.push(slug); log('    No figures superseded.'); }
+      else if (r.outcome === 'held') { actions.held.push(slug); log(`    Held for the desk: ${r.reason}${r.issues?.length ? ` (${r.issues.length} issue(s))` : ''}`); }
+      else {
+        log(`    The new data changes the finding: ${r.reason}`);
+        const follow = await followUpStory(e, slug, r.reason ?? '');
+        actions.rewritten.push({ slug, reason: r.reason ?? '', new_slug: follow.slug, outcome: follow.outcome });
+      }
     } catch (err) {
       actions.held.push(slug);
       log(`    Failed: ${err instanceof Error ? err.message : err}`);
@@ -217,6 +235,54 @@ async function refreshAffected(e: EventRow) {
   }
   e.actions = actions;
   return actions.queue.length === 0;
+}
+
+/**
+ * The new article for a story whose finding an event changed. Published like a breaking story (checks must
+ * pass; outside the daily cap); the original stays as published, with a note linking to the new article.
+ */
+async function followUpStory(e: EventRow, slug: string, reason: string) {
+  const { data: old } = await db.from('stories').select('title, hook, pitch_id, evidence').eq('slug', slug).single();
+  const { data: oldPitch } = old?.pitch_id ? await db.from('pitches').select('metric_ids').eq('id', old.pitch_id).maybeSingle() : { data: null };
+  const context = await eventsContext(db, e.metric_ids);
+  const pitch = await callClaudeJson(`Official data has changed the finding of a published article. Write the pitch for a NEW article for
+The Caveat, an Australian data-journalism broadsheet, that reports what the data now shows. It is a fresh story,
+not a correction: lead with the new finding, and mention once that it overturns or changes the earlier one.
+
+<earlier_article slug="${slug}">
+${old?.title}
+${old?.hook}
+</earlier_article>
+
+<what_changed>
+${e.title} (${e.occurred_on}): ${reason}
+Outcome: ${JSON.stringify(e.outcome)}
+</what_changed>
+
+<context>
+${context}
+</context>
+
+Respond ONLY with JSON:
+{"headline":"a claim, 6-12 words","hook":"why it matters now, one sentence","mechanism":"one plain sentence on cause","caveat":"the strongest objection","chart_hint":"best chart","metric_ids":["stored metric ids the story should use"]}`,
+  { label: 'follow-up pitch' }) as { headline: string; hook: string; mechanism: string; caveat: string; chart_hint: string; metric_ids?: string[] };
+  const oldIds = ((old?.evidence as { metric_ids?: string[] } | null)?.metric_ids) ?? [];
+  const { data: row, error } = await db.from('pitches').insert({
+    headline: pitch.headline, hook: pitch.hook, mechanism: pitch.mechanism, caveat: pitch.caveat, chart_hint: pitch.chart_hint,
+    detector: 'event', trigger_rows: { event_key: e.event_key, outcome: e.outcome, replaces: slug, reason }, state: 'approved',
+    metric_ids: [...new Set([...(pitch.metric_ids ?? []), ...e.metric_ids, ...((oldPitch?.metric_ids as string[] | null) ?? []), ...oldIds])],
+  }).select('id').single();
+  if (error || !row) throw new Error(error?.message ?? 'pitch insert failed');
+  log(`    New article pitch: ${pitch.headline}`);
+  const result = await publishLive(row.id);
+  if (result.outcome === 'published') {
+    await db.from('stories').update({
+      update_note: `Updated ${prettyDay(e.occurred_on!)}: the ${e.title} changed this article's finding. Read the new article: /stories/${result.slug}`,
+      updated_on: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString(),
+    }).eq('slug', slug);
+    log(`    The original now points to /stories/${result.slug}.`);
+  }
+  return result;
 }
 
 async function breakingStory(e: EventRow) {
@@ -245,6 +311,12 @@ Lead with what is newsworthy in the stored data and the institution's own words;
   }).select('id').single();
   if (error || !row) throw new Error(error?.message ?? 'pitch insert failed');
   log(`  Breaking pitch: ${pitch.headline}`);
+  return publishLive(row.id);
+}
+
+/** Write, check and publish an approved event pitch: hero image, the day's first narrated clip, then live. */
+async function publishLive(pitchId: string) {
+  const row = { id: pitchId };
   const draft = await publishStoryFromPitch(row.id, onEvent, { audit: true });
   if (!draft.check.ok) {
     log(`  Held as a draft (${draft.check.issues.length} issue(s)): /stories/${draft.slug}`);

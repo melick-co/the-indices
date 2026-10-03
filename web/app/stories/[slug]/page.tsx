@@ -104,7 +104,14 @@ export default async function StoryPage({
           </Link>
         </div>
 
-        {story.updateNote && !revision && <p className="story-update-note">{story.updateNote}</p>}
+        {story.updateNote && !revision && (
+          <p className="story-update-note">
+            {/* A note can point to the article that replaced this one ("Read the new article: /stories/…"). */}
+            {story.updateNote.split(/(\/stories\/[a-z0-9-]+)/).map((part, i) => (/^\/stories\//.test(part)
+              ? <Link key={i} href={part} style={{ borderBottom: '1px solid var(--pen)' }}>{part.replace('/stories/', '').replace(/-/g, ' ')}</Link>
+              : part))}
+          </p>
+        )}
 
         <div className="story-video-row">
           <ReelControls

@@ -5,6 +5,8 @@ import type { FoundryEvent } from '@/lib/foundry-agent';
 import type { FactCheck } from '@/lib/fact-check';
 import type { StoryBlock } from '@/lib/story-types';
 import { loadPendingRevision } from '@/lib/stories-loader';
+import { buildReference } from '../../agent/scripts/lib/revise-pitches.mjs';
+import { callClaudeJson } from '../../agent/scripts/lib/claude.mjs';
 
 /** The article fields a revision replaces. Placement, art and dates are left alone. */
 const CONTENT_COLS = ['kicker', 'title', 'hook', 'caveat', 'one_number', 'evidence', 'body', 'frame_check'] as const;
@@ -326,4 +328,133 @@ export async function publishDraft(slug: string, extraMetrics: string[] = []): P
     if (error) throw new Error(error.message);
   }
   return { check, published: true };
+}
+
+/**
+ * What an event-triggered update may change in a live article: numbers, reference periods (months, quarters,
+ * years) and direction words ("rose" → "fell"). Anything more means the story itself has changed, and that is
+ * a new article, not an update (house rule, Oct 2026).
+ */
+const FIGURE_WORDS = new RegExp('\\b(?:' + [
+  'rose', 'rise', 'rises', 'rising', 'risen', 'fell', 'fall', 'falls', 'falling', 'fallen', 'up', 'down', 'higher', 'lower',
+  'increased?', 'increases', 'increasing', 'decreased?', 'decreases', 'decreasing', 'above', 'below', 'faster', 'slower',
+  'accelerat\\w*', 'decelerat\\w*', 'slowed', 'slowing', 'eased?', 'eases', 'easing', 'climb\\w*', 'grew', 'grow', 'grows',
+  'growing', 'declin\\w*', 'gain\\w*', 'dropp?\\w*', 'more', 'less', 'highest', 'lowest', 'widen\\w*', 'narrow\\w*',
+  'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December',
+  'Jan', 'Feb', 'Mar', 'Apr', 'Jun', 'Jul', 'Aug', 'Sep', 'Sept', 'Oct', 'Nov', 'Dec',
+  'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+  'first', 'second', 'third', 'fourth', 'fifth', 'sixth',
+].join('|') + ')\\b', 'gi');
+
+export function isFiguresOnly(find: string, replace: string): boolean {
+  const mask = (t: string) => t.replace(/\d[\d,]*(?:\.\d+)?/g, '#').replace(FIGURE_WORDS, '~').replace(/\s+/g, ' ').trim();
+  return mask(find) === mask(replace);
+}
+
+/** The article's copy as the updater sees it: every field an edit can reach, labelled. */
+function copyForUpdate(c: Content): string {
+  const out: string[] = [`HEADLINE: ${c.title}`, `DECK: ${c.hook}`];
+  const one = c.one_number as { value?: string; label?: string } | null;
+  if (one?.label) out.push(`HERO NUMBER: ${one.value ?? ''} ${one.label}`);
+  for (const b of ((c.body as { blocks?: Record<string, unknown>[] })?.blocks ?? [])) {
+    if (typeof b.text === 'string') out.push(`${String(b.role ?? b.type).toUpperCase()}: ${b.text}`);
+    if (Array.isArray(b.items)) for (const i of b.items) out.push(`LAYER: ${i}`);
+    if (b.type === 'chart') out.push(`CHART: ${b.title ?? ''} | ${b.subtitle ?? ''} | ${b.alt ?? ''}`);
+    if (Array.isArray(b.events)) for (const e of b.events as Record<string, unknown>[]) out.push(`TIMELINE: ${e.date}: ${e.label}`);
+  }
+  const ev = c.evidence as { table?: { rows: unknown[][] }; footnotes?: { n: number; text: string }[] } | null;
+  for (const r of ev?.table?.rows ?? []) out.push(`TABLE ROW: ${r.map((x) => String(x ?? '')).join(' | ')}`);
+  for (const f of ev?.footnotes ?? []) out.push(`FOOTNOTE [^${f.n}]: ${f.text}`);
+  return out.join('\n');
+}
+
+export type FiguresUpdate = {
+  outcome: 'unchanged' | 'applied' | 'held' | 'rewrite';
+  reason?: string;
+  edits?: CopyEdit[];
+  issues?: string[];
+};
+
+/**
+ * Event-triggered update of a live article, limited to its figures: the model proposes exact find/replace
+ * edits, each must change only numbers, periods and direction words, charts and the hero number are rebuilt
+ * from the store, and the article is re-checked. Applied with `note` when it passes; held on the desk when it
+ * fails a check. When the new data changes the finding (or needs more than figure edits) the article is left
+ * as it is and the outcome is 'rewrite': the caller publishes a new article instead.
+ */
+export async function updateFigures(
+  slug: string,
+  event: { title: string; occurred_on: string | null; summary?: string | null; outcome?: unknown },
+  note: string,
+  opts: { dryRun?: boolean } = {},
+): Promise<FiguresUpdate> {
+  const db = createClient();
+  const row = await loadPublished(slug);
+  if (await loadPendingRevision(row.story_id)) return { outcome: 'held', reason: 'a revision is already pending on the desk' };
+  const live = pickRevision(row);
+  const saved = ((live.evidence as { metric_ids?: string[] } | null)?.metric_ids) ?? [];
+  const ids = [...new Set([...saved, ...(await pitchMetricIds(row.pitch_id))])];
+  const reference = await buildReference(db, ids, { history: 8 });
+
+  const reply = await callClaudeJson(`You keep a published data-journalism article current after an official release.
+You may only update its FIGURES; you may not rewrite it.
+
+<event>
+${event.title} (${event.occurred_on ?? ''})${event.summary ? `\n${event.summary}` : ''}
+Outcome: ${JSON.stringify(event.outcome ?? {})}
+</event>
+
+<stored_data>
+${JSON.stringify(reference)}
+</stored_data>
+
+<article published="${row.published}">
+${copyForUpdate(live)}
+</article>
+
+Compare every figure in the article with the stored data: each series' "latest" reading and its "earlier"
+readings, by period. The event only tells you why you are checking; the stored data decides. A figure is
+superseded when the article presents it as the current reading and the store has a newer period for that series.
+Figures the article gives as history (a past peak, a trough, a dated reading) stay as they are.
+
+Decide:
+- "unchanged": no figure in the article is superseded by newer stored data.
+- "figures": some figures are superseded, and the article's headline claim and finding still hold with the new
+  numbers. Give edits that swap each superseded figure (and its period, and a direction word such as rose/fell
+  if the move reversed) for the latest stored reading. Keep every other word, footnote marker and sentence.
+  Update footnote text that states the old figure or period the same way.
+- "rewrite": the new data changes the finding: the headline claim no longer holds, the direction of the story
+  reverses, or keeping it accurate needs new sentences or reasoning rather than new numbers.
+
+Each edit's "find" must be an exact substring of the article copy above (without the "LABEL: " prefix),
+long enough to be unique, and its "replace" must differ from it only in numbers, periods and direction words.
+Respond ONLY with JSON:
+{"verdict":"unchanged|figures|rewrite","reason":"one sentence","edits":[{"find":"...","replace":"..."}]}`,
+  { label: `figures ${slug}`, maxTokens: 6000 }) as { verdict: string; reason?: string; edits?: CopyEdit[] };
+
+  const reason = reply.reason ?? '';
+  if (reply.verdict === 'rewrite') return { outcome: 'rewrite', reason };
+  const edits = (reply.edits ?? []).filter((e) => e?.find && e.find !== e.replace);
+  const beyond = edits.filter((e) => !isFiguresOnly(e.find, e.replace));
+  if (beyond.length) {
+    return { outcome: 'rewrite', reason: `the update needs more than figure changes (${beyond.map((e) => JSON.stringify(e.replace).slice(0, 80)).join('; ')})`, edits };
+  }
+  let edited: Content;
+  try { edited = edits.length ? editContent(live, edits) : live; }
+  catch (err) { return { outcome: 'held', reason: err instanceof Error ? err.message : String(err), edits }; }
+  if (opts.dryRun) return { outcome: edits.length ? 'applied' : 'unchanged', reason: `(dry run) ${reason}`, edits };
+
+  // Charts and the hero number are rebuilt from the store by the re-check, so they update even with no edits.
+  await startRevisionFromLive(slug);
+  await saveRevisionContent(slug, { ...edited, metric_ids_used: ids });
+  const check = await recheckRevision(slug);
+  if (!check.ok) return { outcome: 'held', reason: 'the updated article failed its checks', edits, issues: check.issues };
+  const { content } = await loadRevisionContent(slug);
+  const same = (k: keyof Content) => JSON.stringify(content[k]) === JSON.stringify(live[k]);
+  if (!edits.length && same('body') && same('one_number')) {
+    await discardRevision(slug);
+    return { outcome: 'unchanged', reason };
+  }
+  await applyRevision(slug, { note });
+  return { outcome: 'applied', reason, edits };
 }

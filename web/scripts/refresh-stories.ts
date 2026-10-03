@@ -11,6 +11,8 @@
  *   ... --recheck <slug>  # re-run every check on the revision as it stands
  *   ... --sources <slug>  # read-only: check the live article's sourced statements against its source documents
  *   ... --discard <slug>  # drop the pending revision; the live article is untouched
+ *   ... --figures <slug>  # dry run of the event updater: the figure edits it would make, or that it would call for
+ *                         # a new article instead; nothing is saved
  *   ... --publish <slug>  # publish an approved draft: re-checked first, published only if it still passes
  *   ... --drafts          # list draft stories; with --recheck/--show/--edit, slugs that are drafts are handled as
  *                         # drafts (edited and re-checked in place; they are not live)
@@ -21,7 +23,7 @@
  * current version in story_revisions and adds the reader-facing update note.
  */
 import {
-  applyRevision, discardRevision, editContent, editDraft, listDrafts, loadDraftContent, publishDraft, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
+  applyRevision, discardRevision, updateFigures, editContent, editDraft, listDrafts, loadDraftContent, publishDraft, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
   type CopyEdit,
 } from '@/lib/refresh-story';
 import type { StoryBlock } from '@/lib/story-types';
@@ -38,6 +40,7 @@ const sourcesOnly = process.argv.includes('--sources');
 const discard = process.argv.includes('--discard');
 const draftsList = process.argv.includes('--drafts');
 const publish = process.argv.includes('--publish');
+const figures = process.argv.includes('--figures');
 const words = (t: string) => t.replace(/\[\^\d+\]/g, '').trim().split(/\s+/).filter(Boolean).length;
 const slugs = [
   ...process.argv.slice(2).filter((a) => !a.startsWith('--')),
@@ -64,6 +67,21 @@ async function main() {
       if (discard) {
         await discardRevision(slug);
         log('  Discarded the pending revision.');
+        continue;
+      }
+      if (figures) {
+        // The latest recorded release or decision that touches the story's series stands in for the event.
+        const db = createClient();
+        const { data: story } = await db.from('stories').select('evidence').eq('slug', slug).single();
+        const ids = ((story?.evidence as { metric_ids?: string[] } | null)?.metric_ids) ?? [];
+        const { data: ev } = await db.from('events').select('title, occurred_on, summary, outcome')
+          .overlaps('metric_ids', ids.length ? ids : ['none']).not('occurred_on', 'is', null)
+          .order('occurred_on', { ascending: false }).limit(1).maybeSingle();
+        const event = ev ?? { title: 'latest official data', occurred_on: new Date().toISOString().slice(0, 10) };
+        log(`  Against: ${event.title} (${event.occurred_on})`);
+        const r = await updateFigures(slug, event, '', { dryRun: true });
+        log(`  ${r.outcome === 'rewrite' ? 'Would call for a NEW article' : r.outcome === 'applied' ? 'Would update figures' : r.outcome === 'unchanged' ? 'No figures superseded' : 'Would hold'}: ${r.reason ?? ''}`);
+        for (const e of r.edits ?? []) log(`    - "${e.find}"\n      → "${e.replace}"`);
         continue;
       }
       if (sourcesOnly) {
