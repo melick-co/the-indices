@@ -189,6 +189,34 @@ export const ABS_SERIES = [
     source_id: 'abs_lf',
     verified: true,
   },
+  // The monthly CPI (the full monthly measure the ABS publishes alongside the quarterly CPI), so every monthly
+  // CPI release can trigger the events watcher, not only the quarter-end ones (Oct 2026).
+  {
+    metric_id: 'cpi_monthly_annual_au',
+    name: 'Australia monthly CPI, annual change',
+    dataflow: 'CPI',
+    dataKey: '3.10001.10.50.M',   // % change from previous year | All groups CPI | Original | Australia | Monthly
+    lastN: 60,
+    unit: 'percent',
+    basis: 'All groups CPI, original, change from same month previous year (monthly CPI)',
+    direction: 'higher_is_more_pressure',
+    category: 'prices',
+    source_id: 'abs_cpi',
+    verified: true,
+  },
+  {
+    metric_id: 'trimmed_mean_cpi_monthly_au',
+    name: 'Australia monthly trimmed mean CPI, annual change',
+    dataflow: 'CPI',
+    dataKey: '3.999902.20.50.M',  // % change from previous year | Trimmed Mean | SA | Australia | Monthly
+    lastN: 60,
+    unit: 'percent',
+    basis: 'Trimmed mean, seasonally adjusted, change from same month previous year (monthly CPI)',
+    direction: 'higher_is_more_pressure',
+    category: 'prices',
+    source_id: 'abs_cpi',
+    verified: true,
+  },
 ];
 
 /**
