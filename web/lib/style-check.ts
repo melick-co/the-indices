@@ -18,6 +18,9 @@ type Checkable = {
   body: { blocks: StoryBlock[] };
 };
 
+/** Our own pipeline's vocabulary: it describes how a story was checked, and must never reach readers. */
+const INTERNAL = /\b(stored data|reference data|in the (?:article|story) text|retained for context|metric[_ ]ids?\b|not available in (?:the )?(?:stored|reference)|the store\b|claim audit|fact[- ]check(?:er|ed)? (?:passed|held))/i;
+
 const HYPE = /\b(revolutionary|game[- ]changing|unprecedented|groundbreaking|stunning|shocking|staggering|jaw[- ]dropping|massive|skyrocket(?:s|ed|ing)?)\b/i;
 const MARKER = /\[\^(\d+)\]/g;
 
@@ -130,6 +133,22 @@ export function checkStyle(story: Checkable): StyleCheck {
   const hypeText = [story.title, story.hook, ...paras.map((p) => p.text)].join(' ');
   const hype = hypeText.match(HYPE);
   if (hype) issues.push(`hype word "${hype[0]}"`);
+
+  // Reader-facing text never carries the pipeline's own notes ("figure not available in stored data").
+  const readerText: Array<[string, string]> = [
+    ['headline', story.title], ['deck', story.hook], ['hero number', story.one_number?.label ?? ''],
+    ...blocks.flatMap((b, i): Array<[string, string]> => {
+      const r = b as Record<string, unknown>;
+      return ['text', 'title', 'subtitle', 'caption', 'alt'].filter((k) => typeof r[k] === 'string').map((k) => [`block ${i + 1} ${k}`, r[k] as string] as [string, string])
+        .concat(Array.isArray(r.items) ? (r.items as string[]).map((t) => [`block ${i + 1}`, t] as [string, string]) : [])
+        .concat(Array.isArray(r.events) ? (r.events as { label: string }[]).map((e) => [`timeline`, e.label] as [string, string]) : []);
+    }),
+    ...(story.evidence?.footnotes ?? []).map((f): [string, string] => [`footnote ${f.n}`, f.text]),
+  ];
+  for (const [where, t] of readerText) {
+    const m = INTERNAL.exec(t ?? '');
+    if (m) issues.push(`${where} contains internal pipeline wording ("${m[0]}"); rewrite it for readers`);
+  }
 
   // 5.3 Inflation: a CPI figure is reported as headline and trimmed mean together, with the guard that the
   // trimmed mean is the RBA's preferred measure of underlying inflation (house rule, Oct 2026).

@@ -45,6 +45,10 @@ assert.ok(!cpiBoth.issues.some((i) => /trimmed mean|headline CPI/.test(i)), cpiB
 const trimmedOnly = checkStyle(withBlocks([{ type: 'paragraph', role: 'context', text: 'Trimmed mean inflation, which the Reserve Bank targets, held at 3.6%.[^2]' }]));
 assert.ok(trimmedOnly.issues.some((i) => /without the headline CPI/.test(i)), trimmedOnly.issues.join('\n'));
 
+// Internal pipeline wording never reaches readers.
+const leaky = checkStyle({ ...good, evidence: { ...good.evidence, footnotes: [...good.evidence.footnotes, { n: 4, text: 'ABS, Public Sector. Figure not available in stored data; retained for context only.', url: 'https://www.abs.gov.au/' }] } });
+assert.ok(leaky.issues.some((i) => /footnote 4 contains internal pipeline wording/.test(i)), leaky.issues.join('\n'));
+
 // Long paragraphs split into parts of at most three sentences, markers kept with their sentence.
 const split = splitLongParagraphs([
   { type: 'paragraph', role: 'lede', text: 'Credit hit A$2,568 billion.[^1] Values fell. Rates rose to 4.60%.[^2] Borrowers are squeezed.' },
