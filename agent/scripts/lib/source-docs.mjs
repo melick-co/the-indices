@@ -16,6 +16,8 @@ export function kindOf(url, title = '') {
 
 /** Insert or refresh a document; unchanged text is left alone. Returns 'new' | 'updated' | 'same'. */
 export async function storeDocument(db, doc) {
+  // Postgres text cannot hold NUL, and PDF extraction sometimes yields control characters.
+  doc = { ...doc, body: String(doc.body ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '') };
   const url = canonicalUrl(doc.url);
   const hash = contentHash(doc.body);
   const { data: existing } = await db.from('source_documents').select('content_hash').eq('url', url).maybeSingle();
