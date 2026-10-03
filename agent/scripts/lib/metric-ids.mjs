@@ -1,3 +1,4 @@
+import { isCpiId } from './cpi-components.mjs';
 /**
  * Pitch metric links.
  * Models write metric_ids freehand, so they drift from the store ("rba_cash_rate",
@@ -74,7 +75,7 @@ export function normaliseMetricIds(ids, known) {
     const id = String(raw ?? '').trim();
     if (!id) continue;
     const canonical = canonicalMetricId(id, known);
-    if (known.has(canonical)) linked.add(canonical);
+    if (known.has(canonical) || isCpiId(canonical)) linked.add(canonical);
     else unlinked.add(id);
   }
   return { linked: [...linked], unlinked: [...unlinked] };

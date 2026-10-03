@@ -2,6 +2,7 @@
  * Revise active pitches when underlying metrics move.
  * Used after a hot-source refresh and on the overnight follow-up pass.
  */
+import { cpiMeta, cpiObservations, isCpiId } from './cpi-components.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -40,6 +41,10 @@ export async function buildReference(db, metricIds, opts = {}) {
   const historyLength = opts.history ?? HISTORY;
   const out = {};
   for (const mid of metricIds) {
+    if (isCpiId(mid)) {
+      out[mid] = await cpiReference(db, mid, historyLength);
+      continue;
+    }
     const { data: meta } = await db.from('metrics')
       .select('metric_id, name, unit, source_org, source_tier, direction')
       .eq('metric_id', mid).maybeSingle();
@@ -70,6 +75,22 @@ export async function buildReference(db, metricIds, opts = {}) {
     out[mid] = entry;
   }
   return out;
+}
+
+/** The reference entry for a CPI component (cpi:<code>:<measure>…): Australia's readings, capitals ranked. */
+async function cpiReference(db, mid, historyLength) {
+  const [meta, obs] = await Promise.all([cpiMeta(db, mid), cpiObservations(db, mid)]);
+  const home = obs.filter((o) => o.entity === HOME).reverse().slice(0, historyLength);
+  if (!meta || !home.length) return { missing: true, note: 'No Australian observations in the database. Do not cite a figure for this.' };
+  const [latest, ...history] = home;
+  const entry = {
+    name: meta.name, unit: meta.unit, source: meta.source_org, tier: meta.source_tier,
+    latest: { period: latest.period, value: latest.value },
+    earlier: history.map((h) => ({ period: h.period, value: h.value })),
+  };
+  const peers = obs.filter((o) => o.period === latest.period);
+  if (peers.length > 1) entry.ranking = rankEntities(peers, latest.period);
+  return entry;
 }
 
 /** Highest value first; Australia's position is computed here, never by the model. */
