@@ -4288,6 +4288,13 @@ html:has(.site-shell--ops) body {
 .story-line-label.key { fill: var(--pen); font-weight: 600; opacity: 0; transition: opacity .3s ease 1.25s; }
 .story-line-dot.key.shown, .story-line-label.key.shown { opacity: 1; }
 .story-line-tick { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-soft); }
+/* Second series: the accent colour, with a legend above the chart. */
+.story-line-path.alt { stroke: var(--pen); stroke-width: 2; }
+.story-line-dot.key.alt { fill: var(--pen); }
+.story-line-label.key.alt { fill: var(--pen); font-weight: 500; }
+.story-line-legend { display: flex; gap: 16px; flex-wrap: wrap; font-family: var(--font-mono); font-size: .72rem; color: var(--ink-soft); margin: -4px 0 6px; }
+.story-line-legend .swatch { display: inline-block; width: 16px; height: 0; border-top: 2.25px solid var(--ink); vertical-align: middle; margin-right: 6px; }
+.story-line-legend .swatch.alt { border-top-color: var(--pen); }
 
 .story-quote { margin: 26px 0; padding: 0 0 0 18px; border-left: 3px solid var(--pen); }
 .story-quote p { font-family: var(--font-display); font-size: 1.25rem; line-height: 1.4; margin: 0 0 8px; }

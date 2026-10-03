@@ -23,6 +23,15 @@ function subtitleOf(meta: MetricMeta | null, span: string) {
   return [meta?.name, meta?.unit, span].filter(Boolean).join(', ');
 }
 
+/** Subtitle for two series on one chart: both names, the shared unit, the span. */
+function subtitleOf2(a: MetricMeta | null, b: MetricMeta | null, span: string) {
+  const unit = a?.unit && a.unit === b?.unit ? a.unit : [a?.unit, b?.unit].filter(Boolean).join(' / ');
+  return [`${a?.name ?? 'Series 1'} and ${b?.name ?? 'Series 2'}`, unit, span].filter(Boolean).join(', ');
+}
+
+/** A writer's source line without footnote markers (the chart links its footnote itself). */
+const cleanCaption = (c?: string) => c?.replace(/\s*\[\^\d+\]/g, '').trim();
+
 export type BindResult = { chart: StoryChartBlock; ok: boolean; issue?: string };
 
 /** All observations for a metric, paged past PostgREST's 1000-row cap. */
@@ -104,11 +113,26 @@ export async function bindChart(db: SupabaseClient, chart: StoryChartBlock): Pro
 
   if (spec.mode === 'timeline') {
     const entity = (spec.entity ?? HOME).toUpperCase();
-    const own = obs.filter((o) => o.entity === entity).sort((a, b) => a.period.localeCompare(b.period));
-    const recent = own.slice(-Math.max(2, spec.last ?? DEFAULT_TIMELINE));
+    let own = obs.filter((o) => o.entity === entity).sort((a, b) => a.period.localeCompare(b.period));
+    // A second series over the same periods (headline and trimmed mean CPI; wages against prices): both lines
+    // are drawn, so both must be in the store for the same periods.
+    let altOwn: Obs[] | null = null;
+    let altMeta: MetricMeta | null = null;
+    if (spec.alt_metric_id) {
+      const [altObs, am] = await Promise.all([loadObservations(db, spec.alt_metric_id), loadMeta(db, spec.alt_metric_id)]);
+      const byPeriod = new Map(altObs.filter((o) => o.entity === entity).map((o) => [o.period, o]));
+      own = own.filter((o) => byPeriod.has(o.period));
+      altOwn = own.map((o) => byPeriod.get(o.period)!);
+      altMeta = am;
+      if (own.length < 2) return { chart, ok: false, issue: `chart asks for ${spec.alt_metric_id} beside ${spec.metric_id}, but they share fewer than two periods` };
+    }
+    const n = Math.max(2, spec.last ?? DEFAULT_TIMELINE);
+    const recent = own.slice(-n);
+    const recentAlt = altOwn?.slice(-n) ?? null;
     if (recent.length < 2) return { chart, ok: false, issue: `not enough ${entity} history for ${spec.metric_id}` };
     const last = recent[recent.length - 1];
     const span = `${recent[0].period} to ${last.period}`;
+    const altLast = recentAlt?.[recentAlt.length - 1];
     return {
       ok: true,
       chart: {
@@ -116,15 +140,21 @@ export async function bindChart(db: SupabaseClient, chart: StoryChartBlock): Pro
         // Change over time: a line that draws in, unless the writer asked for bars.
         kind: chart.kind === 'timeline' ? 'timeline' : 'line',
         series: recent.map((o, i) => ({ label: o.period, value: o.value, ...(i === recent.length - 1 ? { highlight: true } : {}) })),
-        alt_series: undefined,
-        subtitle: chart.subtitle?.trim() || subtitleOf(meta, span),
-        alt: chart.alt?.trim() || `${chart.title ?? meta?.name ?? spec.metric_id}: ${fmt(last.value)} in ${last.period}, from ${fmt(recent[0].value)} in ${recent[0].period}.`,
-        caption: chart.caption?.trim() || sourceLine(meta, span),
-        bound: { metric_id: spec.metric_id, period: last.period },
+        alt_series: recentAlt?.map((o) => ({ label: o.period, value: o.value })),
+        primary_label: recentAlt ? meta?.name ?? spec.metric_id : chart.primary_label,
+        alt_label: recentAlt ? altMeta?.name ?? spec.alt_metric_id : undefined,
+        // The subtitle says what is plotted, from the data itself, so it cannot describe a series the chart lacks.
+        subtitle: recentAlt ? subtitleOf2(meta, altMeta, span) : subtitleOf(meta, span),
+        alt: chart.alt?.trim() || `${chart.title ?? meta?.name ?? spec.metric_id}: ${fmt(last.value)} in ${last.period}, from ${fmt(recent[0].value)} in ${recent[0].period}${altLast ? `; ${altMeta?.name ?? spec.alt_metric_id} ${fmt(altLast.value)}` : ''}.`,
+        caption: cleanCaption(chart.caption) || sourceLine(meta, span),
+        bound: { metric_id: spec.metric_id, period: last.period, ...(altLast ? { alt_metric_id: spec.alt_metric_id, alt_period: altLast.period } : {}) },
       },
     };
   }
 
+  if (spec.alt_metric_id && chart.kind !== 'rank_swap') {
+    return { chart, ok: false, issue: `chart "${chart.title ?? chart.kind}" asks for a second series (${spec.alt_metric_id}) that a ${chart.kind} chart of countries cannot draw; use rank_swap or a timeline` };
+  }
   const period = comparisonPeriod(obs);
   if (!period) return { chart, ok: false, issue: `no comparable period for ${spec.metric_id}` };
   const series = await entitySeries(db, obs, period, spec.entities);
@@ -152,9 +182,9 @@ export async function bindChart(db: SupabaseClient, chart: StoryChartBlock): Pro
       kind: chart.kind === 'rank_swap' && alt.alt_series ? 'rank_swap' : 'bars',
       series,
       alt_series: alt.alt_series,
-      subtitle: chart.subtitle?.trim() || subtitleOf(meta, period),
+      subtitle: alt.alt_series ? subtitleOf2(meta, await loadMeta(db, spec.alt_metric_id!), period) : subtitleOf(meta, period),
       alt: chart.alt?.trim() || `${chart.title ?? meta?.name ?? spec.metric_id}: ${home ? `Australia ${fmt(home.value)}, ` : ''}highest ${series[0].label} ${fmt(series[0].value)} (${period}).`,
-      caption: chart.caption?.trim() || sourceLine(meta, period),
+      caption: cleanCaption(chart.caption) || sourceLine(meta, period),
       bound: { metric_id: spec.metric_id, period, ...alt.bound },
     },
   };

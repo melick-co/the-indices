@@ -30,7 +30,16 @@ function articleText(story: CheckableStory) {
   if (story.one_number) parts.push(`ONE NUMBER: ${story.one_number.value} (${story.one_number.label})`);
   for (const b of story.body.blocks) {
     if (b.type === 'layers') parts.push(...b.items.map((t) => `- ${t}`));
-    else if (b.type === 'chart') parts.push(`[CHART: ${b.title ?? ''}]`);
+    else if (b.type === 'chart') {
+      // What the chart actually plots (from the store), so its title can be checked against it.
+      const s = b.series ?? [];
+      const a = b.alt_series ?? [];
+      const ends = (xs: typeof s) => (xs.length ? `${xs[0].label} ${xs[0].value} … ${xs[xs.length - 1].label} ${xs[xs.length - 1].value}` : '');
+      const plots = b.kind === 'line' || b.kind === 'timeline'
+        ? [`${b.primary_label ?? b.bound?.metric_id ?? ''}: ${ends(s)}`, ...(a.length ? [`${b.alt_label ?? b.bound?.alt_metric_id ?? ''}: ${ends(a)}`] : [])].join('; ')
+        : `${s.length} bars (${s.slice(0, 3).map((p) => `${p.label} ${p.value}`).join(', ')}…)${a.length ? ` beside ${b.alt_label ?? b.bound?.alt_metric_id}` : ''}`;
+      parts.push(`[CHART TITLE: ${b.title ?? ''} | SUBTITLE: ${b.subtitle ?? ''} | PLOTS: ${plots}]`);
+    }
     else if (b.type === 'timeline') {
       // Events cited to a document are checked against it by the source check.
       const urls = new Map((story.evidence?.footnotes ?? []).map((f) => [f.n, f.url ?? '']));
@@ -85,6 +94,10 @@ between things. For each, decide:
   announced; an announcement date one day before the stored period is supported.
 - "unsupported": anything else, including claims about series that are not in the reference,
   claims whose span is longer than the listed history, and figures attributed to other sources.
+
+A CHART TITLE is a claim about the data its chart plots (listed after PLOTS). List it as "unsupported" if it
+names a measure the chart does not plot, or states a trend, comparison or finding that the plotted series do not
+show. Judge it against PLOTS and the reference, not against the article's prose.
 
 Dates (including scheduled release and meeting dates), release names, plain descriptions without
 quantities, and reports of what an institution said or published (minutes, statements, speeches) are

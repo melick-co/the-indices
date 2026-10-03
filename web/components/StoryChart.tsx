@@ -64,7 +64,8 @@ function ChartFrame({ chart, children, frameRef }: {
       {children}
       {(chart.caption || chart.footnote) && (
         <figcaption className="figure-cap">
-          {chart.caption}
+          {/* The footnote is linked below; a [^n] marker the writer left in the source line would print twice. */}
+          {chart.caption?.replace(/\s*\[\^\d+\]/g, '')}
           {chart.footnote ? <sup className="fn-ref"><a href={`#fn-${chart.footnote}`} aria-label={`Source ${chart.footnote}`}>{chart.footnote}</a></sup> : null}
         </figcaption>
       )}
@@ -209,8 +210,10 @@ function Timeline({ chart }: { chart: StoryChartBlock }) {
 function Line({ chart }: { chart: StoryChartBlock }) {
   const [ref, seen] = useInView<HTMLDivElement>();
   const pts = chart.series;
+  // A second series (e.g. trimmed mean beside headline CPI) shares the periods and the scale.
+  const alt = chart.alt_series?.length === pts.length ? chart.alt_series : null;
   const W = 640, H = 220, padL = 8, padR = 64, padT = 18, padB = 26;
-  const vals = pts.map((p) => p.value);
+  const vals = [...pts, ...(alt ?? [])].map((p) => p.value);
   const min = Math.min(...vals), max = Math.max(...vals);
   const span = max - min || Math.abs(max) || 1;
   const lo = min - span * 0.12, hi = max + span * 0.12;
@@ -219,15 +222,33 @@ function Line({ chart }: { chart: StoryChartBlock }) {
   const d = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
   const last = pts[pts.length - 1];
   const first = pts[0];
+  const dAlt = alt?.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
+  const altLast = alt?.[alt.length - 1];
+  // End labels sit apart when the two latest values are close.
+  const gap = altLast ? y(altLast.value) - y(last.value) : 0;
+  const nudge = altLast && Math.abs(gap) < 14 ? (14 - Math.abs(gap)) / 2 * (gap >= 0 ? 1 : -1) : 0;
   return (
     <ChartFrame chart={chart} frameRef={ref}>
+      {alt && (
+        <div className="story-line-legend">
+          <span><i className="swatch" />{chart.primary_label ?? 'Series 1'}</span>
+          <span><i className="swatch alt" />{chart.alt_label ?? 'Series 2'}</span>
+        </div>
+      )}
       <svg viewBox={`0 0 ${W} ${H}`} className="story-line" role="img" aria-label={chart.alt ?? chart.title ?? ''}>
         <line x1={padL} x2={W - padR} y1={H - padB} y2={H - padB} className="story-line-axis" />
+        {dAlt && <path d={dAlt} pathLength={1} className={`story-line-path alt${seen ? ' drawn' : ''}`} />}
         <path d={d} pathLength={1} className={`story-line-path${seen ? ' drawn' : ''}`} />
         <circle cx={x(0)} cy={y(first.value)} r={3} className="story-line-dot" />
         <text x={x(0)} y={y(first.value) - 8} className="story-line-label">{formatNum(first.value)}</text>
         <circle cx={x(pts.length - 1)} cy={y(last.value)} r={4.5} className={`story-line-dot key${seen ? ' shown' : ''}`} />
-        <text x={x(pts.length - 1) + 8} y={y(last.value) + 4} className={`story-line-label key${seen ? ' shown' : ''}`}>{formatNum(last.value)}</text>
+        <text x={x(pts.length - 1) + 8} y={y(last.value) + 4 - nudge} className={`story-line-label key${seen ? ' shown' : ''}`}>{formatNum(last.value)}</text>
+        {altLast && (
+          <>
+            <circle cx={x(alt!.length - 1)} cy={y(altLast.value)} r={3.5} className={`story-line-dot key alt${seen ? ' shown' : ''}`} />
+            <text x={x(alt!.length - 1) + 8} y={y(altLast.value) + 4 + nudge} className={`story-line-label key alt${seen ? ' shown' : ''}`}>{formatNum(altLast.value)}</text>
+          </>
+        )}
         <text x={x(0)} y={H - 8} className="story-line-tick">{first.label}</text>
         <text x={x(pts.length - 1)} y={H - 8} textAnchor="end" className="story-line-tick">{last.label}</text>
       </svg>
