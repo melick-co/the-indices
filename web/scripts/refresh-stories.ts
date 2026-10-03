@@ -11,7 +11,6 @@
  *   ... --recheck <slug>  # re-run every check on the revision as it stands
  *   ... --sources <slug>  # read-only: check the live article's sourced statements against its source documents
  *   ... --discard <slug>  # drop the pending revision; the live article is untouched
- *   ... --adopt <slug>    # founding (hand-built) story: create its pitch and database copy so it can be refreshed
  *   ... --figures <slug>  # dry run of the event updater: the figure edits it would make, or that it would call for
  *                         # a new article instead; nothing is saved
  *   ... --publish <slug>  # publish an approved draft: re-checked first, published only if it still passes
@@ -24,7 +23,7 @@
  * current version in story_revisions and adds the reader-facing update note.
  */
 import {
-  adoptFoundingStory, applyRevision, discardRevision, updateFigures, editContent, editDraft, listDrafts, loadDraftContent, publishDraft, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
+  applyRevision, discardRevision, updateFigures, editContent, editDraft, listDrafts, loadDraftContent, publishDraft, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
   type CopyEdit,
 } from '@/lib/refresh-story';
 import type { StoryBlock } from '@/lib/story-types';
@@ -42,7 +41,6 @@ const discard = process.argv.includes('--discard');
 const draftsList = process.argv.includes('--drafts');
 const publish = process.argv.includes('--publish');
 const figures = process.argv.includes('--figures');
-const adopt = process.argv.includes('--adopt');
 const words = (t: string) => t.replace(/\[\^\d+\]/g, '').trim().split(/\s+/).filter(Boolean).length;
 const slugs = [
   ...process.argv.slice(2).filter((a) => !a.startsWith('--')),
@@ -69,11 +67,6 @@ async function main() {
       if (discard) {
         await discardRevision(slug);
         log('  Discarded the pending revision.');
-        continue;
-      }
-      if (adopt) {
-        const r = await adoptFoundingStory(slug);
-        log(r.created ? `  Adopted: pitch ${r.pitchId} and a database copy (the hand-built page stays live).` : '  Already has a database copy.');
         continue;
       }
       if (figures) {

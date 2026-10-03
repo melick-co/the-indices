@@ -3,8 +3,6 @@ import { notFound } from 'next/navigation';
 import Capture from '@/components/Capture';
 import SiteFooter from '@/components/SiteFooter';
 import StoryBody from '@/components/StoryBody';
-import RankSwap from '@/components/RankSwap';
-import SpiralTimeline from '@/components/SpiralTimeline';
 import ReelControls from '@/components/ReelControls';
 import { STORIES } from '@/content/stories';
 import { loadPendingRevision, loadStoryBySlug, withRevision } from '@/lib/stories-loader';
@@ -16,8 +14,6 @@ import HeroStat from '@/components/HeroStat';
 function hostOf(url: string): string | null {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return null; }
 }
-import Migration from './bodies/migration';
-import WageSpiral from './bodies/wage-spiral';
 
 export const revalidate = 900;
 export const dynamicParams = true;
@@ -120,14 +116,7 @@ export default async function StoryPage({
           />
         </div>
 
-        {story.body?.blocks?.length ? (
-          <StoryBody body={story.body} />
-        ) : (
-          <>
-            {story.slug === 'migration-denominator' && <Migration Figure={RankSwap} />}
-            {story.slug === 'wage-spiral' && <WageSpiral Figure={SpiralTimeline} />}
-          </>
-        )}
+        {story.body?.blocks?.length ? <StoryBody body={story.body} /> : null}
 
         {story.evidence?.footnotes?.length ? (
           <section className="story-sources" aria-labelledby="sources-heading">

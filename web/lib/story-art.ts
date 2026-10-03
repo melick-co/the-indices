@@ -10,7 +10,9 @@ import type { Story, StoryArt, StoryArtKind } from '@/lib/story-types';
 
 export const STORY_ART_BUCKET = 'story-art';
 
-export const STATIC_STORY_SLUGS = ['migration-denominator', 'wage-spiral'] as const;
+// Hand-built founding stories rendered from content/stories.ts. Both founding stories moved to the database in
+// Oct 2026 (refreshed in the news format), so none remain; the mechanism stays for any future hand-built page.
+export const STATIC_STORY_SLUGS: readonly string[] = [];
 
 export function isStaticStorySlug(slug: string): boolean {
   return (STATIC_STORY_SLUGS as readonly string[]).includes(slug);

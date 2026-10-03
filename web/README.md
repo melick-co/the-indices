@@ -61,10 +61,9 @@ Two options:
 
 ## Adding a story
 
-1. Add an entry to `content/stories.ts` (slug, kicker, title, hook, caveat,
-   one number, evidence table, sources with tiers).
-2. Add a body component in `app/stories/[slug]/bodies/`.
-3. Wire it in the `page.tsx` switch. The evidence page generates itself.
+Stories are written by the Foundry (pitch → research → checks) and stored in Supabase; the evidence page
+generates itself. A hand-built page is still possible: add an entry to `content/stories.ts` and its slug to
+`STATIC_STORY_SLUGS` (lib/story-art.ts), a body component, and render it in `app/stories/[slug]/page.tsx`.
 
 ## The studio (`/studio`)
 
