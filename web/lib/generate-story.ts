@@ -1,3 +1,4 @@
+import { mergeDuplicateFootnotes } from '@/lib/footnotes';
 import { sydneyDay } from '@/lib/dates';
 import { createClient } from '@/lib/supabase-server';
 import { runFoundryTurn, type FoundryEvent } from '@/lib/foundry-agent';
@@ -323,6 +324,8 @@ export async function checkStory(supabase: SupabaseClient, draft: StructuredStor
   const queried = ctx.queried ?? new Set<string>();
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   const opts = { audit: ctx.audit };
+  // One source, one footnote (the writer sometimes cites the same page as two notes).
+  mergeDuplicateFootnotes(draft as never);
 
   for (const b of draft.body?.blocks ?? []) {
     const c = b as StoryChartBlock;

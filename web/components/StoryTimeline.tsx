@@ -25,7 +25,8 @@ export default function StoryTimeline({ block }: { block: StoryTimelineBlock }) 
           <li key={i} className={seen ? 'shown' : ''} style={{ transitionDelay: `${Math.min(i * 180, 1200)}ms` }}>
             <span className="story-timeline-date">{ev.date}</span>
             <span className="story-timeline-label">
-              <Footnoted text={ev.footnote ? `${ev.label}[^${ev.footnote}]` : ev.label} />
+              {/* The label may already carry its marker; append the event's footnote only when it does not. */}
+              <Footnoted text={ev.footnote && !ev.label.includes(`[^${ev.footnote}]`) ? `${ev.label}[^${ev.footnote}]` : ev.label} />
             </span>
           </li>
         ))}
