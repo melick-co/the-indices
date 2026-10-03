@@ -58,8 +58,11 @@ export const DATA_TABLE = /rba\.gov\.au\/statistics\/tables|data\.api\.abs\.gov\
 
 /** What a decision or report did, beyond what someone said: "the 2024 decision estimated…", "the Commission found…". */
 const DOCUMENT_VERBS = /\b(?:estimated|estimates|measured|found|finds|awarded|decided|determined|calculated|concluded|cited|states|set)\b/i;
-/** A sentence that reports what a source said, did or published (checked against the source, not stored data). */
-const reportsSource = (s: string) => ATTRIBUTION.test(s) || DOCUMENT_VERBS.test(s);
+
+/** Statistical release pages: their figures are in the store, so data sentences citing them are audited there. */
+const STATS_RELEASE = /abs\.gov\.au\/statistics\//i;
+
+const urlsOf = (story: Checkable) => new Map((story.evidence?.footnotes ?? []).map((f) => [f.n, f.url ?? '']));
 
 /** Sourced statements and dated events in the article, with the footnotes they cite. */
 function claimsOf(story: Checkable): Claim[] {
@@ -68,12 +71,12 @@ function claimsOf(story: Checkable): Claim[] {
     const clean = text.replace(MARKER, '').trim();
     if (clean && footnotes.length) out.push({ id: out.length + 1, text: clean, footnotes: [...new Set(footnotes)] });
   };
-  for (const s of rawSentences(story.hook ?? '')) if (reportsSource(s)) add(s, [...s.matchAll(MARKER)].map((m) => Number(m[1])));
+  for (const s of rawSentences(story.hook ?? '')) if (ATTRIBUTION.test(s) || isDocumentSourced(s, urlsOf(story))) add(s, [...s.matchAll(MARKER)].map((m) => Number(m[1])));
   for (const b of story.body.blocks) {
     const texts = b.type === 'paragraph' ? [b.text] : b.type === 'layers' ? b.items : [];
     for (const t of texts) {
       for (const s of rawSentences(t)) {
-        if (reportsSource(s)) add(s, [...s.matchAll(MARKER)].map((m) => Number(m[1])));
+        if (ATTRIBUTION.test(s) || isDocumentSourced(s, urlsOf(story))) add(s, [...s.matchAll(MARKER)].map((m) => Number(m[1])));
       }
     }
     if (b.type === 'timeline') {
@@ -203,7 +206,10 @@ export async function latestOfficialDocuments(db: SupabaseClient): Promise<strin
  * these to the source check: their figures belong to the document, not to stored data.
  */
 export function isDocumentSourced(sentence: string, footnoteUrls: Map<number, string>): boolean {
-  if (!reportsSource(sentence)) return false;
   const urls = [...sentence.matchAll(MARKER)].map((m) => footnoteUrls.get(Number(m[1])) ?? '');
-  return urls.length > 0 && urls.every((u) => u && !DATA_TABLE.test(u));
+  if (!urls.length || !urls.every((u) => u && !DATA_TABLE.test(u))) return false;
+  if (ATTRIBUTION.test(sentence)) return true;
+  // "measured", "estimated" … describe what a decision or report did, but also ordinary data sentences ("the
+  // measured annual rate is minus 0.2 per cent"): those cite a statistical release whose figures are stored.
+  return DOCUMENT_VERBS.test(sentence) && !urls.some((u) => STATS_RELEASE.test(u));
 }
