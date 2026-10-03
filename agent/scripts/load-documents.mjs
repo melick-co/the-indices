@@ -7,12 +7,21 @@
  *   node scripts/load-documents.mjs --dry-run  # list what would be fetched
  *   node scripts/load-documents.mjs --recent   # this year's RBA releases and minutes, and ABS release pages
  *
+ * Documents in agent/source-docs/*.json ({ url, publisher, kind, title, published, body }) are stored first, every run:
+ * official sources that block cloud servers (the Fair Work Commission's decisions return 403 to GitHub Actions)
+ * are fetched once by hand and committed, so the source check can still read them.
+ *
  * Unchanged documents are skipped (content hash). Pages that 404 (e.g. minutes for meetings not yet held,
  * which the RBA index already lists) are skipped quietly.
  */
 import { createDb } from './lib/obs-loader.mjs';
 import { fetchDocument } from './lib/html-text.mjs';
 import { kindOf, storeDocument } from './lib/source-docs.mjs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const SEEDED = join(dirname(fileURLToPath(import.meta.url)), '..', 'source-docs');
 
 const dryRun = process.argv.includes('--dry-run');
 const RBA = 'https://www.rba.gov.au';
@@ -63,6 +72,12 @@ async function main() {
 
   const db = createDb();
   const counts = { new: 0, updated: 0, same: 0, skipped: 0 };
+  for (const file of readdirSync(SEEDED).filter((f) => f.endsWith('.json'))) {
+    const doc = JSON.parse(readFileSync(join(SEEDED, file), 'utf8'));
+    const result = await storeDocument(db, doc);
+    counts[result]++;
+    if (result !== 'same') console.log(`  ${result} (committed copy): ${doc.title}`);
+  }
   for (const url of urls) {
     const doc = await fetchDocument(url);
     if (doc.error) { counts.skipped++; if (!/HTTP 404/.test(doc.error)) console.log(`  skip ${url}: ${doc.error}`); continue; }
