@@ -11,6 +11,7 @@
  *   ... --recheck <slug>  # re-run every check on the revision as it stands
  *   ... --sources <slug>  # read-only: check the live article's sourced statements against its source documents
  *   ... --discard <slug>  # drop the pending revision; the live article is untouched
+ *   ... --rename <old>=<new>  # move a published story to a new slug (add a redirect for the old one in next.config.mjs)
  *   ... --audit <slug>    # read-only: run every check on the live copy and list what it flags
  *   ... --charts <slug>   # rebuild the live article's charts from the store and re-run every check; applied with
  *                         # REVISION_NOTE (or a chart-update note) if it passes, otherwise held as a pending revision
@@ -26,7 +27,7 @@
  * current version in story_revisions and adds the reader-facing update note.
  */
 import {
-  applyRevision, checkLive, discardRevision, updateFigures, editContent, editDraft, listDrafts, loadDraftContent, publishDraft, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
+  applyRevision, checkLive, renameStory, discardRevision, updateFigures, editContent, editDraft, listDrafts, loadDraftContent, publishDraft, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
   type CopyEdit,
 } from '@/lib/refresh-story';
 import type { StoryBlock } from '@/lib/story-types';
@@ -46,6 +47,7 @@ const publish = process.argv.includes('--publish');
 const figures = process.argv.includes('--figures');
 const charts = process.argv.includes('--charts');
 const auditLive = process.argv.includes('--audit');
+const rename = process.argv.includes('--rename');
 const words = (t: string) => t.replace(/\[\^\d+\]/g, '').trim().split(/\s+/).filter(Boolean).length;
 const slugs = [
   ...process.argv.slice(2).filter((a) => !a.startsWith('--')),
@@ -72,6 +74,13 @@ async function main() {
       if (discard) {
         await discardRevision(slug);
         log('  Discarded the pending revision.');
+        continue;
+      }
+      if (rename) {
+        const [from, to] = slug.split('=');
+        if (!to) throw new Error('--rename takes old=new');
+        await renameStory(from, to);
+        log(`  Renamed: /stories/${from} → /stories/${to}`);
         continue;
       }
       if (auditLive) {

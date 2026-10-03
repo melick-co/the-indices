@@ -480,3 +480,19 @@ Respond ONLY with JSON:
   await applyRevision(slug, { note });
   return { outcome: 'applied', reason, edits };
 }
+
+/**
+ * Give a published story a new address. The old address must be redirected (next.config.mjs redirects) so
+ * shared links keep working; this only moves the record and its desk placement.
+ */
+export async function renameStory(from: string, to: string) {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(to)) throw new Error(`"${to}" is not a valid slug`);
+  const db = createClient();
+  const row = await loadPublished(from);
+  const { data: taken } = await db.from('stories').select('story_id').eq('slug', to).maybeSingle();
+  if (taken) throw new Error(`/stories/${to} already exists`);
+  const { error } = await db.from('stories').update({ slug: to, updated_at: new Date().toISOString() }).eq('story_id', row.story_id);
+  if (error) throw new Error(error.message);
+  await db.from('story_desk').update({ slug: to }).eq('slug', from);
+  return { from, to };
+}
