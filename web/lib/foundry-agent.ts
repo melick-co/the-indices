@@ -286,7 +286,7 @@ async function cpiComponents(input: Record<string, unknown>) {
   return {
     period, frequency, entity,
     note: 'Cite a figure by calling query_data with its id first (ids are checkable like any stored metric). '
-      + 'When reporting CPI, give headline and trimmed mean (999902) together; the RBA targets the trimmed mean.',
+      + "When reporting CPI, give headline and trimmed mean (999902) together; the trimmed mean is the RBA's preferred measure of underlying inflation.",
     items: list.map((i) => {
       const rows = (obs ?? []).filter((o) => o.index_code === i.index_code);
       const r = rows.find((o) => o.adjustment === 'original') ?? rows[0];

@@ -39,8 +39,8 @@ assert.ok(checkStyle({ ...good, title: 'A Revolutionary Shift Hits the Housing M
 const withBlocks = (extra: StoryBlock[]) => ({ ...good, body: { blocks: [...good.body.blocks, ...extra] } });
 const cpiOnly = checkStyle(withBlocks([{ type: 'paragraph', role: 'context', text: 'Annual CPI inflation rose to 4.0% in August.[^2]' }]));
 assert.ok(cpiOnly.issues.some((i) => /without the trimmed mean/.test(i)), cpiOnly.issues.join('\n'));
-assert.ok(cpiOnly.issues.some((i) => /RBA targets the trimmed mean/.test(i)), cpiOnly.issues.join('\n'));
-const cpiBoth = checkStyle(withBlocks([{ type: 'paragraph', role: 'context', text: 'Annual CPI inflation rose to 4.0% in August.[^2] The trimmed mean, the measure the RBA targets, held at 3.6%.[^2]' }]));
+assert.ok(cpiOnly.issues.some((i) => /RBA's preferred measure/.test(i)), cpiOnly.issues.join('\n'));
+const cpiBoth = checkStyle(withBlocks([{ type: 'paragraph', role: 'context', text: 'Annual CPI inflation rose to 4.0% in August.[^2] The trimmed mean, the preferred underlying measure of the RBA, held at 3.6%.[^2]' }]));
 assert.ok(!cpiBoth.issues.some((i) => /trimmed mean|headline CPI/.test(i)), cpiBoth.issues.join('\n'));
 const trimmedOnly = checkStyle(withBlocks([{ type: 'paragraph', role: 'context', text: 'Trimmed mean inflation, which the Reserve Bank targets, held at 3.6%.[^2]' }]));
 assert.ok(trimmedOnly.issues.some((i) => /without the headline CPI/.test(i)), trimmedOnly.issues.join('\n'));

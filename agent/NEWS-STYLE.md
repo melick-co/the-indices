@@ -173,7 +173,7 @@ Each footnote must include, where applicable: **author/organisation, title, publ
 
 ### 5.3 Inflation figures (MUST)
 - When a story reports CPI inflation, give **headline CPI and the trimmed mean together**, each footnoted, with the same reference period (monthly with monthly, quarterly with quarterly).
-- Add the guard in one sentence: **the RBA targets the trimmed mean** (underlying inflation), so it, not the headline, is the measure that moves rate decisions.
+- Add the guard in one sentence: **the trimmed mean is the RBA's preferred measure of underlying inflation**, so it, more than the headline, moves rate decisions. (The formal target is headline CPI of 2–3%; do not write that the RBA "targets" the trimmed mean.)
 - Component figures (electricity, rents, insurance) come from the stored CPI breakdown, never from memory.
 
 ---
