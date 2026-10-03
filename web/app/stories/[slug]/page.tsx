@@ -4,7 +4,6 @@ import Capture from '@/components/Capture';
 import SiteFooter from '@/components/SiteFooter';
 import StoryBody from '@/components/StoryBody';
 import ReelControls from '@/components/ReelControls';
-import { STORIES } from '@/content/stories';
 import { loadPendingRevision, loadStoryBySlug, withRevision } from '@/lib/stories-loader';
 import { clipsOf, resolveHeroImage } from '@/lib/story-art';
 import Footnoted from '@/components/Footnoted';
@@ -15,12 +14,10 @@ function hostOf(url: string): string | null {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return null; }
 }
 
-export const revalidate = 900;
-export const dynamicParams = true;
-
-export function generateStaticParams() {
-  return STORIES.map((s) => ({ slug: s.slug }));
-}
+// Rendered on request: every story lives in the database, and the page reads ?preview / ?revision. (With no
+// static slugs, generateStaticParams returned [] and Next 14 treated the route as static, so reading
+// searchParams failed with DYNAMIC_SERVER_USAGE.)
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
   params,
