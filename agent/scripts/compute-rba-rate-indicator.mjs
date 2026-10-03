@@ -4,7 +4,7 @@
  *   node scripts/compute-rba-rate-indicator.mjs
  */
 import { createDb, upsertSeries } from './lib/obs-loader.mjs';
-import { nextRbaMeeting, meetingDayFractions } from './lib/rba-meetings.mjs';
+import { nextRbaDecision, meetingDayFractions } from './lib/rba-meetings.mjs';
 import {
   fetchAsxIbContracts,
   selectContract,
@@ -39,7 +39,8 @@ async function latestObs(db, metricId) {
 }
 
 export async function computeRbaIndicator(db = createDb()) {
-  const meeting = nextRbaMeeting(new Date());
+  const meeting = await nextRbaDecision(db, new Date());
+  if (meeting.source === 'fallback') console.warn('No upcoming rba:decision event stored; using the first-Tuesday fallback date', meeting.iso);
   const { nb, na } = meetingDayFractions(meeting.date);
   const period = meeting.iso;
 
@@ -64,6 +65,15 @@ export async function computeRbaIndicator(db = createDb()) {
   }
 
   const market = marketProbabilities(cashRate, contract.yieldPct, nb, na);
+
+  // Readings stored under a future "meeting" that is not this one were dated by the old first-Tuesday rule
+  // (e.g. 2026-10-06, when the Board did not meet): remove them so no story cites a meeting that isn't held.
+  const ids = ['asx_ib_implied_yield_au', ...MARKET_METRICS.map((m) => m.metric_id), ...FUND_METRICS.map((m) => m.metric_id)];
+  const today = new Date().toISOString().slice(0, 10);
+  const { error: delErr, count } = await db.from('observations').delete({ count: 'exact' })
+    .in('metric_id', ids).gt('period', today).neq('period', period);
+  if (delErr) console.warn(`Could not remove misdated indicator rows: ${delErr.message}`);
+  else if (count) console.log(`Removed ${count} indicator reading(s) dated to a meeting that is not scheduled.`);
   const fundamentals = fundamentalsProbabilities({
     cashRate,
     cpi: cpiObs?.value ?? 3.0,
