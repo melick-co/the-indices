@@ -30,11 +30,14 @@ function isActive(pathname: string, href: string) {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  // Sydney's date, on the server and in the browser alike. Without a time zone the server (UTC) and a reader's
+  // browser disagree for much of the day, and the mismatch makes React abandon hydration for the whole page.
   const today = new Date().toLocaleDateString('en-AU', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
+    timeZone: 'Australia/Sydney',
   });
 
   return (

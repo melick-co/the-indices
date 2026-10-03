@@ -24,5 +24,5 @@ assert.equal(s.hook, 'Deck.[^1]');
 assert.equal(s.body.blocks[0].text, 'A.[^1] B.[^1] C.[^2]');
 assert.equal((s.body.blocks[1].events as { footnote: number; label: string }[])[0].footnote, 1);
 assert.equal(s.body.blocks[2].footnote, 2);
-assert.match(s.evidence.footnotes[0].text, /MR-26-28/);
+assert.equal(s.evidence.footnotes[0].text, 'RBA, FSR, October 2026, media release MR-26-28.');
 console.log('footnotes.check: ok');
