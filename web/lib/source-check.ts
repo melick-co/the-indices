@@ -13,7 +13,7 @@ import type { StoryBlock, StoryEvidence } from '@/lib/story-types';
  * story is held.
  */
 
-type Checkable = { evidence?: StoryEvidence | null; body: { blocks: StoryBlock[] } };
+type Checkable = { hook?: string | null; evidence?: StoryEvidence | null; body: { blocks: StoryBlock[] } };
 type Claim = { id: number; text: string; footnotes: number[] };
 type Doc = { url: string; title?: string | null; body: string };
 
@@ -41,14 +41,25 @@ export function inSource(evidence: string, bodies: string[]): boolean {
     });
   // Compare on words and figures only, so punctuation and spacing differences ("Released: 19/08/2026" for
   // "Released 19/08/2026") do not reject words that are really there.
-  const bare = (t: string) => ` ${t.replace(/[^a-z0-9%./ ]/g, ' ').replace(/\.(?!\d)/g, ' ').replace(/\s+/g, ' ').trim()} `;
+  // A full stop between a word and digits is a sentence end with a footnote number glued on by PDF extraction
+  // ("percentage point.30"), not a decimal point.
+  const bare = (t: string) => ` ${t.replace(/[^a-z0-9%./ ]/g, ' ').replace(/(?<=[a-z])\.(?=\d)/g, ' ').replace(/\.(?!\d)/g, ' ').replace(/\s+/g, ' ').trim()} `;
   const docs = bodies.map(bare);
-  return fragments.length > 0 && fragments.every((f) => docs.some((b) => b.includes(bare(f))));
+  // A fragment may end where the document has a full stop with a footnote number glued on ("quarter 2026.1").
+  return fragments.length > 0 && fragments.every((f) => {
+    const core = bare(f).trimEnd();
+    return docs.some((b) => b.includes(`${core} `) || b.includes(`${core}.`));
+  });
 }
 
 // Statistical tables and data APIs: their figures are checked against stored data by the claim audit, and
 // the pages themselves are lists of files, not text to check statements against.
 export const DATA_TABLE = /rba\.gov\.au\/statistics\/tables|data\.api\.abs\.gov\.au|explore\.data\.abs\.gov\.au|data-explorer\.oecd\.org|sdmx\.oecd\.org|data\.imf\.org|stats\.bis\.org|data\.worldbank\.org/i;
+
+/** What a decision or report did, beyond what someone said: "the 2024 decision estimated…", "the Commission found…". */
+const DOCUMENT_VERBS = /\b(?:estimated|estimates|measured|found|finds|awarded|decided|determined|calculated|concluded|cited|states|set)\b/i;
+/** A sentence that reports what a source said, did or published (checked against the source, not stored data). */
+const reportsSource = (s: string) => ATTRIBUTION.test(s) || DOCUMENT_VERBS.test(s);
 
 /** Sourced statements and dated events in the article, with the footnotes they cite. */
 function claimsOf(story: Checkable): Claim[] {
@@ -57,11 +68,12 @@ function claimsOf(story: Checkable): Claim[] {
     const clean = text.replace(MARKER, '').trim();
     if (clean && footnotes.length) out.push({ id: out.length + 1, text: clean, footnotes: [...new Set(footnotes)] });
   };
+  for (const s of rawSentences(story.hook ?? '')) if (reportsSource(s)) add(s, [...s.matchAll(MARKER)].map((m) => Number(m[1])));
   for (const b of story.body.blocks) {
     const texts = b.type === 'paragraph' ? [b.text] : b.type === 'layers' ? b.items : [];
     for (const t of texts) {
       for (const s of rawSentences(t)) {
-        if (ATTRIBUTION.test(s)) add(s, [...s.matchAll(MARKER)].map((m) => Number(m[1])));
+        if (reportsSource(s)) add(s, [...s.matchAll(MARKER)].map((m) => Number(m[1])));
       }
     }
     if (b.type === 'timeline') {
@@ -74,7 +86,23 @@ function claimsOf(story: Checkable): Claim[] {
 /** The document's paragraphs most relevant to a claim, in document order, within a size budget. */
 function excerpt(doc: Doc, claim: string, budget = 2400): string {
   const want = terms(claim);
-  const lines = doc.body.split('\n').map((line, i) => ({ line, i, score: [...terms(line)].filter((w) => want.has(w)).length }));
+  // PDF text is hard-wrapped mid-sentence: rejoin wrapped lines into paragraphs, and cut long paragraphs into
+  // runs of whole sentences, so the passages (and the words quoted from them) are contiguous text.
+  // (HTML pages and tables keep their lines: a table row is a unit of its own.)
+  const pdf = /\.pdf(?:$|[?#])/i.test(doc.url);
+  const units = (pdf ? doc.body.replace(/([^\n])\n(?!\n)/g, '$1 ') : doc.body).split(/\n+/).flatMap((para) => {
+    if (!pdf) return [para];
+    if (para.length <= 600) return [para];
+    const out: string[] = [];
+    let cur = '';
+    for (const sentence of para.split(/(?<=[.!?])\s+(?=[A-Z\[(“"])/)) {
+      if (cur && cur.length + sentence.length > 450) { out.push(cur); cur = ''; }
+      cur = cur ? `${cur} ${sentence}` : sentence;
+    }
+    if (cur) out.push(cur);
+    return out;
+  });
+  const lines = units.map((line, i) => ({ line, i, score: [...terms(line)].filter((w) => want.has(w)).length }));
   const picked: typeof lines = [];
   let size = 0;
   for (const l of [...lines].sort((a, b) => b.score - a.score)) {
@@ -175,7 +203,7 @@ export async function latestOfficialDocuments(db: SupabaseClient): Promise<strin
  * these to the source check: their figures belong to the document, not to stored data.
  */
 export function isDocumentSourced(sentence: string, footnoteUrls: Map<number, string>): boolean {
-  if (!ATTRIBUTION.test(sentence)) return false;
+  if (!reportsSource(sentence)) return false;
   const urls = [...sentence.matchAll(MARKER)].map((m) => footnoteUrls.get(Number(m[1])) ?? '');
   return urls.length > 0 && urls.every((u) => u && !DATA_TABLE.test(u));
 }

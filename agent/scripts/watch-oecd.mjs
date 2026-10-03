@@ -52,6 +52,26 @@ export async function oecdFetch(path, accept = STRUCTURE, attempts = 5) {
   }
 }
 
+/**
+ * The same rows from the CSV export. Some large flows (e.g. the migration database) drop observations from their
+ * SDMX-JSON response; their CSV is complete.
+ */
+export async function fetchSeriesCsv(flow, key, startPeriod) {
+  const text = String(await oecdFetch(`/data/${flow}/${key}?startPeriod=${startPeriod}&format=csvfile`, 'text/csv'));
+  const [head, ...lines] = text.trim().split(/\r?\n/);
+  const cols = head.split(',');
+  const at = (name) => cols.indexOf(name);
+  const [t, v, st] = [at('TIME_PERIOD'), at('OBS_VALUE'), at('OBS_STATUS')];
+  // Dimensions sit between ACTION (or STRUCTURE_ID) and TIME_PERIOD.
+  const first = Math.max(at('ACTION'), at('STRUCTURE_ID')) + 1;
+  return lines.flatMap((line) => {
+    const c = line.split(',');
+    if (c[v] === '' || c[v] == null) return [];
+    const dims = Object.fromEntries(cols.slice(first, t).map((name, i) => [name, c[first + i]]));
+    return [{ dims, period: c[t], value: Number(c[v]), obsStatus: st >= 0 ? c[st] || null : null }];
+  });
+}
+
 export async function fetchSeries(flow, key, startPeriod) {
   const json = await oecdFetch(`/data/${flow}/${key}?startPeriod=${startPeriod}`, DATA);
   return parseSdmxSeries(json);
@@ -115,17 +135,30 @@ export async function loadOecd(db = createDb()) {
   for (const s of [...OECD_SERIES, ...scouted]) {
     try {
       const cacheKey = `${s.flow}/${s.key}/${s.startPeriod}`;
-      if (!cache.has(cacheKey)) cache.set(cacheKey, fetchSeries(s.flow, s.key, s.startPeriod));
+      if (!cache.has(cacheKey)) cache.set(cacheKey, (s.csv ? fetchSeriesCsv : fetchSeries)(s.flow, s.key, s.startPeriod));
       const raw = await cache.get(cacheKey);
-      const rows = raw
+      let rows = raw
         .filter((r) => (!s.measure || r.dims.MEASURE === s.measure) && entities.has(r.dims.REF_AREA))
         .map((r) => ({
           metric_id: s.metric_id,
           entity: r.dims.REF_AREA,
           period: r.period,
-          value: Number(r.value.toFixed(2)),
+          value: r.value * (s.scale ?? 1),
           status: statusOf(r.obsStatus),
         }));
+      // Series published only by category (e.g. migration by entry category) are summed to a total.
+      if (s.sumOver) {
+        const totals = new Map();
+        for (const r of rows) {
+          const k = `${r.entity}|${r.period}`;
+          const t = totals.get(k) ?? { ...r, value: 0 };
+          t.value += r.value;
+          if (r.status === 'estimated') t.status = 'estimated';
+          totals.set(k, t);
+        }
+        rows = [...totals.values()];
+      }
+      rows = rows.map((r) => ({ ...r, value: Number(r.value.toFixed(s.decimals ?? 2)) }));
       if (!rows.length) { console.log(`${s.metric_id}: no rows for known entities`); continue; }
       // A key must give one value per country and period; anything else is ambiguous.
       if (new Set(rows.map((r) => `${r.entity}|${r.period}`)).size !== rows.length) {
@@ -142,6 +175,29 @@ export async function loadOecd(db = createDb()) {
       }, rows);
       totalNew += fresh;
       if (fresh) changedMetrics.push(s.metric_id);
+      if (s.perCapita) {
+        const pc = s.perCapita;
+        const pop = new Map();
+        for (let from = 0; ; from += 1000) {
+          const { data } = await db.from('observations').select('entity, period, value')
+            .eq('metric_id', pc.population).range(from, from + 999);
+          for (const o of data ?? []) pop.set(`${String(o.entity).trim()}|${o.period}`, Number(o.value));
+          if ((data?.length ?? 0) < 1000) break;
+        }
+        const perRows = rows.flatMap((r) => {
+          const p = pop.get(`${r.entity}|${r.period}`);
+          return p ? [{ ...r, metric_id: pc.metric_id, value: Number(((r.value / (s.scale ?? 1)) / p * pc.per).toFixed(2)) }] : [];
+        });
+        const { fresh: freshPc } = await upsertSeries(db, {
+          metric_id: pc.metric_id, name: pc.name, unit: pc.unit, basis: pc.basis,
+          direction: s.direction, category: s.category, source_tier: 1,
+          source_org: 'OECD', source_dataset: `${s.source_dataset}; World Bank population`,
+          source_url: `${BASE}/data/${s.flow}/${s.key}`, source_id: 'oecd_gov',
+        }, perRows);
+        totalNew += freshPc;
+        if (freshPc) changedMetrics.push(pc.metric_id);
+        console.log(`${pc.metric_id}: ${perRows.length} obs (${freshPc} new)`);
+      }
       const aus = rows.filter((r) => r.entity === 'AUS').sort((a, b) => a.period.localeCompare(b.period)).at(-1);
       console.log(`${s.metric_id}: ${rows.length} obs (${fresh} new) across ` +
         `${new Set(rows.map((r) => r.entity)).size} countries; AUS latest ${aus ? `${aus.period} = ${aus.value}` : 'none'}`);

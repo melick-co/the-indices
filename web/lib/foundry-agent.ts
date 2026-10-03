@@ -120,8 +120,31 @@ function resultDetail(name: string, out: unknown): string | undefined {
   }
 }
 
-async function fetchUrlCached(url: string) {
+/** Passages around each match of `find` (case-insensitive), for long documents; null when nothing matches. */
+function passages(text: string, find: string, width = 900, max = 6): string | null {
+  const re = new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+  const out: string[] = [];
+  let last = -Infinity;
+  for (const m of text.matchAll(re)) {
+    if (m.index! - last < width) continue;
+    last = m.index!;
+    out.push(`…${text.slice(Math.max(0, m.index! - width / 2), m.index! + width / 2).replace(/\s+/g, ' ')}…`);
+    if (out.length >= max) break;
+  }
+  return out.length ? out.join('\n\n') : null;
+}
+
+async function fetchUrlCached(url: string, find?: string) {
   const supabase = createClient();
+  // Official documents stored as text (source_documents) come first: complete, and readable even when the
+  // publisher blocks cloud servers. With `find`, long documents return the passages that mention it.
+  const { data: stored } = await supabase.from('source_documents')
+    .select('title, body').eq('url', url.replace(/^http:/, 'https:').replace(/#.*$/, '').replace(/\/$/, '')).maybeSingle();
+  if (stored?.body) {
+    const hit = find ? passages(stored.body, find) : null;
+    return { ok: true as const, title: stored.title, url, stored: true,
+      text: hit ?? stored.body.slice(0, 12000), ...(find && !hit ? { note: `"${find}" not found in the document` } : {}) };
+  }
   const { data: cached } = await supabase.from('research_cache')
     .select('title, text, fetched_at').eq('url', url).maybeSingle();
   if (cached?.text) {
@@ -234,7 +257,7 @@ async function executeTool(name: string, input: Record<string, unknown>) {
     return error ? { error: error.message } : { rows: data };
   }
   if (name === 'fetch_url') {
-    return fetchUrlCached(String(input.url ?? ''));
+    return fetchUrlCached(String(input.url ?? ''), input.find ? String(input.find) : undefined);
   }
   if (name === 'lookup_sources') {
     return lookupSources(input.query ? String(input.query) : undefined);
@@ -347,11 +370,14 @@ function buildTools(metricList: string, intent: FoundryIntent) {
     },
     {
       name: 'fetch_url',
-      description: 'Fetch and extract text from a public URL (tier 1/2 pages, reports).',
+      description: 'Fetch and extract text from a public URL (tier 1/2 pages, reports). Official documents stored as text ' +
+        '(RBA statements and minutes, ABS releases, Fair Work Commission decisions …) are read from the store in full; ' +
+        'give `find` to get the passages of a long document that mention a term.',
       input_schema: {
         type: 'object',
         properties: {
           url: { type: 'string', description: 'http(s) URL to fetch' },
+          find: { type: 'string', description: 'Optional: a word or figure to locate in a long document, e.g. "0.36" or "per cent"' },
         },
         required: ['url'],
       },

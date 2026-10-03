@@ -102,7 +102,9 @@ export function rankEntities(rows, period) {
     order: 'highest first',
     aus_rank: pos || null,
     of: sorted.length,
-    top: sorted.slice(0, Math.max(5, pos)).map((r, i) => `${i + 1}. ${r.entity} ${r.value}`),
+    // The whole table when it is small enough (e.g. 29 OECD members), so a claim about any country's rank can be
+    // checked; otherwise the top down to Australia.
+    top: (sorted.length <= 40 ? sorted : sorted.slice(0, Math.max(5, pos))).map((r, i) => `${i + 1}. ${r.entity} ${r.value}`),
   };
 }
 
