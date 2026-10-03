@@ -107,7 +107,17 @@ between things. For each, decide:
 
 A CHART TITLE is a claim about the data its chart plots (listed after PLOTS). List it as "unsupported" if it
 names a measure the chart does not plot, or states a trend, comparison or finding that the plotted series do not
-show. Judge it against PLOTS and the reference, not against the article's prose.
+show. Judge it against PLOTS and the reference, not against the article's prose. A title that names its own
+starting point ("from its 2025 trough", "since 2023") is judged from that point, not from the chart's first value.
+
+A CONTRAST or PAIRING ("X rose while Y fell", "even as", "X re-accelerated as Y eased", "both", "unlike") is
+one claim: every part must hold over the SAME period. Take the period from the claim, or from the comparison it
+leans on (a change "in a year" or "from its trough" sets the window for the other half too). If one half is true
+only over a different window (for example headline CPI fell in the latest quarter while the trimmed mean is
+compared over a year, during which headline CPI rose), the claim is "unsupported": say which half fails over
+which period. A direction or trend stated without a number ("disinflation", "is falling", "kept easing") implies
+a quantity and is audited the same way, over the period the article is discussing. This is a factual error, not
+a matter of framing.
 
 Dates (including scheduled release and meeting dates), release names, plain descriptions without
 quantities, and reports of what an institution said or published (minutes, statements, speeches) are
