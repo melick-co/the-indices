@@ -82,7 +82,23 @@ function claimsOf(story: Checkable): Claim[] {
 /** The document's paragraphs most relevant to a claim, in document order, within a size budget. */
 function excerpt(doc: Doc, claim: string, budget = 2400): string {
   const want = terms(claim);
-  const lines = doc.body.split('\n').map((line, i) => ({ line, i, score: [...terms(line)].filter((w) => want.has(w)).length }));
+  // PDF text is hard-wrapped mid-sentence: rejoin wrapped lines into paragraphs, and cut long paragraphs into
+  // runs of whole sentences, so the passages (and the words quoted from them) are contiguous text.
+  // (HTML pages and tables keep their lines: a table row is a unit of its own.)
+  const pdf = /\.pdf(?:$|[?#])/i.test(doc.url);
+  const units = (pdf ? doc.body.replace(/([^\n])\n(?!\n)/g, '$1 ') : doc.body).split(/\n+/).flatMap((para) => {
+    if (!pdf) return [para];
+    if (para.length <= 600) return [para];
+    const out: string[] = [];
+    let cur = '';
+    for (const sentence of para.split(/(?<=[.!?])\s+(?=[A-Z\[(“"])/)) {
+      if (cur && cur.length + sentence.length > 450) { out.push(cur); cur = ''; }
+      cur = cur ? `${cur} ${sentence}` : sentence;
+    }
+    if (cur) out.push(cur);
+    return out;
+  });
+  const lines = units.map((line, i) => ({ line, i, score: [...terms(line)].filter((w) => want.has(w)).length }));
   const picked: typeof lines = [];
   let size = 0;
   for (const l of [...lines].sort((a, b) => b.score - a.score)) {
