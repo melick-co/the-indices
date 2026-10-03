@@ -1,4 +1,5 @@
 'use server';
+import { sydneyDay } from '@/lib/dates';
 import { requireAdmin } from '@/lib/auth';
 
 import { revalidatePath } from 'next/cache';
@@ -297,7 +298,7 @@ export async function saveStoryCopy(slug: string, payload: StoryCopyPayload) {
     // Keep the hero number's binding (metric_id, period, comparison); the desk edits value and label.
     one_number: { ...payload.oneNumber, value: payload.oneNumber.value.trim(), label: payload.oneNumber.label.trim() },
     frame_check: Boolean(payload.frameCheck),
-    published: payload.published?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+    published: payload.published?.slice(0, 10) || sydneyDay(),
     body: sanitiseBody(payload.body),
     evidence: sanitiseEvidence(payload.evidence),
     hero_image_url: heroImageUrl,

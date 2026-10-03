@@ -1,3 +1,4 @@
+import { sydneyDay } from '@/lib/dates';
 import { createClient } from '@/lib/supabase-server';
 import { checkStory, draftStory, goLiveFromPitch, type PriorArticle } from '@/lib/generate-story';
 import type { StructuredStory } from '@/lib/article-from-pitch';
@@ -119,7 +120,7 @@ export async function applyRevision(slug: string, opts: { note?: string; force?:
   const { error } = await db.from('stories').update({
     ...pick(pending.content as Record<string, unknown>),
     update_note: opts.note ?? DEFAULT_UPDATE_NOTE,
-    updated_on: now.slice(0, 10),
+    updated_on: sydneyDay(),
     updated_at: now,
   }).eq('story_id', row.story_id);
   if (error) throw new Error(error.message);
@@ -332,7 +333,7 @@ export async function publishDraft(slug: string, extraMetrics: string[] = []): P
   if (row.pitch_id) await goLiveFromPitch(String(row.pitch_id));
   else {
     const now = new Date().toISOString();
-    const { error } = await createClient().from('stories').update({ status: 'published', published: now.slice(0, 10), updated_at: now }).eq('slug', slug);
+    const { error } = await createClient().from('stories').update({ status: 'published', published: sydneyDay(), updated_at: now }).eq('slug', slug);
     if (error) throw new Error(error.message);
   }
   return { check, published: true };

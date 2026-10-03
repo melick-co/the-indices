@@ -278,7 +278,7 @@ Respond ONLY with JSON:
   if (result.outcome === 'published') {
     await db.from('stories').update({
       update_note: `Updated ${prettyDay(e.occurred_on!)}: the ${e.title} changed this article's finding. Read the new article: /stories/${result.slug}`,
-      updated_on: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString(),
+      updated_on: sydneyDay(), updated_at: new Date().toISOString(),
     }).eq('slug', slug);
     log(`    The original now points to /stories/${result.slug}.`);
   }
