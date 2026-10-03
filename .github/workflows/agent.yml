@@ -25,7 +25,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-adopt, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, story-refresh(-apply): story slug(s). Space separated.'
@@ -282,7 +282,7 @@ jobs:
       github.event_name == 'workflow_dispatch' &&
       (inputs.task == 'story-refresh' || inputs.task == 'story-refresh-apply' || startsWith(inputs.task, 'story-revision-')
         || inputs.task == 'story-sources' || inputs.task == 'story-drafts' || inputs.task == 'story-publish'
-        || inputs.task == 'story-figures')
+        || inputs.task == 'story-figures' || inputs.task == 'story-adopt')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     defaults:
@@ -299,7 +299,7 @@ jobs:
           npx tsx --import ./scripts/node-shims.mjs scripts/refresh-stories.ts
           ${{ inputs.task == 'story-refresh-apply' && '--apply' || inputs.task == 'story-revision-show' && '--show'
           || inputs.task == 'story-revision-edit' && '--edit' || inputs.task == 'story-revision-recheck' && '--recheck'
-          || inputs.task == 'story-sources' && '--sources' || inputs.task == 'story-revision-discard' && '--discard' || inputs.task == 'story-drafts' && '--drafts' || inputs.task == 'story-publish' && '--publish' || inputs.task == 'story-figures' && '--figures' || '' }}
+          || inputs.task == 'story-sources' && '--sources' || inputs.task == 'story-revision-discard' && '--discard' || inputs.task == 'story-drafts' && '--drafts' || inputs.task == 'story-publish' && '--publish' || inputs.task == 'story-figures' && '--figures' || inputs.task == 'story-adopt' && '--adopt' || '' }}
         env:
           STORY_SLUGS: ${{ inputs.pitch }}
           REVISION_EDITS: ${{ inputs.edits }}

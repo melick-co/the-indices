@@ -50,4 +50,33 @@ export const OECD_SERIES = [
     category: 'fiscal',
     source_dataset: 'Revenue Statistics: comparative tax revenues',
   },
+  // Founding story "migration-denominator" (Oct 2026). The OECD publishes standardised permanent inflows by entry
+  // category only (work, family, humanitarian, free movement, accompanying family, other); the total is their sum,
+  // which matches the OECD's published totals (USA 2024: 1,425.1 thousand). Per 1,000 residents uses the World
+  // Bank mid-year population stored as `population`.
+  {
+    metric_id: 'perm_migration_inflow',
+    name: 'Permanent migration inflow (standardised)',
+    flow: 'OECD.ELS.IMD,DSD_MIG_INT@DF_MIG_INT_PER,1.0',
+    key: 'all',
+    measure: 'MIG_FLW',
+    sumOver: 'MIGRATION_TYPE',
+    csv: true,  // its SDMX-JSON response drops about a quarter of the observations
+    scale: 1 / 1000,
+    decimals: 1,
+    startPeriod: '2010',
+    unit: 'thousand persons',
+    basis: 'Standardised inflows of permanent-type migrants, all entry categories summed, OECD International Migration Database',
+    direction: 'neutral',
+    category: 'demography',
+    source_dataset: 'International Migration Outlook: standardised inflows of permanent-type migrants',
+    perCapita: {
+      metric_id: 'perm_migration_inflow_per_1000',
+      name: 'Permanent migration inflow per 1,000 residents',
+      unit: 'per 1,000 residents',
+      basis: 'Standardised permanent-type inflows (OECD) per 1,000 mid-year population (World Bank)',
+      population: 'population',
+      per: 1000,
+    },
+  },
 ];

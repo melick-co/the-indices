@@ -7,6 +7,9 @@ import type { StoryBlock } from '@/lib/story-types';
 import { loadPendingRevision } from '@/lib/stories-loader';
 import { buildReference } from '../../agent/scripts/lib/revise-pitches.mjs';
 import { callClaudeJson } from '../../agent/scripts/lib/claude.mjs';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { STORIES as FOUNDING } from '@/content/stories';
 
 /** The article fields a revision replaces. Placement, art and dates are left alone. */
 const CONTENT_COLS = ['kicker', 'title', 'hook', 'caveat', 'one_number', 'evidence', 'body', 'frame_check'] as const;
@@ -457,4 +460,71 @@ Respond ONLY with JSON:
   }
   await applyRevision(slug, { note });
   return { outcome: 'applied', reason, edits };
+}
+
+/** The founding stories' hand-built bodies (app/stories/[slug]/bodies). */
+const FOUNDING_BODIES: Record<string, string> = { 'migration-denominator': 'migration.tsx', 'wage-spiral': 'wage-spiral.tsx' };
+/** What each founding story's rewrite should read from the store. */
+const FOUNDING_METRICS: Record<string, { metric_ids: string[]; chart_hint: string; mechanism: string }> = {
+  'migration-denominator': {
+    metric_ids: ['perm_migration_inflow', 'perm_migration_inflow_per_1000', 'population'],
+    chart_hint: 'rank_swap: absolute permanent inflows vs inflows per 1,000 residents',
+    mechanism: 'Absolute migrant intake measures the size of an economy; openness is a per-person measure, and dividing by population reorders the ranking.',
+  },
+  'wage-spiral': {
+    metric_ids: ['cpi_annual_au', 'trimmed_mean_cpi_au', 'wpi_annual_au', 'wpi_private_annual_au'],
+    chart_hint: 'timeline of Annual Wage Review rises against CPI inflation a year later',
+    mechanism: 'Minimum-wage rises feed a small, measured share of aggregate wage growth; inflation after the big rises was driven by other forces, including rate rises.',
+  },
+};
+
+/** Paragraphs of a hand-built body, in order (paragraphs, layers, pull quotes, headings). */
+function foundingBodyText(slug: string): StoryBlock[] {
+  const file = FOUNDING_BODIES[slug];
+  if (!file) return [];
+  const tsx = readFileSync(join(process.cwd(), 'app', 'stories', '[slug]', 'bodies', file), 'utf8');
+  const ENTITIES: Record<string, string> = { ldquo: '\u201c', rdquo: '\u201d', lsquo: '\u2018', rsquo: '\u2019', amp: '&', mdash: '\u2014', ndash: '\u2013', nbsp: ' ' };
+  const clean = (t: string) => t.replace(/\{['"`]\s*['"`]\}/g, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&(\w+);/g, (m, e: string) => ENTITIES[e] ?? m).replace(/\s+/g, ' ').trim();
+  const blocks: StoryBlock[] = [];
+  for (const m of tsx.matchAll(/<(p|h2)>([\s\S]*?)<\/\1>|<div className="pull">([\s\S]*?)<\/div>/g)) {
+    const text = clean(m[2] ?? m[3] ?? '');
+    if (!text) continue;
+    blocks.push(m[1] === 'h2' ? { type: 'heading', text } as StoryBlock : { type: 'paragraph', text } as StoryBlock);
+  }
+  return blocks;
+}
+
+/**
+ * Give a founding (hand-built) story a pitch and a database copy, so it can be refreshed and checked like any
+ * other article. The site keeps rendering the hand-built page until the slug leaves STATIC_STORY_SLUGS.
+ */
+export async function adoptFoundingStory(slug: string) {
+  const db = createClient();
+  const s = FOUNDING.find((x) => x.slug === slug);
+  if (!s) throw new Error(`/stories/${slug} is not a founding story`);
+  const { data: existing } = await db.from('stories').select('story_id').eq('slug', slug).maybeSingle();
+  if (existing) return { created: false };
+  const plan = FOUNDING_METRICS[slug];
+  const { data: pitch, error: pErr } = await db.from('pitches').insert({
+    headline: s.title, hook: s.hook, mechanism: plan.mechanism, caveat: s.caveat, chart_hint: plan.chart_hint,
+    detector: 'founding', trigger_rows: { founding: slug }, state: 'approved', metric_ids: plan.metric_ids,
+  }).select('id').single();
+  if (pErr || !pitch) throw new Error(pErr?.message ?? 'pitch insert failed');
+  const footnotes = (s.evidence?.sources ?? []).map((src, i) => ({
+    n: i + 1, text: `${src.org}, ${src.metric}, ${src.period}. ${src.basis}`, url: src.url,
+  }));
+  const { data: desk } = await db.from('story_desk').select('*').eq('slug', slug).maybeSingle();
+  const { error } = await db.from('stories').insert({
+    pitch_id: pitch.id, slug, status: 'published', kicker: s.kicker, title: s.title, hook: s.hook, caveat: s.caveat,
+    published: s.published, one_number: s.oneNumber ? { value: s.oneNumber.value, label: s.oneNumber.label } : null,
+    evidence: { ...(s.evidence ?? {}), footnotes, metric_ids: plan.metric_ids },
+    body: { blocks: foundingBodyText(slug) }, frame_check: Boolean(s.frameCheck),
+    ...(desk ? {
+      home_section: desk.home_section ?? null, home_rank: desk.home_rank ?? null, pinned_hero: desk.pinned_hero ?? false,
+      hero_image_url: desk.hero_image_url ?? null, hero_image_alt: desk.hero_image_alt ?? null, art: desk.art ?? [],
+    } : {}),
+  });
+  if (error) throw new Error(error.message);
+  return { created: true, pitchId: pitch.id };
 }
