@@ -4,6 +4,7 @@ import { buildReference } from '../../agent/scripts/lib/revise-pitches.mjs';
 import type { CheckableStory } from '@/lib/fact-check';
 import type { StructuredStory } from '@/lib/article-from-pitch';
 import { DATA_TABLE, isDocumentSourced } from '@/lib/source-check';
+import { canonicalUrl } from '../../agent/scripts/lib/html-text.mjs';
 import { rawSentences } from '@/lib/style-check';
 
 /**
@@ -122,8 +123,30 @@ Respond ONLY with JSON:
 
   const result = await callClaudeJson(prompt, { label: 'claim audit' }) as { claims?: ClaimVerdict[] };
   const claims = (result.claims ?? []).filter((c) => c && typeof c.claim === 'string');
-  const unsupported = claims.filter((c) => c.verdict !== 'supported');
+  const docFigures = await citedDocumentFigures(db, story);
+  // Figures from an official document the article cites (a wage decision's 5.75 per cent, a release's rate) are
+  // not in the store, so the audit cannot see them; they are the document's, and are cleared when every figure in
+  // the claim is in a cited document. Years and one- or two-character numbers never clear a claim.
+  const unsupported = claims.filter((c) => {
+    if (c.verdict === 'supported') return false;
+    const figures = (c.claim.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((f) => f.replace(/,/g, ''))
+      .filter((f) => !/^(19|20)\d\d$/.test(f));
+    const cleared = figures.length > 0 && figures.every((f) => f.length >= 3 && docFigures.has(f));
+    if (cleared) c.verdict = 'supported';
+    return !cleared;
+  });
   return { ok: unsupported.length === 0, claims, unsupported };
+}
+
+/** Every figure in the official documents the article cites (stored as text in source_documents). */
+async function citedDocumentFigures(db: SupabaseClient, story: CheckableStory): Promise<Set<string>> {
+  const urls = [...new Set((story.evidence?.footnotes ?? []).map((f) => f.url ?? '').filter((u) => u && !DATA_TABLE.test(u)))]
+    .map((u) => { try { return canonicalUrl(u); } catch { return null; } }).filter(Boolean) as string[];
+  if (!urls.length) return new Set();
+  const { data } = await db.from('source_documents').select('body').in('url', urls);
+  const out = new Set<string>();
+  for (const d of data ?? []) for (const f of String(d.body).match(/\d[\d,]*(?:\.\d+)?/g) ?? []) out.add(f.replace(/,/g, '').replace(/\.$/, ''));
+  return out;
 }
 
 /**
