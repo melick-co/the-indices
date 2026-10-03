@@ -4,6 +4,7 @@ import { buildReference } from '../../agent/scripts/lib/revise-pitches.mjs';
 import type { CheckableStory } from '@/lib/fact-check';
 import type { StructuredStory } from '@/lib/article-from-pitch';
 import { DATA_TABLE, isDocumentSourced } from '@/lib/source-check';
+import { canonicalUrl } from '../../agent/scripts/lib/html-text.mjs';
 import { rawSentences } from '@/lib/style-check';
 
 /**
@@ -26,11 +27,29 @@ function articleText(story: CheckableStory) {
   // The deck is audited like a paragraph: a sentence sourced to a document is checked against that document.
   const deck = rawSentences(story.hook).map((s) => (isDocumentSourced(s, footnoteUrls)
     ? '[SOURCED STATEMENT, checked against its cited document; do not audit]' : s)).join(' ');
-  const parts = [`HEADLINE: ${story.title}`, `STANDFIRST: ${deck.replace(/\[\^\d+\]/g, '')}`];
+  // A headline cannot carry a footnote. When every figure in it is stated in a sentence that is checked against
+  // its cited document (the deck or the body), its figures are that document's, not the store's.
+  const sourcedText = [story.hook, ...story.body.blocks.flatMap((b) => ('text' in b && typeof b.text === 'string' ? [b.text] : []))]
+    .flatMap((t) => rawSentences(t)).filter((s) => isDocumentSourced(s, footnoteUrls)).join(' ');
+  const headFigures = story.title.match(/\d[\d,]*(?:\.\d+)?/g) ?? [];
+  const headSourced = headFigures.length > 0 && headFigures.every((f) => sourcedText.includes(f));
+  const parts = [
+    headSourced ? `HEADLINE: ${story.title} [its figures restate sourced statements below, checked against their cited documents; do not audit the figures]` : `HEADLINE: ${story.title}`,
+    `STANDFIRST: ${deck.replace(/\[\^\d+\]/g, '')}`,
+  ];
   if (story.one_number) parts.push(`ONE NUMBER: ${story.one_number.value} (${story.one_number.label})`);
   for (const b of story.body.blocks) {
     if (b.type === 'layers') parts.push(...b.items.map((t) => `- ${t}`));
-    else if (b.type === 'chart') parts.push(`[CHART: ${b.title ?? ''}]`);
+    else if (b.type === 'chart') {
+      // What the chart actually plots (from the store), so its title can be checked against it.
+      const s = b.series ?? [];
+      const a = b.alt_series ?? [];
+      const ends = (xs: typeof s) => (xs.length ? `${xs[0].label} ${xs[0].value} … ${xs[xs.length - 1].label} ${xs[xs.length - 1].value}` : '');
+      const plots = b.kind === 'line' || b.kind === 'timeline'
+        ? [`${b.primary_label ?? b.bound?.metric_id ?? ''}: ${ends(s)}`, ...(a.length ? [`${b.alt_label ?? b.bound?.alt_metric_id ?? ''}: ${ends(a)}`] : [])].join('; ')
+        : `${s.length} bars (${s.slice(0, 3).map((p) => `${p.label} ${p.value}`).join(', ')}…)${a.length ? ` beside ${b.alt_label ?? b.bound?.alt_metric_id}` : ''}`;
+      parts.push(`[CHART TITLE: ${b.title ?? ''} | SUBTITLE: ${b.subtitle ?? ''} | PLOTS: ${plots}]`);
+    }
     else if (b.type === 'timeline') {
       // Events cited to a document are checked against it by the source check.
       const urls = new Map((story.evidence?.footnotes ?? []).map((f) => [f.n, f.url ?? '']));
@@ -86,6 +105,10 @@ between things. For each, decide:
 - "unsupported": anything else, including claims about series that are not in the reference,
   claims whose span is longer than the listed history, and figures attributed to other sources.
 
+A CHART TITLE is a claim about the data its chart plots (listed after PLOTS). List it as "unsupported" if it
+names a measure the chart does not plot, or states a trend, comparison or finding that the plotted series do not
+show. Judge it against PLOTS and the reference, not against the article's prose.
+
 Dates (including scheduled release and meeting dates), release names, plain descriptions without
 quantities, and reports of what an institution said or published (minutes, statements, speeches) are
 not claims to audit: they are sourced by the article's footnotes, not by the reference. Only list a
@@ -100,8 +123,30 @@ Respond ONLY with JSON:
 
   const result = await callClaudeJson(prompt, { label: 'claim audit' }) as { claims?: ClaimVerdict[] };
   const claims = (result.claims ?? []).filter((c) => c && typeof c.claim === 'string');
-  const unsupported = claims.filter((c) => c.verdict !== 'supported');
+  const docFigures = await citedDocumentFigures(db, story);
+  // Figures from an official document the article cites (a wage decision's 5.75 per cent, a release's rate) are
+  // not in the store, so the audit cannot see them; they are the document's, and are cleared when every figure in
+  // the claim is in a cited document. Years and one- or two-character numbers never clear a claim.
+  const unsupported = claims.filter((c) => {
+    if (c.verdict === 'supported') return false;
+    const figures = (c.claim.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((f) => f.replace(/,/g, ''))
+      .filter((f) => !/^(19|20)\d\d$/.test(f));
+    const cleared = figures.length > 0 && figures.every((f) => f.length >= 3 && docFigures.has(f));
+    if (cleared) c.verdict = 'supported';
+    return !cleared;
+  });
   return { ok: unsupported.length === 0, claims, unsupported };
+}
+
+/** Every figure in the official documents the article cites (stored as text in source_documents). */
+async function citedDocumentFigures(db: SupabaseClient, story: CheckableStory): Promise<Set<string>> {
+  const urls = [...new Set((story.evidence?.footnotes ?? []).map((f) => f.url ?? '').filter((u) => u && !DATA_TABLE.test(u)))]
+    .map((u) => { try { return canonicalUrl(u); } catch { return null; } }).filter(Boolean) as string[];
+  if (!urls.length) return new Set();
+  const { data } = await db.from('source_documents').select('body').in('url', urls);
+  const out = new Set<string>();
+  for (const d of data ?? []) for (const f of String(d.body).match(/\d[\d,]*(?:\.\d+)?/g) ?? []) out.add(f.replace(/,/g, '').replace(/\.$/, ''));
+  return out;
 }
 
 /**

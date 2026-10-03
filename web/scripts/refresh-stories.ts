@@ -11,6 +11,8 @@
  *   ... --recheck <slug>  # re-run every check on the revision as it stands
  *   ... --sources <slug>  # read-only: check the live article's sourced statements against its source documents
  *   ... --discard <slug>  # drop the pending revision; the live article is untouched
+ *   ... --charts <slug>   # rebuild the live article's charts from the store and re-run every check; applied with
+ *                         # REVISION_NOTE (or a chart-update note) if it passes, otherwise held as a pending revision
  *   ... --figures <slug>  # dry run of the event updater: the figure edits it would make, or that it would call for
  *                         # a new article instead; nothing is saved
  *   ... --publish <slug>  # publish an approved draft: re-checked first, published only if it still passes
@@ -41,6 +43,7 @@ const discard = process.argv.includes('--discard');
 const draftsList = process.argv.includes('--drafts');
 const publish = process.argv.includes('--publish');
 const figures = process.argv.includes('--figures');
+const charts = process.argv.includes('--charts');
 const words = (t: string) => t.replace(/\[\^\d+\]/g, '').trim().split(/\s+/).filter(Boolean).length;
 const slugs = [
   ...process.argv.slice(2).filter((a) => !a.startsWith('--')),
@@ -67,6 +70,21 @@ async function main() {
       if (discard) {
         await discardRevision(slug);
         log('  Discarded the pending revision.');
+        continue;
+      }
+      if (charts) {
+        const existing = await loadRevisionContent(slug).catch(() => null);
+        if (existing) { log('  Skipped: a revision is already pending on the desk.'); continue; }
+        await startRevisionFromLive(slug);
+        const check = await recheckRevision(slug);
+        if (check.ok) {
+          await applyRevision(slug, { note: process.env.REVISION_NOTE?.trim()
+            || `Updated ${new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Australia/Sydney' })}: charts rebuilt from the latest official data so each shows every series it compares. No findings changed.` });
+          log('  Charts rebuilt; passed every check and applied.');
+        } else {
+          log(`  Held for the desk (${check.issues.length} issue(s)); the live article is unchanged:`);
+          for (const i of check.issues) log(`    - ${i}`);
+        }
         continue;
       }
       if (figures) {
