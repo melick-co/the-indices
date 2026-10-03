@@ -412,6 +412,11 @@ ${JSON.stringify(reference)}
 ${copyForUpdate(live)}
 </article>
 
+Compare every figure in the article with the stored data: each series' "latest" reading and its "earlier"
+readings, by period. The event only tells you why you are checking; the stored data decides. A figure is
+superseded when the article presents it as the current reading and the store has a newer period for that series.
+Figures the article gives as history (a past peak, a trough, a dated reading) stay as they are.
+
 Decide:
 - "unchanged": no figure in the article is superseded by newer stored data.
 - "figures": some figures are superseded, and the article's headline claim and finding still hold with the new

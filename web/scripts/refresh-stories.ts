@@ -70,7 +70,16 @@ async function main() {
         continue;
       }
       if (figures) {
-        const r = await updateFigures(slug, { title: 'latest official data', occurred_on: new Date().toISOString().slice(0, 10) }, '', { dryRun: true });
+        // The latest recorded release or decision that touches the story's series stands in for the event.
+        const db = createClient();
+        const { data: story } = await db.from('stories').select('evidence').eq('slug', slug).single();
+        const ids = ((story?.evidence as { metric_ids?: string[] } | null)?.metric_ids) ?? [];
+        const { data: ev } = await db.from('events').select('title, occurred_on, summary, outcome')
+          .overlaps('metric_ids', ids.length ? ids : ['none']).not('occurred_on', 'is', null)
+          .order('occurred_on', { ascending: false }).limit(1).maybeSingle();
+        const event = ev ?? { title: 'latest official data', occurred_on: new Date().toISOString().slice(0, 10) };
+        log(`  Against: ${event.title} (${event.occurred_on})`);
+        const r = await updateFigures(slug, event, '', { dryRun: true });
         log(`  ${r.outcome === 'rewrite' ? 'Would call for a NEW article' : r.outcome === 'applied' ? 'Would update figures' : r.outcome === 'unchanged' ? 'No figures superseded' : 'Would hold'}: ${r.reason ?? ''}`);
         for (const e of r.edits ?? []) log(`    - "${e.find}"\n      → "${e.replace}"`);
         continue;
