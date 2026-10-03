@@ -20,12 +20,20 @@ const isPercent = (unit: string | null | undefined) => /percent|per cent|%/i.tes
 
 /** Subtitle per NEWS-STYLE.md §4.4: what is measured, units, timeframe. */
 function subtitleOf(meta: MetricMeta | null, span: string) {
-  return [meta?.name, meta?.unit, span].filter(Boolean).join(', ');
+  return [meta?.name, unitUnlessNamed(meta?.name, meta?.unit), span].filter(Boolean).join(', ');
+}
+
+/** The unit, unless the series name already ends with it ("GDP per hour worked, index" + "index"). */
+function unitUnlessNamed(name?: string | null, unit?: string | null) {
+  if (!unit) return null;
+  return name && name.toLowerCase().trimEnd().endsWith(unit.toLowerCase()) ? null : unit;
 }
 
 /** Subtitle for two series on one chart: both names, the shared unit, the span. */
 function subtitleOf2(a: MetricMeta | null, b: MetricMeta | null, span: string) {
-  const unit = a?.unit && a.unit === b?.unit ? a.unit : [a?.unit, b?.unit].filter(Boolean).join(' / ');
+  const unit = a?.unit && a.unit === b?.unit
+    ? unitUnlessNamed(a.name, a.unit) && unitUnlessNamed(b?.name, a.unit)
+    : [unitUnlessNamed(a?.name, a?.unit), unitUnlessNamed(b?.name, b?.unit)].filter(Boolean).join(' / ');
   return [`${a?.name ?? 'Series 1'} and ${b?.name ?? 'Series 2'}`, unit, span].filter(Boolean).join(', ');
 }
 
