@@ -45,7 +45,11 @@ export function inSource(evidence: string, bodies: string[]): boolean {
   // ("percentage point.30"), not a decimal point.
   const bare = (t: string) => ` ${t.replace(/[^a-z0-9%./ ]/g, ' ').replace(/(?<=[a-z])\.(?=\d)/g, ' ').replace(/\.(?!\d)/g, ' ').replace(/\s+/g, ' ').trim()} `;
   const docs = bodies.map(bare);
-  return fragments.length > 0 && fragments.every((f) => docs.some((b) => b.includes(bare(f))));
+  // A fragment may end where the document has a full stop with a footnote number glued on ("quarter 2026.1").
+  return fragments.length > 0 && fragments.every((f) => {
+    const core = bare(f).trimEnd();
+    return docs.some((b) => b.includes(`${core} `) || b.includes(`${core}.`));
+  });
 }
 
 // Statistical tables and data APIs: their figures are checked against stored data by the claim audit, and
