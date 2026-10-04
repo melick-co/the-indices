@@ -295,6 +295,9 @@ export async function editDraft(slug: string, edits: CopyEdit[], extraMetrics: s
 export type CopyEdit = {
   find: string;
   replace: string;
+  /** A source for the replacement text: a "[^+]" marker in `replace` becomes this footnote's number (an existing
+   *  footnote when the URL is already cited, otherwise a new one). */
+  source?: { text: string; url: string };
   /** Add a timeline entry (instead of find/replace): placed before the entry dated `before`, or last. Its source
    *  becomes a footnote (an existing one when the URL is already cited). */
   add_event?: { date: string; label: string; before?: string; source: { text: string; url: string } };
@@ -317,6 +320,15 @@ export function editContent(content: Content, edits: CopyEdit[]): Content {
     events.splice(at >= 0 ? at : events.length, 0, { date: a.date, label: a.label, footnote: n });
   }
   edits = edits.filter((x) => !x.add_event);
+  // Replacements that bring their own source: resolve "[^+]" to that source's footnote number.
+  edits = edits.map((e) => {
+    if (!e.source || !e.replace.includes('[^+]')) return e;
+    const ev = (next.evidence ?? (next.evidence = {})) as { footnotes?: { n: number; text: string; url?: string }[] };
+    const notes = (ev.footnotes ??= []);
+    const n = notes.find((f) => f.url === e.source!.url)?.n
+      ?? (notes.push({ n: Math.max(0, ...notes.map((f) => f.n)) + 1, text: e.source.text, url: e.source.url }), notes[notes.length - 1].n);
+    return { ...e, replace: e.replace.split('[^+]').join(`[^${n}]`) };
+  });
   const hits = new Map<CopyEdit, number>(edits.map((e) => [e, 0]));
   const edit = (t: unknown) => {
     if (typeof t !== 'string') return t;
