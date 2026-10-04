@@ -4409,3 +4409,57 @@ html:has(.site-shell--ops) body {
 .desk-check.is-held { border-left-color: #8a2a2a; }
 .desk-check ul { margin: 6px 0 0; padding-left: 18px; }
 .desk-check-warnings { color: var(--ink-soft); }
+
+/* ---------- economy dashboard (/indices) ---------- */
+.econ-dash { max-width: 72rem; }
+.econ-dash-title { border-bottom: none; margin-bottom: 6px; }
+.econ-dash-intro { margin-bottom: 18px; }
+.econ-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.econ-card { border: 1px solid var(--rule); background: var(--paper); padding: 14px 14px 10px; display: flex; flex-direction: column; gap: 10px; }
+.econ-card-head { text-decoration: none; color: inherit; border-bottom: 2px solid var(--masthead-bg, #1d2a48); padding-bottom: 6px; }
+.econ-card-head h2 { font-family: var(--font-display); font-size: 1.15rem; margin: 0; }
+.econ-card-head:hover h2 { text-decoration: underline; }
+.econ-card-q { display: block; font-size: .78rem; color: var(--ink-soft); margin-top: 2px; }
+.econ-headline { display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: inherit; }
+.econ-headline:not(.static):hover .dash-value { color: var(--masthead-bg, #1d2a48); }
+.econ-headline-wide { margin: 8px 0 12px; }
+.econ-headline-label { font-family: var(--font-mono); font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); }
+.econ-headline-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.econ-headline-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: .76rem; }
+.econ-period { color: var(--ink-soft); font-family: var(--font-mono); font-size: .7rem; }
+.dash-value { font-family: var(--font-display); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.dash-value.big { font-size: 2.3rem; line-height: 1; color: var(--masthead-bg, #1d2a48); }
+.dash-change { font-family: var(--font-mono); font-size: .7rem; color: var(--ink-soft); white-space: nowrap; }
+.dash-change.good { color: #2a7d5a; }
+.dash-change.watch { color: #a8551b; }
+.dash-status { font-family: var(--font-mono); font-size: .66rem; text-transform: uppercase; letter-spacing: .03em; padding: 2px 6px; border: 1px solid currentColor; white-space: nowrap; }
+.dash-status.good { color: #2a7d5a; }
+.dash-status.watch { color: #a8551b; }
+.dash-status.neutral { color: var(--ink-soft); }
+.dash-spark { overflow: visible; flex: none; }
+.dash-spark path { fill: none; stroke: var(--masthead-bg, #1d2a48); stroke-width: 1.5; }
+.dash-spark circle { fill: var(--masthead-bg, #1d2a48); }
+.econ-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; border-top: 1px solid var(--rule); padding-top: 8px; }
+.econ-tile { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "label label" "value dot" "change change"; gap: 1px 6px; text-decoration: none; color: inherit; padding: 6px; border: 1px solid transparent; }
+.econ-tile:hover { border-color: var(--rule); background: color-mix(in srgb, var(--masthead-bg, #1d2a48) 4%, transparent); }
+.econ-tile-label { grid-area: label; font-size: .72rem; color: var(--ink-soft); }
+.econ-tile .dash-value { grid-area: value; }
+.econ-tile .econ-dot { grid-area: dot; align-self: center; }
+.econ-tile .dash-change { grid-area: change; }
+.econ-tile.composite { grid-template-areas: "label" "tag"; }
+.econ-composite-tag { grid-area: tag; font-family: var(--font-mono); font-size: .68rem; color: var(--masthead-bg, #1d2a48); }
+.econ-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint, #999); margin: 0 4px 0 10px; }
+.econ-dot.on-target, .econ-dot.better { background: #2a7d5a; }
+.econ-dot.worse, .econ-dot.above, .econ-dot.below { background: #c8762a; }
+.econ-legend { margin-top: 18px; }
+.econ-summary p { margin: 0 0 6px; }
+.econ-why { margin: 10px 0 18px; }
+.econ-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+.econ-row { display: grid; grid-template-columns: 1fr 9rem 130px 12rem; align-items: center; gap: 12px; padding: 8px 4px; border-bottom: 1px solid var(--rule); text-decoration: none; color: inherit; }
+.econ-row:hover { background: color-mix(in srgb, var(--masthead-bg, #1d2a48) 4%, transparent); }
+.econ-row-label { font-size: .92rem; }
+@media (max-width: 640px) {
+  .econ-grid { grid-template-columns: 1fr; }
+  .econ-row { grid-template-columns: 1fr auto; }
+  .econ-row .dash-spark, .econ-row .dash-status { display: none; }
+}
