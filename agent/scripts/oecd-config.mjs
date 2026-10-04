@@ -80,3 +80,58 @@ export const OECD_SERIES = [
     },
   },
 ];
+
+/**
+ * OECD How's Life? current well-being indicators (OECD WISE centre), for the quality-of-life dashboard (Oct 2026).
+ * All share one request (the cache key is the flow, key and start period); each series is split out by MEASURE.
+ * Totals only: all ages, both sexes, all education levels.
+ */
+const HSL_FLOW = 'OECD.WISE.WDP,DSD_HSL@DF_HSL_CWB,1.1';
+const HSL = [
+  ['1_1', 'Household net adjusted disposable income per person', 'US dollars per person, PPP', 'higher_is_less_pressure'],
+  ['1_2', 'Income inequality: top to bottom income quintile', 'ratio (S80/S20)', 'higher_is_more_pressure'],
+  ['1_3', 'Median household net wealth', 'US dollars per household, PPP', 'higher_is_less_pressure'],
+  ['1_4', 'Relative income poverty', 'percent of population', 'higher_is_more_pressure'],
+  ['1_6', 'Financial insecurity: liquid assets below three months of poverty-line income', 'percent of population', 'higher_is_more_pressure'],
+  ['2_1', 'Employment rate, ages 25-64', 'percent of population aged 25-64', 'higher_is_less_pressure'],
+  ['2_2', 'Gender wage gap', 'percent of median male wage', 'higher_is_more_pressure'],
+  ['2_3', 'Long-term unemployment rate', 'percent of labour force', 'higher_is_more_pressure'],
+  ['2_4', 'Young people not in employment, education or training', 'percent of population aged 15-24', 'higher_is_more_pressure'],
+  ['2_7', 'Long hours in paid work (50+ a week)', 'percent of employees', 'higher_is_more_pressure'],
+  ['2_8', 'Average annual gross earnings', 'US dollars, PPP', 'higher_is_less_pressure'],
+  ['3_2', 'Housing affordability: income left after housing costs', 'percent of household disposable income', 'higher_is_less_pressure'],
+  ['3_3', 'Housing cost overburden', 'percent of population', 'higher_is_more_pressure'],
+  ['5_1', 'Life expectancy at birth', 'years', 'higher_is_less_pressure'],
+  ['5_2', 'Perceived health as positive', 'percent of population aged 16+', 'higher_is_less_pressure'],
+  ['5_3', 'Deaths from suicide, alcohol and drugs', 'deaths per 100,000 people', 'higher_is_more_pressure'],
+  ['6_1', 'Student reading skills (PISA)', 'PISA points', 'higher_is_less_pressure'],
+  ['6_2', 'Student mathematics skills (PISA)', 'PISA points', 'higher_is_less_pressure'],
+  ['6_3', 'Student science skills (PISA)', 'PISA points', 'higher_is_less_pressure'],
+  ['7_1', 'Social support: someone to count on', 'percent of population aged 15+', 'higher_is_less_pressure'],
+  ['8_1', 'Having a say in government', 'percent of population aged 16-65', 'higher_is_less_pressure'],
+  ['8_2', 'Voter turnout', 'percent of registered voters', 'higher_is_less_pressure'],
+  ['9_2', 'Exposure to air pollution above WHO guidelines', 'percent of population', 'higher_is_more_pressure'],
+  ['9_3', 'Exposure to extreme temperature', 'percent of population', 'higher_is_more_pressure'],
+  ['10_1', 'Homicides', 'deaths per 100,000 people', 'higher_is_more_pressure'],
+  ['10_2', 'Feeling safe walking alone at night', 'percent of population aged 15+', 'higher_is_less_pressure'],
+  ['10_3', 'Road deaths', 'deaths per 100,000 people', 'higher_is_more_pressure'],
+  ['11_1', 'Life satisfaction', '0-10 scale', 'higher_is_less_pressure'],
+  ['11_2', 'Negative affect balance: more negative than positive feelings', 'percent of population aged 15+', 'higher_is_more_pressure'],
+];
+const HSL_KEY = `.${HSL.map(([m]) => m).join('+')}.._T._T._T.`;
+for (const [measure, name, unit, direction] of HSL) {
+  OECD_SERIES.push({
+    metric_id: `hsl_${measure}`,
+    name,
+    flow: HSL_FLOW,
+    key: HSL_KEY,
+    measure,
+    csv: true,
+    startPeriod: '2010',
+    unit,
+    basis: `OECD How's Life? current well-being indicator ${measure} (all ages, both sexes, all education levels)`,
+    direction,
+    category: 'wellbeing',
+    source_dataset: "How's Life? Current well-being (OECD WISE)",
+  });
+}

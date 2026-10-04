@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { indexById } from '@/content/indices/registry';
 import { sectionById } from '@/content/dashboard/economy';
-import { loadSection, type SectionReading } from '@/lib/economy-dashboard';
-import { Change, Sparkline, StatusBadge, Value } from '@/components/dashboard/DashParts';
+import { loadSection } from '@/lib/economy-dashboard';
+import { SectionView } from '@/components/dashboard/Views';
 
 // Section pages of the economy dashboard share this route with the composite indices (/indices/hsi).
 export const dynamic = 'force-dynamic';
@@ -19,46 +19,8 @@ const fmt = (n: number | null, d = 1) => (n == null ? '—' : n.toFixed(d));
 
 export default async function IndexOrSectionPage({ params }: { params: { id: string } }) {
   const section = sectionById(params.id);
-  if (section) return <SectionPage reading={await loadSection(section)} />;
+  if (section) return <SectionView dash={{ base: '/indices', name: 'Economy dashboard' }} reading={await loadSection(section)} />;
   return <IndexPage id={params.id} />;
-}
-
-/** A dashboard section: its headline reading in full, then every indicator in it. */
-function SectionPage({ reading }: { reading: SectionReading }) {
-  const { section, headline, others } = reading;
-  return (
-    <main className="article econ-dash">
-      <p className="desk-kicker"><Link href="/indices">Economy dashboard</Link> · {section.title}</p>
-      <h1 className="section-head econ-dash-title">{section.question}</h1>
-      <Link href={`/indices/${section.id}/${headline.key}`} className="econ-headline econ-headline-wide">
-        <span className="econ-headline-label">{headline.indicator.label}</span>
-        <span className="econ-headline-row">
-          <Value reading={headline} big />
-          <Sparkline points={headline.history} step={headline.indicator.step} width={260} height={56} />
-        </span>
-        <span className="econ-headline-meta"><StatusBadge reading={headline} /><Change reading={headline} /></span>
-      </Link>
-      <div className="econ-summary">{headline.summary.map((t, i) => <p key={i}>{t}</p>)}</div>
-      <p className="econ-why"><strong>Why it matters.</strong> {headline.indicator.why}</p>
-
-      <h2 className="dashboard-section-title">Every indicator in this section</h2>
-      <ul className="econ-list">
-        {[headline, ...others].map((r) => (
-          <li key={r.key}>
-            <Link href={`/indices/${section.id}/${r.key}`} className="econ-row">
-              <span className="econ-row-label">{r.indicator.label}</span>
-              <Value reading={r} />
-              <Sparkline points={r.history.slice(-24)} step={r.indicator.step} />
-              <StatusBadge reading={r} />
-            </Link>
-          </li>
-        ))}
-      </ul>
-      {(section.composites ?? []).map((c) => (
-        <p key={c.id} className="ops-quiet-note">Caveat composite: <Link href={`/indices/${c.id}`} className="studio-link">{c.label}</Link>, built to the published construction standard.</p>
-      ))}
-    </main>
-  );
 }
 
 function IndexPage({ id }: { id: string }) {

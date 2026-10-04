@@ -8,6 +8,7 @@ assert.equal(isOpsPath('/studio/ask'), true);
 assert.equal(isOpsPath('/account'), true);
 assert.equal(isOpsPath('/login'), true);
 assert.equal(isOpsPath('/indices'), true);
+assert.equal(isOpsPath('/quality-of-life/housing'), true);
 assert.equal(isOpsPath('/indices/hsi'), true);
 assert.equal(isOpsPath('/metrics/gdp_per_capita'), true);
 assert.equal(isOpsPath('/stories/wage-spiral/reel'), true);

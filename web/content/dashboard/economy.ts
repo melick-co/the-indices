@@ -10,7 +10,9 @@
 export type Benchmark =
   | { kind: 'target'; low: number; high: number; label: string; source: { text: string; url: string } }
   | { kind: 'floor'; value: number; label: string; source: { text: string; url: string } }
-  | { kind: 'average'; years: number };
+  | { kind: 'average'; years: number }
+  /** Judged against the OECD median (well-being measures with no target and sparse history). */
+  | { kind: 'oecd' };
 
 export type Indicator = {
   /** Stored series (or cpi: component id). */
@@ -20,6 +22,8 @@ export type Indicator = {
   label: string;
   /** Short plain name for tiles. */
   short?: string;
+  /** The subject for summary sentences when the label does not read as one ("The share of people in poverty"). */
+  subject?: string;
   /** Why the number matters, in one or two sentences. */
   why: string;
   benchmark: Benchmark;
@@ -32,7 +36,8 @@ export type Indicator = {
   /** Cross-country series to compare against, when the Australian series has no peers of its own. */
   peers?: { metric_id: string; label: string; unit?: Indicator['unit'] | 'usd' };
   /** Display unit when the stored one is not reader-friendly. */
-  unit?: 'percent' | 'pts' | 'aud' | 'aud_bn' | 'persons' | 'per_1000' | 'index' | 'percent_gdp' | 'usd';
+  unit?: 'percent' | 'pts' | 'aud' | 'aud_bn' | 'persons' | 'per_1000' | 'index' | 'percent_gdp' | 'usd'
+    | 'years' | 'points' | 'score' | 'per_100k' | 'ratio';
 };
 
 export type Section = {

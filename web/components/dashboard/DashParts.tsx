@@ -1,5 +1,5 @@
 import type { Point, Reading, Status } from '@/lib/economy-dashboard';
-import { formatReading } from '@/lib/economy-dashboard';
+import { absoluteChange, formatReading, ordinal } from '@/lib/economy-dashboard';
 import type { StoryChartBlock } from '@/lib/story-types';
 
 /** A small trend line for tiles: the recent history, with the latest point marked. */
@@ -48,7 +48,8 @@ export function Change({ reading }: { reading: Reading }) {
   if (Math.abs(d) < 1e-9) return <span className="dash-change">unchanged</span>;
   const good = reading.indicator.higherIsBetter === undefined ? null : (d > 0) === reading.indicator.higherIsBetter;
   const rate = ['percent', 'percent_gdp', 'pts'].includes(reading.indicator.unit ?? '');
-  const size = rate ? `${Math.abs(Math.round(d * 100) / 100)} pts` : `${Math.abs(Math.round((d / Math.abs(previous.value)) * 1000) / 10)}%`;
+  const abs = reading.indicator.unit && absoluteChange[reading.indicator.unit];
+  const size = abs ? abs(Math.abs(d)) : rate ? `${Math.abs(Math.round(d * 100) / 100)} pts` : `${Math.abs(Math.round((d / Math.abs(previous.value)) * 1000) / 10)}%`;
   return <span className={`dash-change ${good === null ? '' : good ? 'good' : 'watch'}`}>{d > 0 ? '▲' : '▼'} {size}</span>;
 }
 
@@ -67,12 +68,13 @@ export function historyChart(r: Reading): StoryChartBlock {
 export function peersChart(r: Reading, names: Map<string, string>): StoryChartBlock | null {
   if (!r.peers) return null;
   const rows = r.peers.rows;
+  // rows are ordered best (or highest) first
   const top = rows.slice(0, 12);
   const aus = rows.find((x) => x.entity === 'AUS');
   const shown = aus && !top.includes(aus) ? [...top.slice(0, 11), aus] : top;
   return {
     type: 'chart', kind: 'bars',
-    title: `Australia ranks ${r.peers.rank} of ${r.peers.of} OECD countries`,
+    title: `Australia ranks ${ordinal(r.peers.rank)} ${r.peers.bestFirst ? 'best' : 'highest'} of ${r.peers.of} OECD countries`,
     subtitle: `${r.peers.label}, ${r.peers.period}; OECD median ${formatReading(r.peers.median, r.peers.unit)}`,
     series: shown.map((x) => ({ label: names.get(x.entity) ?? x.entity, value: x.value, ...(x.entity === 'AUS' ? { highlight: true } : {}) })),
     caption: 'Source: OECD and World Bank cross-country series as stored.',
