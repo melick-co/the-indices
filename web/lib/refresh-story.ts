@@ -292,11 +292,31 @@ export async function editDraft(slug: string, edits: CopyEdit[], extraMetrics: s
 }
 
 /** A find-and-replace on a revision's copy (headline, deck, paragraphs, chart and timeline text). */
-export type CopyEdit = { find: string; replace: string };
+export type CopyEdit = {
+  find: string;
+  replace: string;
+  /** Add a timeline entry (instead of find/replace): placed before the entry dated `before`, or last. Its source
+   *  becomes a footnote (an existing one when the URL is already cited). */
+  add_event?: { date: string; label: string; before?: string; source: { text: string; url: string } };
+};
 
 /** Apply exact-text edits to every copy field of a revision's content. Each edit must match somewhere. */
 export function editContent(content: Content, edits: CopyEdit[]): Content {
   const next = JSON.parse(JSON.stringify(content)) as Record<string, unknown>;
+  // Timeline additions first; they are not find/replace edits.
+  for (const e of edits.filter((x) => x.add_event)) {
+    const a = e.add_event!;
+    const ev = (next.evidence ?? (next.evidence = {})) as { footnotes?: { n: number; text: string; url?: string }[] };
+    const notes = (ev.footnotes ??= []);
+    const n = notes.find((f) => f.url === a.source.url)?.n
+      ?? (notes.push({ n: Math.max(0, ...notes.map((f) => f.n)) + 1, text: a.source.text, url: a.source.url }), notes[notes.length - 1].n);
+    const block = ((next.body as { blocks?: Record<string, unknown>[] })?.blocks ?? []).find((b) => b.type === 'timeline');
+    if (!block) throw new Error('add_event: the story has no timeline');
+    const events = block.events as { date: string; label: string; footnote?: number }[];
+    const at = a.before ? events.findIndex((x) => x.date === a.before) : -1;
+    events.splice(at >= 0 ? at : events.length, 0, { date: a.date, label: a.label, footnote: n });
+  }
+  edits = edits.filter((x) => !x.add_event);
   const hits = new Map<CopyEdit, number>(edits.map((e) => [e, 0]));
   const edit = (t: unknown) => {
     if (typeof t !== 'string') return t;

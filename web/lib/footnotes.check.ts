@@ -25,4 +25,8 @@ assert.equal(s.body.blocks[0].text, 'A.[^1] B.[^1] C.[^2]');
 assert.equal((s.body.blocks[1].events as { footnote: number; label: string }[])[0].footnote, 1);
 assert.equal(s.body.blocks[2].footnote, 2);
 assert.equal(s.evidence.footnotes[0].text, 'RBA, FSR, October 2026, media release MR-26-28.');
+// A footnote nothing cites is dropped.
+const lone = { hook: 'Deck.[^1]', body: { blocks: [] }, evidence: { footnotes: [{ n: 1, text: 'A', url: 'https://a' }, { n: 2, text: 'B', url: 'https://b' }] } } as never as Parameters<typeof mergeDuplicateFootnotes>[0];
+mergeDuplicateFootnotes(lone);
+assert.equal((lone as unknown as { evidence: { footnotes: unknown[] } }).evidence.footnotes.length, 1);
 console.log('footnotes.check: ok');
