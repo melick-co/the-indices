@@ -1,4 +1,5 @@
 import { mergeDuplicateFootnotes } from '@/lib/footnotes';
+import { pinReleaseLinks } from '@/lib/pin-sources';
 import { sydneyDay } from '@/lib/dates';
 import { createClient } from '@/lib/supabase-server';
 import { runFoundryTurn, type FoundryEvent } from '@/lib/foundry-agent';
@@ -324,6 +325,8 @@ export async function checkStory(supabase: SupabaseClient, draft: StructuredStor
   const queried = ctx.queried ?? new Set<string>();
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   const opts = { audit: ctx.audit };
+  // ABS "latest-release" links drift to newer releases: pin each to the release its footnote names.
+  await pinReleaseLinks(draft).catch(() => 0);
   // One source, one footnote (the writer sometimes cites the same page as two notes).
   mergeDuplicateFootnotes(draft as never);
 

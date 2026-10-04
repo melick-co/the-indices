@@ -232,7 +232,8 @@ export async function verifyFootnoteLinks(db: SupabaseClient, story: Checkable):
   const reply = await callClaudeJson(`Each footnote below describes a source; the title and date are those of the document its link
 actually opens. Decide whether the link goes to the document the footnote describes. A different naming of the
 same document ("Statement by the Governor" for a "Statement by the Monetary Policy Board: Monetary Policy Decision"
-of the same date, or a landing page for the publication named) is the same document. A different document (another
+of the same date, or a landing page for the publication named, such as the RBA's "In Brief: Financial Stability Review –
+October 2026" page for the October 2026 Financial Stability Review) is the same document. A different document (another
 release, another subject, another date's decision) is a mismatch.
 
 ${pairs.map((p) => `[${p.n}] FOOTNOTE: ${p.footnote}\n    LINKED DOCUMENT: ${p.title}${p.published ? ` (${p.published})` : ''}`).join('\n')}
