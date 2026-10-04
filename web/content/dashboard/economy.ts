@@ -95,7 +95,7 @@ export const SECTIONS: Section[] = [
         benchmark: { kind: 'average', years: 10 }, higherIsBetter: true, history: 40, unit: 'percent' },
       { metric_id: 'wpi_annual_au', minus: 'cpi_annual_au', label: 'Real wage growth (wages less headline CPI)', short: 'Real wages',
         why: 'Whether pay rises are buying more or less than a year ago. Below zero, workers are losing ground.',
-        benchmark: { kind: 'floor', value: 0, label: 'Zero: wages keeping pace with prices',
+        benchmark: { kind: 'floor', value: 0, label: 'zero, the point where wages keep pace with prices',
           source: { text: 'Derived from ABS Wage Price Index and Consumer Price Index', url: 'https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation' } },
         higherIsBetter: true, history: 40, unit: 'pts' },
       { metric_id: 'wpi_private_annual_au', label: 'Private-sector wages, annual growth', short: 'Private wages',

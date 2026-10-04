@@ -155,7 +155,12 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
   let peers = all.some((o) => o.entity !== 'AUS') ? peerTable(all, ind.metric_id, ind.label, ind.unit) : null;
   if (!peers && ind.peers) peers = peerTable(await loadObservations(db, ind.peers.metric_id).catch(() => []), ind.peers.metric_id, ind.peers.label, ind.peers.unit as Indicator['unit']);
 
-  const status = latest ? judge(ind, latest.value, average) : 'neutral';
+  let status: Status = latest ? judge(ind, latest.value, average) : 'neutral';
+  // With too little history for an average, judge against the OECD median instead.
+  const byPeers = latest && average == null && peers && ind.benchmark.kind === 'average';
+  if (byPeers && ind.higherIsBetter !== undefined && peers!.aus !== peers!.median) {
+    status = (peers!.aus > peers!.median) === ind.higherIsBetter ? 'better' : 'worse';
+  }
   const b = ind.benchmark;
   const u = ind.unit;
   let verdict = '';
@@ -188,6 +193,7 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
     }
     if (peers) {
       const mid = peers.aus > peers.median ? 'above' : peers.aus < peers.median ? 'below' : 'at';
+      if (!verdict) verdict = mid === 'at' ? 'At the OECD median' : `${mid === 'above' ? 'Above' : 'Below'} the OECD median`;
       // Lower-case the label's first letter only when it is an ordinary word (keeps "GDP", "Treasury").
       const name = /^[A-Z][a-z]/.test(peers.label) ? peers.label.charAt(0).toLowerCase() + peers.label.slice(1) : peers.label;
       summary.push(`Across ${peers.of} OECD countries (${periodLabel(peers.period)}), Australia ranks ${peers.rank} of ${peers.of} on ${name}, ${mid} the median of ${fmt(peers.median, peers.unit)}.`);
