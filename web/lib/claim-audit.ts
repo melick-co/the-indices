@@ -116,7 +116,11 @@ one claim: every part must hold over the SAME period. Take the period from the c
 leans on (a change "in a year" or "from its trough" sets the window for the other half too). If one half is true
 only over a different window (for example headline CPI fell in the latest quarter while the trimmed mean is
 compared over a year, during which headline CPI rose), the claim is "unsupported": say which half fails over
-which period. A direction or trend stated without a number ("disinflation", "is falling", "kept easing") implies
+which period. A CHANGE OVER A STATED RUN ("fell for six consecutive quarters, dropping A$X", "down 1.2 points over four
+quarters", "from its peak") is measured from the reading just before the run begins to its last reading. A figure
+measured from a later starting point (after the first fall has already happened) understates the run and is
+"unsupported": give the run's actual change. A named peak or trough must be the highest or lowest reading in the
+window the claim covers. A direction or trend stated without a number ("disinflation", "is falling", "kept easing") implies
 a quantity and is audited the same way, over the period the article is discussing. This is a factual error, not
 a matter of framing.
 
