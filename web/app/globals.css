@@ -9,9 +9,10 @@
   --color-ink-black: #1a1612;
   --color-charcoal: #3c3832;
   --color-fossil: #6f685e;
-  --color-slate-iris: #6b1d1d;
+  /* Accents take the masthead navy (Oct 2026: the maroon predated the navy masthead and graphics). */
+  --color-slate-iris: #1d2a48;
   --color-terminal: #1a1612;
-  --color-bb-orange: #6b1d1d;
+  --color-bb-orange: #1d2a48;
 
   --font-display: var(--font-newsreader, 'Times New Roman'), Times, serif;
   --font-body: var(--font-source-serif, Georgia), 'Times New Roman', serif;
