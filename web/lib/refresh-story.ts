@@ -496,3 +496,14 @@ export async function renameStory(from: string, to: string) {
   await db.from('story_desk').update({ slug: to }).eq('slug', from);
   return { from, to };
 }
+
+/** Every update note the article has carried, oldest first (from the archived versions and the live row). */
+export async function noteHistory(slug: string) {
+  const db = createClient();
+  const row = await loadPublished(slug);
+  const { data } = await db.from('story_revisions').select('content, resolved_at')
+    .eq('story_id', row.story_id).eq('status', 'archived').order('resolved_at', { ascending: true });
+  const notes = (data ?? []).map((r) => ({ at: r.resolved_at as string, note: ((r.content as { update_note?: string | null })?.update_note ?? '').trim() }));
+  notes.push({ at: 'live', note: String(row.update_note ?? '').trim() });
+  return notes.filter((n, i, all) => n.note && (i === 0 || n.note !== all[i - 1].note));
+}
