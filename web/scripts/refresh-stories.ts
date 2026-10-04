@@ -12,6 +12,7 @@
  *   ... --sources <slug>  # read-only: check the live article's sourced statements against its source documents
  *   ... --discard <slug>  # drop the pending revision; the live article is untouched
  *   ... --rename <old>=<new>  # move a published story to a new slug (add a redirect for the old one in next.config.mjs)
+ *   ... --restore-notes <slug>  # put back any correction an earlier update note replaced
  *   ... --notes <slug>    # read-only: every update note the article has carried, oldest first
  *   ... --audit <slug>    # read-only: run every check on the live copy and list what it flags
  *   ... --charts <slug>   # rebuild the live article's charts from the store and re-run every check; applied with
@@ -28,7 +29,7 @@
  * current version in story_revisions and adds the reader-facing update note.
  */
 import {
-  applyRevision, checkLive, noteHistory, renameStory, discardRevision, updateFigures, editContent, editDraft, listDrafts, loadDraftContent, publishDraft, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
+  applyRevision, checkLive, noteHistory, renameStory, restoreCorrections, discardRevision, updateFigures, editContent, editDraft, listDrafts, loadDraftContent, publishDraft, recheckDraft, loadRevisionContent, recheckRevision, refreshStory, saveRevisionContent, startRevisionFromLive,
   type CopyEdit,
 } from '@/lib/refresh-story';
 import type { StoryBlock } from '@/lib/story-types';
@@ -50,6 +51,7 @@ const charts = process.argv.includes('--charts');
 const auditLive = process.argv.includes('--audit');
 const rename = process.argv.includes('--rename');
 const notesOnly = process.argv.includes('--notes');
+const restoreNotes = process.argv.includes('--restore-notes');
 const words = (t: string) => t.replace(/\[\^\d+\]/g, '').trim().split(/\s+/).filter(Boolean).length;
 const slugs = [
   ...process.argv.slice(2).filter((a) => !a.startsWith('--')),
@@ -76,6 +78,12 @@ async function main() {
       if (discard) {
         await discardRevision(slug);
         log('  Discarded the pending revision.');
+        continue;
+      }
+      if (restoreNotes) {
+        const restored = await restoreCorrections(slug);
+        log(restored.length ? `  Restored ${restored.length} correction(s):` : '  No corrections missing.');
+        for (const c of restored) log(`    + ${c.slice(0, 160)}`);
         continue;
       }
       if (notesOnly) {
