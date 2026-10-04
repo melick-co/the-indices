@@ -151,21 +151,24 @@ export async function restoreCorrections(slug: string): Promise<string[]> {
   const db = createClient();
   const row = await loadPublished(slug);
   const live = String(row.update_note ?? '').trim();
-  const key = (c: string) => c.toLowerCase().replace(/[^a-z0-9]+/g, ' ').slice(0, 80);
-  const have = new Set(correctionsIn(live).map(key));
-  const missing: string[] = [];
-  for (const n of await noteHistory(slug)) {
-    for (const c of correctionsIn(n.note)) {
-      if (have.has(key(c))) continue;
-      have.add(key(c));
-      missing.push(c);
-    }
+  // Compare notices without their "Correction(s)[, date]:" lead-in; a later notice that restates an earlier one
+  // (a cumulative "Corrections: …") replaces it.
+  const body = (c: string) => c.replace(/^Corrections?(?:, [^:]{3,30})?:\s*/, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const all: string[] = [];
+  for (const n of await noteHistory(slug)) all.push(...correctionsIn(n.note));
+  all.push(...correctionsIn(live));
+  const kept: string[] = [];
+  for (const c of all) {
+    const b = body(c);
+    const i = kept.findIndex((k) => { const kb = body(k); return kb === b || b.startsWith(kb.slice(0, 60)) || kb.startsWith(b.slice(0, 60)); });
+    if (i >= 0) { if (c.length >= kept[i].length) kept[i] = c; } else kept.push(c);
   }
-  if (!missing.length) return [];
-  const { error } = await db.from('stories').update({ update_note: [live, ...missing].join(' '), updated_at: new Date().toISOString() })
-    .eq('story_id', row.story_id);
+  const head = live.split(/(?=\bCorrections?(?:, [^:]{3,30})?:)/)[0].trim();
+  const rebuilt = [/^Corrections?\b/.test(head) ? '' : head, ...kept].filter(Boolean).join(' ');
+  if (rebuilt === live) return [];
+  const { error } = await db.from('stories').update({ update_note: rebuilt, updated_at: new Date().toISOString() }).eq('story_id', row.story_id);
   if (error) throw new Error(error.message);
-  return missing;
+  return kept.filter((k) => !live.includes(k));
 }
 
 /** Stored check result: what the desk shows next to a draft or revision. */
