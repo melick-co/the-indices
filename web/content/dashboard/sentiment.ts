@@ -48,7 +48,7 @@ export const SENTIMENT_SECTIONS: Section[] = [
     headline: {
       metric_id: 'business_confidence_oecd', label: 'Business confidence (OECD harmonised index)', short: 'Business confidence',
       subject: 'Business confidence',
-      why: 'How firms see production, orders and stocks in the months ahead, harmonised by the OECD from national business surveys and scaled so each country\'s long-run average is 100. It tends to turn before investment and hiring do.',
+      why: 'How manufacturers see production, orders and stocks of finished goods, harmonised by the OECD from national business surveys and scaled so each country\'s long-run average is 100. It tends to turn before investment and hiring do.',
       benchmark: LONG_RUN_100('firms', 'https://www.oecd.org/en/data/indicators/business-confidence-index-bci.html'),
       higherIsBetter: true, history: 60, unit: 'index',
     },

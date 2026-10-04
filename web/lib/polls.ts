@@ -95,6 +95,7 @@ export function moodCheck(consumers: SectionReading, direction: PollAverage | nu
   const relief = (r: Reading) => r.status === 'better' || r.status === 'on-target';
   const worse = tests.filter(pressure);
   const ok = tests.filter(relief);
+  const known = cc.latest != null || direction != null;
   const gloomy = (cc.latest ? cc.latest.value < 100 : false) || (direction != null && direction.value < 0);
   const name = (r: Reading) => (r.indicator.short ?? r.indicator.label).toLowerCase();
   const list = (rs: Reading[]) => rs.map((r) => `${name(r)} (${r.latest ? formatReading(r.latest.value, r.indicator.unit) : '—'})`).join(', ');
@@ -102,13 +103,14 @@ export function moodCheck(consumers: SectionReading, direction: PollAverage | nu
   const mood: string[] = [];
   if (cc.latest) mood.push(`Consumer confidence is ${formatReading(cc.latest.value, cc.indicator.unit)}, ${cc.latest.value < 100 ? 'below' : 'above'} its long-run average of 100`);
   if (direction && wrong) mood.push(`in published polls an average of ${wrong.value}% say the country is heading in the wrong direction (net ${direction.value > 0 ? '+' : ''}${direction.value})`);
-  const verdict = !tests.length ? 'mixed'
+  const verdict = !known ? 'unknown' : !tests.length ? 'mixed'
     : gloomy ? (worse.length * 2 > tests.length ? 'backs' : worse.length <= 1 ? 'runs-ahead' : 'mixed')
       : (ok.length * 2 > tests.length ? 'backs' : 'mixed');
   const lines = [
     mood.length ? `${mood.join('; ')}.` : '',
-    `Of ${tests.length} official measures of household pressure, ${worse.length} ${worse.length === 1 ? 'is' : 'are'} worse than usual${worse.length ? `: ${list(worse)}` : ''}${ok.length ? `; ${ok.length} ${ok.length === 1 ? 'is' : 'are'} better than usual or on target: ${list(ok)}` : ''}.`,
-    gloomy
+    `Of ${tests.length} official ${tests.length === 1 ? 'measure' : 'measures'} of household pressure, ${worse.length} ${worse.length === 1 ? 'is' : 'are'} worse than usual${worse.length ? `: ${list(worse)}` : ''}${ok.length ? `; ${ok.length} ${ok.length === 1 ? 'is' : 'are'} better than usual or on target: ${list(ok)}` : ''}.`,
+    !known ? 'There is no reading of the mood yet to test.'
+      : gloomy
       ? verdict === 'backs' ? 'The official numbers back the gloom.' : verdict === 'runs-ahead' ? 'The gloom runs ahead of the official numbers.' : 'The official numbers give the gloom only partial support.'
       : verdict === 'backs' ? 'The official numbers back the optimism.' : 'The official numbers give the optimism only partial support.',
   ].filter(Boolean);

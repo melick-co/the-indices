@@ -81,7 +81,7 @@ export function PollsPanel({ polls, consumers }: { polls: Poll[]; consumers: Sec
             <span className="econ-card-q">The mood against the official numbers households live with</span>
           </Link>
           <span className={`dash-status ${check.verdict === 'backs' ? 'good' : 'watch'}`}>
-            {check.verdict === 'backs' ? (check.gloomy ? 'Data backs the gloom' : 'Data backs the optimism') : check.verdict === 'runs-ahead' ? 'Mood runs ahead of the data' : 'Partial support'}
+            {check.verdict === 'backs' ? (check.gloomy ? 'Data backs the gloom' : 'Data backs the optimism') : check.verdict === 'runs-ahead' ? 'Mood runs ahead of the data' : check.verdict === 'unknown' ? 'No reading yet' : 'Partial support'}
           </span>
           <div className="econ-summary">{check.lines.map((t, i) => <p key={i}>{t}</p>)}</div>
         </section>
