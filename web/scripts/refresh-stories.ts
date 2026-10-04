@@ -198,7 +198,8 @@ async function main() {
       if (editMode || recheckOnly) {
         if (editMode) {
           const edits = JSON.parse(process.env.REVISION_EDITS || '[]') as CopyEdit[];
-          if (!edits.length) throw new Error('REVISION_EDITS is empty');
+          // Edits may be empty when the run only adds series to check against (REVISION_METRICS).
+          if (!edits.length && !(process.env.REVISION_METRICS ?? '').trim()) throw new Error('REVISION_EDITS is empty');
           // No pending revision: start one from the live copy (a correction).
           const existing = await loadRevisionContent(slug).catch(() => null);
           if (!existing) { await startRevisionFromLive(slug); log('  Started a revision from the live copy.'); }
