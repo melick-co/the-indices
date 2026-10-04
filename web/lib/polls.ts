@@ -97,7 +97,8 @@ export function moodCheck(consumers: SectionReading, direction: PollAverage | nu
   const ok = tests.filter(relief);
   const known = cc.latest != null || direction != null;
   const gloomy = (cc.latest ? cc.latest.value < 100 : false) || (direction != null && direction.value < 0);
-  const name = (r: Reading) => (r.indicator.short ?? r.indicator.label).toLowerCase();
+  // Lower-case only an ordinary first word ("Rents" → "rents", but "CPI" stays).
+  const name = (r: Reading) => { const s = r.indicator.short ?? r.indicator.label; return /^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s; };
   const list = (rs: Reading[]) => rs.map((r) => `${name(r)} (${r.latest ? formatReading(r.latest.value, r.indicator.unit) : '—'})`).join(', ');
 
   const mood: string[] = [];
