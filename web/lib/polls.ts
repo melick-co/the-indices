@@ -111,7 +111,7 @@ export function moodCheck(consumers: SectionReading, direction: PollAverage | nu
     : gloomy ? (worse.length * 2 > tests.length ? 'backs' : worse.length <= 1 ? 'runs-ahead' : 'mixed')
       : (ok.length * 2 > tests.length ? 'backs' : 'mixed');
   const lines = [
-    mood.length ? `${mood.join('; ')}.` : '',
+    mood.length ? `${mood.join('; ').charAt(0).toUpperCase()}${mood.join('; ').slice(1)}.` : '',
     `Of ${tests.length} official ${tests.length === 1 ? 'measure' : 'measures'} of household pressure, ${worse.length} ${worse.length === 1 ? 'is' : 'are'} worse than usual${worse.length ? `: ${list(worse)}` : ''}${ok.length ? `; ${ok.length} ${ok.length === 1 ? 'is' : 'are'} better than usual or on target: ${list(ok)}` : ''}.`,
     !known ? 'There is no reading of the mood yet to test.'
       : gloomy

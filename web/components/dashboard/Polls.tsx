@@ -20,7 +20,7 @@ function shift(polls: Poll[], measure: string, a: PollAverage | null) {
   const b = pollAverage(polls, measure, 30, before);
   if (!b) return null;
   const d = Math.round((a.value - b.value) * 10) / 10;
-  return d === 0 ? 'unchanged on the month before' : `${d > 0 ? 'up' : 'down'} ${Math.abs(d)} on the month before`;
+  return d === 0 ? 'unchanged on the month before' : `${d > 0 ? 'up' : 'down'} ${Math.abs(d)} points on the month before`;
 }
 
 const signed = (n: number) => `${n > 0 ? '+' : ''}${n}`;
@@ -44,7 +44,9 @@ function LeadersCard({ polls }: { polls: Poll[] }) {
   const pm = netFor(polls, 'pm');
   const opp = netFor(polls, 'opposition');
   const ppm = preferredPm(polls);
-  const others = [...new Set(polls.flatMap((p) => Object.keys(p.values).filter((k) => k.startsWith('approval_net:other:')).map(personOf)))]
+  // Other leaders only while pollsters still ask about them: named in one of the three latest approval polls.
+  const recent = polls.filter((p) => p.table === 'appr' && !/\bMRP\b/i.test(p.pollster)).slice(0, 3);
+  const others = [...new Set(recent.flatMap((p) => Object.keys(p.values).filter((k) => k.startsWith('approval_net:other:')).map(personOf)))]
     .map((name) => ({ name, a: pollAverage(polls, currentMeasure(polls, 'approval_net', 'other', name)!) }))
     .filter((x) => x.a).slice(0, 2);
   return (
@@ -151,12 +153,13 @@ function trendChart(title: string, subtitle: string, a: { label: string; points:
 }
 
 /** A title from the latest month's figures, never a fixed claim. */
-function directionTitle(right?: number, wrong?: number) {
+function directionTitle(right?: number, wrong?: number, period?: string) {
   if (right == null || wrong == null) return 'Direction of the country';
-  if (wrong > 50) return `Most voters say the country is heading in the wrong direction (${wrong}%)`;
-  if (wrong > right) return `More voters say wrong direction (${wrong}%) than right (${right}%)`;
-  if (right > wrong) return `More voters say right direction (${right}%) than wrong (${wrong}%)`;
-  return 'Voters are split on the direction of the country';
+  const when = period ? ` in ${new Date(`${period}-01T00:00:00Z`).toLocaleDateString('en-AU', { month: 'long', year: 'numeric', timeZone: 'UTC' })}` : '';
+  if (wrong > 50) return `Most voters said the country was heading in the wrong direction${when} (${wrong}%)`;
+  if (wrong > right) return `More voters said wrong direction (${wrong}%) than right (${right}%)${when}`;
+  if (right > wrong) return `More voters said right direction (${right}%) than wrong (${wrong}%)${when}`;
+  return `Voters were split on the direction of the country${when}`;
 }
 
 /** Every poll since the last election, with the trends. */
@@ -168,7 +171,12 @@ export function PollsDetail({ polls }: { polls: Poll[] }) {
   const vi = polls.filter((p) => p.table === 'vi');
   const dir = polls.filter((p) => p.table === 'dir');
   const latestTpp = latestByPollster(polls, 'tpp_alp_lnp');
-  const lead = tpp.at(-1);
+  const tppAvg = pollAverage(polls, 'tpp_alp_lnp');
+  const ranked = [...prim].sort((a, b) => b.a!.value - a.a!.value);
+  // Within two points is inside a typical poll's margin of error: call it level, not a lead.
+  const primTitle = ranked.length < 2 ? 'First preferences'
+    : ranked[0].a!.value - ranked[1].a!.value < 2 ? `${PARTY_LABEL[ranked[0].p]} and ${PARTY_LABEL[ranked[1].p]} are neck and neck on first preferences`
+      : `${PARTY_LABEL[ranked[0].p]} leads on first preferences`;
 
   return (
     <>
@@ -176,7 +184,8 @@ export function PollsDetail({ polls }: { polls: Poll[] }) {
       <h2 className="dashboard-section-title">Two-party preferred</h2>
       {tpp.length >= 2 && (
         <StoryChart chart={trendChart(
-          lead ? `Labor ${lead.value >= 50 ? 'leads' : 'trails'} the Coalition ${lead.value}–${Math.round((100 - lead.value) * 10) / 10} in ${new Date(`${lead.period}-01T00:00:00Z`).toLocaleDateString('en-AU', { month: 'long', year: 'numeric', timeZone: 'UTC' })} polls` : 'Two-party preferred',
+          tppAvg ? (Math.abs(tppAvg.value - 50) < 1 ? `Labor and the Coalition are level on two-party preferred (${tppAvg.value}–${Math.round((100 - tppAvg.value) * 10) / 10}) across pollsters in the past 30 days`
+            : `Labor ${tppAvg.value > 50 ? 'leads' : 'trails'} the Coalition ${tppAvg.value}–${Math.round((100 - tppAvg.value) * 10) / 10} across pollsters in the past 30 days`) : 'Two-party preferred',
           'Labor v Coalition two-party preferred vote, % (monthly average of published polls)',
           { label: 'Labor', points: tpp }, { label: 'Coalition', points: tpp.map((p) => ({ period: p.period, value: Math.round((100 - p.value) * 10) / 10 })) },
         )} />
@@ -184,7 +193,7 @@ export function PollsDetail({ polls }: { polls: Poll[] }) {
       {prim.length > 0 && (
         <StoryChart chart={{
           type: 'chart', kind: 'bars',
-          title: `${PARTY_LABEL[[...prim].sort((a, b) => b.a!.value - a.a!.value)[0].p]} leads on first preferences`,
+          title: primTitle,
           subtitle: `Primary vote, %: average of each pollster's latest poll in the 30 days to ${dayLabel(prim[0].a!.to)}`,
           series: prim.map(({ p, a }) => ({ label: PARTY_LABEL[p], value: a!.value })),
           caption: 'Private polls, compiled via Wikipedia; MRP models excluded.',
@@ -196,7 +205,7 @@ export function PollsDetail({ polls }: { polls: Poll[] }) {
       <h2 id="direction" className="dashboard-section-title">Direction of the country</h2>
       {right.length >= 2 && (
         <StoryChart chart={trendChart(
-          directionTitle(right.at(-1)?.value, wrong.at(-1)?.value),
+          directionTitle(right.at(-1)?.value, wrong.at(-1)?.value, right.at(-1)?.period),
           'Share saying the country is heading in the right or wrong direction, % (monthly average of published polls)',
           { label: 'Wrong direction', points: wrong }, { label: 'Right direction', points: right },
         )} />
@@ -248,16 +257,18 @@ function LeadersDetail({ polls }: { polls: Poll[] }) {
   const opp = roleTrend(polls, 'approval_net', 'opposition');
   const appr = polls.filter((p) => p.table === 'appr');
   const ppm = polls.filter((p) => p.table.startsWith('ppm'));
-  const lastPm = pm.points.at(-1), lastOpp = opp.points.at(-1);
+  const pmNow = netFor(polls, 'pm'), oppNow = netFor(polls, 'opposition');
   const months = new Set(opp.points.map((p) => p.period));
   const both = pm.points.filter((p) => months.has(p.period));
   return (
     <>
       <h2 id="leaders" className="dashboard-section-title">Leaders</h2>
-      {both.length >= 2 && lastPm && lastOpp && (
+      {both.length >= 2 && (
         <StoryChart chart={{
           type: 'chart', kind: 'line',
-          title: `Net approval: ${pm.holders.at(-1)?.name} ${signed(lastPm.value)}, ${opp.holders.at(-1)?.name} ${signed(lastOpp.value)} in ${new Date(`${lastPm.period}-01T00:00:00Z`).toLocaleDateString('en-AU', { month: 'long', year: 'numeric', timeZone: 'UTC' })} polls`,
+          title: pmNow?.a && oppNow?.a
+            ? `${pmNow.name} is on net ${signed(pmNow.a.value)} and ${oppNow.name} on ${signed(oppNow.a.value)} across pollsters in the past 30 days`
+            : 'Net approval of the leaders',
           subtitle: 'Net approval (approve minus disapprove), points: monthly average of published polls',
           series: both.map((p) => ({ label: p.period, value: p.value })),
           alt_series: opp.points.filter((p) => both.some((b) => b.period === p.period)).map((p) => ({ label: p.period, value: p.value })),
