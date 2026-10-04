@@ -223,12 +223,15 @@ export function isDocumentSourced(sentence: string, footnoteUrls: Map<number, st
 export async function verifyFootnoteLinks(db: SupabaseClient, story: Checkable): Promise<string[]> {
   const notes = (story.evidence?.footnotes ?? []).filter((f) => f.url && !DATA_TABLE.test(f.url) && /^https?:/.test(f.url));
   const pairs: Array<{ n: number; footnote: string; title: string; published: string | null }> = [];
+  const broken: string[] = [];
   for (const f of notes) {
     const doc = await ensureDocument(db, f.url!, { pdfText }) as { title?: string | null; published?: string | null; body?: string; error?: string };
+    // A link that no longer exists is broken, whatever the footnote says.
+    if (doc.error && /\b(404|410)\b|not found/i.test(doc.error)) { broken.push(`footnote ${f.n} links to a page that no longer exists (${f.url})`); continue; }
     if (doc.error || !doc.title) continue;
     pairs.push({ n: f.n, footnote: f.text, title: doc.title, published: doc.published ?? null });
   }
-  if (!pairs.length) return [];
+  if (!pairs.length) return broken;
   const reply = await callClaudeJson(`Each footnote below describes a source; the title and date are those of the document its link
 actually opens. Decide whether the link goes to the document the footnote describes. A different naming of the
 same document ("Statement by the Governor" for a "Statement by the Monetary Policy Board: Monetary Policy Decision"
@@ -239,8 +242,8 @@ release, another subject, another date's decision) is a mismatch.
 ${pairs.map((p) => `[${p.n}] FOOTNOTE: ${p.footnote}\n    LINKED DOCUMENT: ${p.title}${p.published ? ` (${p.published})` : ''}`).join('\n')}
 
 Respond ONLY with JSON: {"mismatches":[{"n":1,"reason":"short reason"}]}`, { label: 'footnote links' }) as { mismatches?: Array<{ n: number; reason?: string }> };
-  return (reply.mismatches ?? []).map((m) => {
+  return [...broken, ...(reply.mismatches ?? []).map((m) => {
     const p = pairs.find((x) => x.n === Number(m.n));
     return `footnote ${m.n} links to "${p?.title ?? '?'}", which is not the source it describes${m.reason ? ` (${m.reason})` : ''}`;
-  });
+  })];
 }
