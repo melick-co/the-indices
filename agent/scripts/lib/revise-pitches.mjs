@@ -64,7 +64,8 @@ export async function buildReference(db, metricIds, opts = {}) {
       source: meta.source_org,
       tier: meta.source_tier,
       latest: { period: latest.period, value: latest.value, status: latest.status },
-      earlier: history.map((h) => ({ period: h.period, value: h.value })),
+      // Each reading's change from the one before it, so rises and cuts are explicit (newest first).
+      earlier: withChanges([latest, ...history]).slice(1),
     };
     const { data: peers } = await db.from('observations')
       .select('entity, value')
@@ -86,11 +87,20 @@ async function cpiReference(db, mid, historyLength) {
   const entry = {
     name: meta.name, unit: meta.unit, source: meta.source_org, tier: meta.source_tier,
     latest: { period: latest.period, value: latest.value },
-    earlier: history.map((h) => ({ period: h.period, value: h.value })),
+    earlier: withChanges([latest, ...history]).slice(1),
   };
   const peers = obs.filter((o) => o.period === latest.period);
   if (peers.length > 1) entry.ranking = rankEntities(peers, latest.period);
   return entry;
+}
+
+/** Readings newest first, each with its change from the reading before it (the next one in the list). */
+function withChanges(rows) {
+  return rows.map((r, i) => {
+    const prev = rows[i + 1];
+    const change = prev ? Math.round((Number(r.value) - Number(prev.value)) * 1000) / 1000 : null;
+    return { period: r.period, value: r.value, ...(change != null ? { change_from_previous: change } : {}) };
+  });
 }
 
 /** Highest value first; Australia's position is computed here, never by the model. */
