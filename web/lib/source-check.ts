@@ -213,3 +213,33 @@ export function isDocumentSourced(sentence: string, footnoteUrls: Map<number, st
   // measured annual rate is minus 0.2 per cent"): those cite a statistical release whose figures are stored.
   return DOCUMENT_VERBS.test(sentence) && !urls.some((u) => STATS_RELEASE.test(u));
 }
+
+/**
+ * Each footnote's link must go to the document the footnote describes. For every official document a footnote
+ * links to (data tables and APIs excepted), the document's own title and date are compared with the footnote's
+ * description: a release number pointing at an unrelated release ("Statement by the Governor, 29 September 2026"
+ * linking to "Designation of Linfox Armaguard …") is an issue. Unreadable pages are left to the source check.
+ */
+export async function verifyFootnoteLinks(db: SupabaseClient, story: Checkable): Promise<string[]> {
+  const notes = (story.evidence?.footnotes ?? []).filter((f) => f.url && !DATA_TABLE.test(f.url) && /^https?:/.test(f.url));
+  const pairs: Array<{ n: number; footnote: string; title: string; published: string | null }> = [];
+  for (const f of notes) {
+    const doc = await ensureDocument(db, f.url!, { pdfText }) as { title?: string | null; published?: string | null; body?: string; error?: string };
+    if (doc.error || !doc.title) continue;
+    pairs.push({ n: f.n, footnote: f.text, title: doc.title, published: doc.published ?? null });
+  }
+  if (!pairs.length) return [];
+  const reply = await callClaudeJson(`Each footnote below describes a source; the title and date are those of the document its link
+actually opens. Decide whether the link goes to the document the footnote describes. A different naming of the
+same document ("Statement by the Governor" for a "Statement by the Monetary Policy Board: Monetary Policy Decision"
+of the same date, or a landing page for the publication named) is the same document. A different document (another
+release, another subject, another date's decision) is a mismatch.
+
+${pairs.map((p) => `[${p.n}] FOOTNOTE: ${p.footnote}\n    LINKED DOCUMENT: ${p.title}${p.published ? ` (${p.published})` : ''}`).join('\n')}
+
+Respond ONLY with JSON: {"mismatches":[{"n":1,"reason":"short reason"}]}`, { label: 'footnote links' }) as { mismatches?: Array<{ n: number; reason?: string }> };
+  return (reply.mismatches ?? []).map((m) => {
+    const p = pairs.find((x) => x.n === Number(m.n));
+    return `footnote ${m.n} links to "${p?.title ?? '?'}", which is not the source it describes${m.reason ? ` (${m.reason})` : ''}`;
+  });
+}
