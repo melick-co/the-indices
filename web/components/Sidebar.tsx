@@ -8,6 +8,7 @@ const LINKS = [
   { href: '/explainers', label: 'Explainers' },
   { href: '/the-rub', label: 'The Rub' },
   { href: '/indices', label: 'Indices' },
+  { href: '/quality-of-life', label: 'Quality of life' },
   { href: '/instruments', label: 'Instruments' },
   { href: '/markets', label: 'Markets' },
   { href: '/trending', label: 'Trending' },

@@ -45,6 +45,11 @@ function fmt(n: number, unit: Indicator['unit']): string {
     case 'persons': return Math.round(n).toLocaleString('en-AU');
     case 'per_1000': return `${round(n, 2)} per 1,000`;
     case 'usd': return `US$${Math.round(n).toLocaleString('en-AU')}`;
+    case 'years': return `${round(n, 1)} years`;
+    case 'points': return `${Math.round(n)} points`;
+    case 'score': return `${round(n, 1)} / 10`;
+    case 'per_100k': return `${round(n, 1)} per 100,000`;
+    case 'ratio': return `${round(n, 1)}×`;
     default: return round(n, 2).toLocaleString('en-AU');
   }
 }
@@ -123,6 +128,7 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
   const latest = aus.at(-1) ?? null;
   const previous = aus.at(-2) ?? null;
   const years = ind.benchmark.kind === 'average' ? ind.benchmark.years : 10;
+  const byOecd = ind.benchmark.kind === 'oecd';
   let average: number | null = null;
   let averageLabel: string | null = null;
   if (latest) {
@@ -157,7 +163,8 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
 
   let status: Status = latest ? judge(ind, latest.value, average) : 'neutral';
   // With too little history for an average, judge against the OECD median instead.
-  const byPeers = latest && average == null && peers && ind.benchmark.kind === 'average';
+  // Judged against the OECD median: always for well-being measures, and when there is too little history.
+  const byPeers = latest && peers && (byOecd || (average == null && ind.benchmark.kind === 'average'));
   if (byPeers && ind.higherIsBetter !== undefined && peers!.aus !== peers!.median) {
     status = (peers!.aus > peers!.median) === ind.higherIsBetter ? 'better' : 'worse';
   }
@@ -187,13 +194,18 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
       const diff = latest.value - average;
       const near = Math.abs(diff) <= Math.max(0.1, Math.abs(average) * 0.02);
       if (b.kind === 'average') verdict = near ? `Near its ${averageLabel}` : `${diff > 0 ? 'Above' : 'Below'} its ${averageLabel}`;
+      // For OECD-judged measures the average is context; the verdict comes from the comparison below.
       summary.push(near
         ? `It is close to its ${averageLabel} of ${fmt(average, u)}.`
         : `It is ${diff > 0 ? 'above' : 'below'} its ${averageLabel} of ${fmt(average, u)}${ind.higherIsBetter === undefined ? '' : `, which is ${(diff > 0) === ind.higherIsBetter ? 'a better' : 'a worse'} reading than usual`}.`);
     }
     if (peers) {
       const mid = peers.aus > peers.median ? 'above' : peers.aus < peers.median ? 'below' : 'at';
-      if (!verdict) verdict = mid === 'at' ? 'At the OECD median' : `${mid === 'above' ? 'Above' : 'Below'} the OECD median`;
+      if (!verdict || b.kind === 'oecd') {
+        verdict = mid === 'at' ? 'At the OECD median'
+          : ind.higherIsBetter === undefined ? `${mid === 'above' ? 'Above' : 'Below'} the OECD median`
+            : (mid === 'above') === ind.higherIsBetter ? 'Better than the OECD median' : 'Worse than the OECD median';
+      }
       // Lower-case the label's first letter only when it is an ordinary word (keeps "GDP", "Treasury").
       const name = /^[A-Z][a-z]/.test(peers.label) ? peers.label.charAt(0).toLowerCase() + peers.label.slice(1) : peers.label;
       summary.push(`Across ${peers.of} OECD countries (${periodLabel(peers.period)}), Australia ranks ${peers.rank} of ${peers.of} on ${name}, ${mid} the median of ${fmt(peers.median, peers.unit)}.`);
@@ -215,9 +227,11 @@ export async function loadSection(section: Section): Promise<SectionReading> {
   return { section, headline, others: others.filter((r) => r.latest) };
 }
 
-export async function loadEconomyDashboard(): Promise<SectionReading[]> {
-  return Promise.all(SECTIONS.map(loadSection));
+export async function loadDashboard(sections: Section[]): Promise<SectionReading[]> {
+  return Promise.all(sections.map(loadSection));
 }
+
+export const loadEconomyDashboard = () => loadDashboard(SECTIONS);
 
 export async function loadIndicator(section: Section, key: string): Promise<Reading | null> {
   const ind = indicatorsOf(section).find((i) => i.key === key);
