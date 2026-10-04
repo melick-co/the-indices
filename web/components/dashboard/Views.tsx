@@ -8,8 +8,10 @@ import type { Section } from '@/content/dashboard/economy';
 export type DashboardRef = { base: string; name: string };
 
 /** The grid: one card per section, the headline reading large, the rest as tiles. */
-export function DashboardView({ dash, kicker, title, intro, sections, legendNote }: {
+export function DashboardView({ dash, kicker, title, intro, sections, legendNote, children }: {
   dash: DashboardRef; kicker: string; title: string; intro: React.ReactNode; sections: SectionReading[]; legendNote?: React.ReactNode;
+  /** Anything below the grid (the sentiment dashboard's polls). */
+  children?: React.ReactNode;
 }) {
   return (
     <main className="article econ-dash">
@@ -58,6 +60,7 @@ export function DashboardView({ dash, kicker, title, intro, sections, legendNote
           </section>
         ))}
       </div>
+      {children}
       <p className="ops-quiet-note econ-legend">
         <span className="econ-dot better" /> on target or better
         <span className="econ-dot worse" /> outside target or worse

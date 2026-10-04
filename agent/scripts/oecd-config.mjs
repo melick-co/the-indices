@@ -135,3 +135,21 @@ for (const [measure, name, unit, direction] of HSL) {
     source_dataset: "How's Life? Current well-being (OECD WISE)",
   });
 }
+
+// Confidence (sentiment dashboard): the OECD's harmonised consumer and business confidence indicators, monthly,
+// amplitude-adjusted so each country's long-run average is 100. One request returns both for every country.
+const CLI_FLOW = 'OECD.SDD.STES,DSD_STES@DF_CLI,4.1';
+const CLI_KEY = '.M.CCICP+BCICP......';
+for (const [measure, metric_id, name] of [
+  ['CCICP', 'consumer_confidence_oecd', 'Consumer confidence index (OECD harmonised)'],
+  ['BCICP', 'business_confidence_oecd', 'Business confidence index (OECD harmonised)'],
+]) {
+  OECD_SERIES.push({
+    metric_id, name, flow: CLI_FLOW, key: CLI_KEY, measure, csv: true, startPeriod: '2000-01',
+    unit: 'index, long-run average = 100',
+    basis: `OECD ${name.replace(' (OECD harmonised)', '')}, amplitude adjusted (long-run average 100), monthly`,
+    direction: 'higher_is_less_pressure',
+    category: 'sentiment',
+    source_dataset: 'Composite leading indicators: confidence indicators (OECD Main Economic Indicators)',
+  });
+}

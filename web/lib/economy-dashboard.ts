@@ -224,7 +224,7 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
     } else if (b.kind === 'floor') {
       const gap = round(latest.value - b.value, 2);
       const unitWord = u === 'percent' || u === 'pts' ? ' pts' : '';
-      verdict = gap >= 0 ? 'Above benchmark' : 'Below benchmark';
+      verdict = `${gap >= 0 ? 'Above' : 'Below'} ${b.short ?? 'benchmark'}`;
       summary.push(`The benchmark is ${b.label}. The latest reading is ${Math.abs(gap)}${unitWord} ${gap >= 0 ? 'above' : 'below'} it.`);
     }
     if (average != null && averageLabel) {

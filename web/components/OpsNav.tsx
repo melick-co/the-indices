@@ -9,6 +9,7 @@ const PRIMARY = [
   { href: '/foundry/work', label: 'Work' },
   { href: '/indices', label: 'Indices' },
   { href: '/quality-of-life', label: 'Quality of life' },
+  { href: '/sentiment', label: 'Sentiment & polls' },
   { href: '/studio', label: 'Studio' },
 ] as const;
 

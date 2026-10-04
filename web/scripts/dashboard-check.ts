@@ -6,9 +6,11 @@
  */
 import { loadEconomyDashboard, loadDashboard, formatReading } from '@/lib/economy-dashboard';
 import { QOL_SECTIONS } from '@/content/dashboard/quality-of-life';
+import { SENTIMENT_SECTIONS } from '@/content/dashboard/sentiment';
+import { loadPolls, moodCheck, pollAverage } from '@/lib/polls';
 
 async function main() {
-  const dashboards = [['Economy', await loadEconomyDashboard()], ['Quality of life', await loadDashboard(QOL_SECTIONS)]] as const;
+  const dashboards = [['Economy', await loadEconomyDashboard()], ['Quality of life', await loadDashboard(QOL_SECTIONS)], ['Sentiment', await loadDashboard(SENTIMENT_SECTIONS)]] as const;
   for (const [name, sections] of dashboards) for (const { section, headline, others } of sections) {
     console.log(`\n## ${name}: ${section.title}`);
     for (const r of [headline, ...others]) {
@@ -17,5 +19,17 @@ async function main() {
       for (const s of r.summary) console.log(`    ${s}`);
     }
   }
+  const polls = await loadPolls();
+  console.log(`\n## Polls: ${polls.length} stored (${polls.filter((p) => p.table === 'vi').length} voting intention, ${polls.filter((p) => p.table === 'dir').length} direction)`);
+  for (const m of ['tpp_alp_lnp', 'tpp_alp_onp', 'primary_alp', 'primary_lnp', 'primary_onp', 'primary_grn', 'primary_oth']) {
+    const a = pollAverage(polls, m);
+    console.log(`- ${m}: ${a ? `${a.value} (${a.n} pollsters: ${a.pollsters.join(', ')}; ${a.from} to ${a.to})` : 'none'}`);
+  }
+  const net = pollAverage(polls, 'direction_net', 60), wrong = pollAverage(polls, 'direction_wrong', 60);
+  console.log(`- direction_net: ${net ? `${net.value} (${net.pollsters.join(', ')}; to ${net.to})` : 'none'}`);
+  const consumers = dashboards[2][1].find((s) => s.section.id === 'consumers')!;
+  const check = moodCheck(consumers, net, wrong);
+  console.log(`- mood check: ${check.verdict}`);
+  for (const l of check.lines) console.log(`    ${l}`);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
