@@ -11,9 +11,24 @@ export function mergeDuplicateFootnotes<T extends Pick<StructuredStory, 'hook' |
   const notes = [...((story.evidence?.footnotes ?? []) as Note[])].sort((a, b) => a.n - b.n);
   if (notes.length < 2) return story;
   const key = (u?: string) => (u ?? '').trim().replace(/\/$/, '').toLowerCase();
+  // A footnote nothing cites any more (its sentence was removed) is dropped first, so its text is never merged
+  // into a citation that stays.
+  const cited = new Set<number>();
+  const scan = (t: unknown) => { if (typeof t === 'string') for (const m of t.matchAll(/\[\^(\d+)\]/g)) cited.add(Number(m[1])); };
+  const st = story as Record<string, unknown>;
+  for (const k of ['hook', 'caveat', 'kicker', 'title']) scan(st[k]);
+  const on = st.one_number as { footnote?: number } | null | undefined;
+  if (on?.footnote) cited.add(on.footnote);
+  for (const b of (story.body?.blocks ?? []) as unknown as Record<string, unknown>[]) {
+    scan(b.text); scan(b.caption);
+    if (Array.isArray(b.items)) b.items.forEach(scan);
+    if (typeof b.footnote === 'number') cited.add(b.footnote);
+    for (const e of (Array.isArray(b.events) ? b.events : []) as { label: string; footnote?: number }[]) { scan(e.label); if (e.footnote) cited.add(e.footnote); }
+  }
   const kept: Note[] = [];
   const target = new Map<number, Note>();
   for (const f of notes) {
+    if (!cited.has(f.n)) continue;
     const same = f.url && kept.find((k) => k.url && key(k.url) === key(f.url));
     if (same) {
       const t = f.text.trim();
@@ -31,21 +46,6 @@ export function mergeDuplicateFootnotes<T extends Pick<StructuredStory, 'hook' |
       target.set(f.n, copy);
     }
   }
-  // A footnote nothing cites any more (its sentence was removed) is dropped.
-  const cited = new Set<number>();
-  const scan = (t: unknown) => { if (typeof t === 'string') for (const m of t.matchAll(/\[\^(\d+)\]/g)) cited.add(Number(m[1])); };
-  const st = story as Record<string, unknown>;
-  for (const k of ['hook', 'caveat', 'kicker', 'title']) scan(st[k]);
-  const on = st.one_number as { footnote?: number } | null | undefined;
-  if (on?.footnote) cited.add(on.footnote);
-  for (const b of (story.body?.blocks ?? []) as unknown as Record<string, unknown>[]) {
-    scan(b.text); scan(b.caption);
-    if (Array.isArray(b.items)) b.items.forEach(scan);
-    if (typeof b.footnote === 'number') cited.add(b.footnote);
-    for (const e of (Array.isArray(b.events) ? b.events : []) as { label: string; footnote?: number }[]) { scan(e.label); if (e.footnote) cited.add(e.footnote); }
-  }
-  const isCited = (k: Note) => [...target.entries()].some(([n, t]) => t === k && cited.has(n));
-  for (let i = kept.length - 1; i >= 0; i--) if (!isCited(kept[i])) kept.splice(i, 1);
   if (kept.length === notes.length && kept.every((k, i) => k.n === i + 1)) return story;
   const renumber = new Map<number, number>();
   kept.forEach((k, i) => renumber.set(k.n, i + 1));

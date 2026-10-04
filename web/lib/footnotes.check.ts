@@ -29,4 +29,8 @@ assert.equal(s.evidence.footnotes[0].text, 'RBA, FSR, October 2026, media releas
 const lone = { hook: 'Deck.[^1]', body: { blocks: [] }, evidence: { footnotes: [{ n: 1, text: 'A', url: 'https://a' }, { n: 2, text: 'B', url: 'https://b' }] } } as never as Parameters<typeof mergeDuplicateFootnotes>[0];
 mergeDuplicateFootnotes(lone);
 assert.equal((lone as unknown as { evidence: { footnotes: unknown[] } }).evidence.footnotes.length, 1);
+// An uncited footnote sharing a URL with a cited one is dropped, not merged in.
+const shared = { hook: 'Deck.[^1]', body: { blocks: [] }, evidence: { footnotes: [{ n: 1, text: 'OECD, inflows.', url: 'https://x' }, { n: 2, text: 'Unverified claim.', url: 'https://x' }] } } as never as Parameters<typeof mergeDuplicateFootnotes>[0];
+mergeDuplicateFootnotes(shared);
+assert.equal((shared as unknown as { evidence: { footnotes: { text: string }[] } }).evidence.footnotes[0].text, 'OECD, inflows.');
 console.log('footnotes.check: ok');

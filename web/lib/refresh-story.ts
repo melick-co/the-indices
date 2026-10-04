@@ -344,6 +344,8 @@ export function editContent(content: Content, edits: CopyEdit[]): Content {
   const blocks = ((next.body as { blocks?: Record<string, unknown>[] })?.blocks) ?? [];
   for (const b of blocks) {
     for (const k of ['text', 'title', 'subtitle', 'alt', 'caption']) if (k in b) b[k] = edit(b[k]);
+    // A chart's data spec can be edited as JSON text (e.g. adding a country to its entities).
+    if (b.type === 'chart' && b.data) b.data = JSON.parse(edit(JSON.stringify(b.data)) as string);
     if (Array.isArray(b.items)) b.items = b.items.map(edit);
     if (Array.isArray(b.events)) {
       for (const ev of b.events as Record<string, unknown>[]) { ev.label = edit(ev.label); ev.date = edit(ev.date); }
