@@ -52,7 +52,9 @@ function articleText(story: CheckableStory) {
       parts.push(`[CHART TITLE: ${b.title ?? ''} | SUBTITLE: ${b.subtitle ?? ''} | PLOTS: ${plots}]`);
     }
     else if (b.type === 'timeline') {
-      // Events cited to a document are checked against it by the source check.
+      // The title is a claim about the entries listed under it (checked here); the entries themselves, when cited
+      // to a document, are checked against it by the source check.
+      parts.push(`[TIMELINE TITLE: ${b.title ?? ''} | ENTRIES: ${b.events.map((e) => `${e.date}: ${e.label.replace(/\[\^\d+\]/g, '')}`).join('; ')}]`);
       const urls = new Map((story.evidence?.footnotes ?? []).map((f) => [f.n, f.url ?? '']));
       for (const e of b.events) {
         const url = e.footnote ? urls.get(e.footnote) ?? '' : '';
@@ -110,6 +112,10 @@ A CHART TITLE is a claim about the data its chart plots (listed after PLOTS). Li
 names a measure the chart does not plot, or states a trend, comparison or finding that the plotted series do not
 show. Judge it against PLOTS and the reference, not against the article's prose. A title that names its own
 starting point ("from its 2025 trough", "since 2023") is judged from that point, not from the chart's first value.
+
+A TIMELINE TITLE is a claim about the entries listed under it. List it as "unsupported" if it states a count,
+sequence or finding that its entries do not show (for example "tightened four times" over entries that show one
+rate rise).
 
 A CONTRAST or PAIRING ("X rose while Y fell", "even as", "X re-accelerated as Y eased", "both", "unlike") is
 one claim: every part must hold over the SAME period. Take the period from the claim, or from the comparison it
