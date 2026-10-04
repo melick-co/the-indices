@@ -23,6 +23,8 @@ export async function pinReleaseLinks(story: { evidence?: { footnotes?: Array<{ 
   for (const f of story.evidence?.footnotes ?? []) {
     const m = /^(https:\/\/www\.abs\.gov\.au\/statistics\/.+?)\/latest-release\/?$/.exec(f.url ?? '');
     if (!m) continue;
+    // A footnote for a release schedule ("next release …") needs the latest-release page, which lists it.
+    if (/\b(next release|scheduled|release calendar|release date)\b/i.test(f.text)) continue;
     const period = periodIn(f.text);
     if (!period) continue;
     const page = await releasePage(m[1], period.year, period.month).catch(() => null);
