@@ -2,7 +2,7 @@ import Link from 'next/link';
 import StoryChart from '@/components/StoryChart';
 import { Sparkline } from '@/components/dashboard/DashParts';
 import type { SectionReading } from '@/lib/economy-dashboard';
-import { PARTY_LABEL, dayLabel, latestByPollster, monthlyTrend, moodCheck, pollAverage, type Poll, type PollAverage } from '@/lib/polls';
+import { PARTY_LABEL, ROLE_LABEL, currentMeasure, dayLabel, headToHead, latestByPollster, monthlyTrend, moodCheck, personOf, pollAverage, roleTrend, type Poll, type PollAverage, type Role } from '@/lib/polls';
 import type { StoryChartBlock } from '@/lib/story-types';
 
 const PRIVATE_NOTE = 'Private polls: context only, never official data. Compiled from published polls via Wikipedia’s polling tables; every poll links to the release it was reported in. A poll of 1,000 people has a margin of error of about ±3 points.';
@@ -21,6 +21,53 @@ function shift(polls: Poll[], measure: string, a: PollAverage | null) {
   if (!b) return null;
   const d = Math.round((a.value - b.value) * 10) / 10;
   return d === 0 ? 'unchanged on the month before' : `${d > 0 ? 'up' : 'down'} ${Math.abs(d)} on the month before`;
+}
+
+const signed = (n: number) => `${n > 0 ? '+' : ''}${n}`;
+
+/** Net approval for whoever holds a role now, averaged across pollsters. */
+function netFor(polls: Poll[], role: Role) {
+  const m = currentMeasure(polls, 'approval_net', role);
+  return m ? { name: personOf(m), a: pollAverage(polls, m) } : null;
+}
+
+/** Preferred PM, head-to-head polls only: the PM's and Opposition leader's average shares. */
+function preferredPm(polls: Poll[]) {
+  const h2h = headToHead(polls);
+  const pm = currentMeasure(h2h, 'ppm', 'pm'), opp = currentMeasure(h2h, 'ppm', 'opposition');
+  if (!pm || !opp) return null;
+  const a = pollAverage(h2h, pm), b = pollAverage(h2h, opp);
+  return a && b ? { pm: personOf(pm), opp: personOf(opp), a, b } : null;
+}
+
+function LeadersCard({ polls }: { polls: Poll[] }) {
+  const pm = netFor(polls, 'pm');
+  const opp = netFor(polls, 'opposition');
+  const ppm = preferredPm(polls);
+  const others = [...new Set(polls.flatMap((p) => Object.keys(p.values).filter((k) => k.startsWith('approval_net:other:')).map(personOf)))]
+    .map((name) => ({ name, a: pollAverage(polls, currentMeasure(polls, 'approval_net', 'other', name)!) }))
+    .filter((x) => x.a).slice(0, 2);
+  return (
+    <section className="econ-card polls-card">
+      <Link href="/sentiment/polls#leaders" className="econ-card-head">
+        <h2>Leaders</h2>
+        <span className="econ-card-q">How do voters rate the people who would lead?</span>
+      </Link>
+      <div className="econ-headline static">
+        <span className="econ-headline-label">{pm ? `${pm.name}, ${ROLE_LABEL.pm}: net approval` : 'Net approval'}</span>
+        <span className="econ-headline-row">
+          <span className="dash-value big">{pm?.a ? signed(pm.a.value) : '—'}</span>
+          <Sparkline points={roleTrend(polls, 'approval_net', 'pm').points.slice(-18)} width={140} height={40} />
+        </span>
+        <span className="econ-headline-meta"><span className="econ-period">{span(pm?.a ?? null)}</span></span>
+      </div>
+      <ul className="econ-tiles">
+        {opp?.a && <li><span className="econ-tile"><span className="econ-tile-label">{opp.name} ({ROLE_LABEL.opposition.toLowerCase()}) net</span><span className="dash-value">{signed(opp.a.value)}</span></span></li>}
+        {ppm && <li><span className="econ-tile"><span className="econ-tile-label">Preferred PM: {ppm.pm} v {ppm.opp}</span><span className="dash-value">{ppm.a.value}–{ppm.b.value}</span></span></li>}
+        {others.map((o) => <li key={o.name}><span className="econ-tile"><span className="econ-tile-label">{o.name} net</span><span className="dash-value">{signed(o.a!.value)}</span></span></li>)}
+      </ul>
+    </section>
+  );
 }
 
 /** The polls block on the sentiment dashboard: clearly labelled, beside the official numbers that test it. */
@@ -74,6 +121,8 @@ export function PollsPanel({ polls, consumers }: { polls: Poll[]; consumers: Sec
             <li><span className="econ-tile"><span className="econ-tile-label">Right direction</span><span className="dash-value">{(() => { const r = pollAverage(polls, 'direction_right', 60); return r ? `${r.value}%` : '—'; })()}</span></span></li>
           </ul>
         </section>
+
+        <LeadersCard polls={polls} />
 
         <section className="econ-card polls-card polls-check">
           <Link href="/sentiment/consumers" className="econ-card-head">
@@ -154,6 +203,8 @@ export function PollsDetail({ polls }: { polls: Poll[] }) {
       )}
       <PollTable polls={dir.slice(0, 12)} direction />
 
+      <LeadersDetail polls={polls} />
+
       <h2 className="dashboard-section-title">Every voting-intention poll since the 2025 election</h2>
       <PollTable polls={vi} />
     </>
@@ -180,6 +231,67 @@ function PollTable({ polls, direction = false }: { polls: Poll[]; direction?: bo
               {direction
                 ? <><td>{v(p, 'direction_right')}</td><td>{v(p, 'direction_wrong')}</td><td>{v(p, 'direction_net')}</td></>
                 : <><td>{v(p, 'tpp_alp_lnp')}</td><td>{v(p, 'primary_alp')}</td><td>{v(p, 'primary_lnp')}</td><td>{v(p, 'primary_onp')}</td><td>{v(p, 'primary_grn')}</td><td>{v(p, 'primary_oth')}</td></>}
+              <td><a href={p.source} className="studio-link" rel="noopener">source</a></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const holdersText = (h: { name: string; from: string; to: string }[]) =>
+  h.length <= 1 ? (h[0]?.name ?? '') : h.map((x) => `${x.name} (${x.from} to ${x.to})`).join(', then ');
+
+function LeadersDetail({ polls }: { polls: Poll[] }) {
+  const pm = roleTrend(polls, 'approval_net', 'pm');
+  const opp = roleTrend(polls, 'approval_net', 'opposition');
+  const appr = polls.filter((p) => p.table === 'appr');
+  const ppm = polls.filter((p) => p.table.startsWith('ppm'));
+  const lastPm = pm.points.at(-1), lastOpp = opp.points.at(-1);
+  const months = new Set(opp.points.map((p) => p.period));
+  const both = pm.points.filter((p) => months.has(p.period));
+  return (
+    <>
+      <h2 id="leaders" className="dashboard-section-title">Leaders</h2>
+      {both.length >= 2 && lastPm && lastOpp && (
+        <StoryChart chart={{
+          type: 'chart', kind: 'line',
+          title: `Net approval: ${pm.holders.at(-1)?.name} ${signed(lastPm.value)}, ${opp.holders.at(-1)?.name} ${signed(lastOpp.value)} in ${new Date(`${lastPm.period}-01T00:00:00Z`).toLocaleDateString('en-AU', { month: 'long', year: 'numeric', timeZone: 'UTC' })} polls`,
+          subtitle: 'Net approval (approve minus disapprove), points: monthly average of published polls',
+          series: both.map((p) => ({ label: p.period, value: p.value })),
+          alt_series: opp.points.filter((p) => both.some((b) => b.period === p.period)).map((p) => ({ label: p.period, value: p.value })),
+          primary_label: ROLE_LABEL.pm, alt_label: ROLE_LABEL.opposition,
+          caption: `Prime Minister: ${holdersText(pm.holders)}. Opposition leader: ${holdersText(opp.holders)}. Private polls, compiled via Wikipedia; MRP models excluded.`,
+        }} />
+      )}
+      <h3 className="dashboard-section-title">Latest approval from each pollster</h3>
+      <LeaderTable polls={latestByPollster(appr, currentMeasure(appr, 'approval_net', 'pm') ?? '')} prefix="approval_net" />
+      <h3 className="dashboard-section-title">Preferred prime minister</h3>
+      <LeaderTable polls={ppm.slice(0, 16)} prefix="ppm" />
+    </>
+  );
+}
+
+function LeaderTable({ polls, prefix }: { polls: Poll[]; prefix: string }) {
+  const names = [...new Set(polls.flatMap((p) => Object.keys(p.values).filter((k) => k.startsWith(`${prefix}:`))))]
+    .sort((a, b) => ['pm', 'opposition', 'other'].indexOf(a.split(':')[1]) - ['pm', 'opposition', 'other'].indexOf(b.split(':')[1]));
+  const people = [...new Set(names.map(personOf))];
+  const value = (p: Poll, person: string) => {
+    const k = Object.keys(p.values).find((x) => x.startsWith(`${prefix}:`) && x.endsWith(`:${person}`));
+    return k == null ? '–' : prefix === 'approval_net' ? signed(p.values[k]) : `${p.values[k]}`;
+  };
+  return (
+    <div className="polls-table-wrap">
+      <table className="polls-table">
+        <thead><tr><th>Fieldwork</th><th>Pollster</th>{people.map((n) => <th key={n}>{n}{prefix === 'approval_net' ? ' net' : ''}</th>)}{prefix === 'ppm' && <th>Unsure</th>}<th>Release</th></tr></thead>
+        <tbody>
+          {polls.map((p) => (
+            <tr key={p.key}>
+              <td>{p.start === p.end ? dayLabel(p.end) : `${dayLabel(p.start)} – ${dayLabel(p.end)}`}</td>
+              <td>{p.pollster}</td>
+              {people.map((n) => <td key={n}>{value(p, n)}</td>)}
+              {prefix === 'ppm' && <td>{p.values.ppm_unsure ?? '–'}</td>}
               <td><a href={p.source} className="studio-link" rel="noopener">source</a></td>
             </tr>
           ))}

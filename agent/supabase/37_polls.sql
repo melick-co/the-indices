@@ -22,7 +22,7 @@ create table if not exists polls (
   mode          text,
   sample_size   int,
   source_url    text not null,           -- the published release the compilation cites
-  compiled_from text not null default 'Wikipedia: Opinion polling for the next Australian federal election',
+  compiled_from text not null default 'Wikipedia: Opinion polling for the next Australian federal election',  -- or the leadership page
   wiki_revision bigint,                  -- the page revision the row was read from
   updated_at    timestamptz not null default now(),
   primary key (poll_key, measure)
@@ -35,3 +35,9 @@ alter table polls enable row level security;
 -- Published polls are public information.
 drop policy if exists "public reads polls" on polls;
 create policy "public reads polls" on polls for select to anon, authenticated using (true);
+
+-- Leadership polls (preferred prime minister, leader approval) share the table; their measures name the role and
+-- the person, e.g. approval_net:pm:Albanese, ppm:opposition:Taylor (see watch-polls.mjs).
+
+-- Make the new table visible to the API straight away.
+notify pgrst, 'reload schema';

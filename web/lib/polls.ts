@@ -8,7 +8,8 @@ import { formatReading } from '@/lib/economy-dashboard';
  * publishing monthly; MRP models re-use a firm's own fieldwork and are left out of averages.
  */
 export type Poll = {
-  key: string; table: 'vi' | 'dir'; pollster: string; client: string | null; mode: string | null; sample: number | null;
+  /** vi (voting intention), dir (direction), appr (leader approval), ppm:<names> (a preferred-PM contest). */
+  key: string; table: string; pollster: string; client: string | null; mode: string | null; sample: number | null;
   start: string; end: string; source: string; values: Record<string, number>;
 };
 
@@ -28,7 +29,7 @@ export async function loadPolls(): Promise<Poll[]> {
   for (const r of rows) {
     const key = String(r.poll_key);
     const p = polls.get(key) ?? {
-      key, table: key.endsWith('|dir') ? 'dir' : 'vi', pollster: String(r.pollster), client: (r.client as string) ?? null,
+      key, table: key.split('|')[2] ?? 'vi', pollster: String(r.pollster), client: (r.client as string) ?? null,
       mode: (r.mode as string) ?? null, sample: (r.sample_size as number) ?? null,
       start: String(r.field_start ?? r.field_end), end: String(r.field_end), source: String(r.source_url), values: {},
     } as Poll;
@@ -43,6 +44,8 @@ export async function loadPolls(): Promise<Poll[]> {
 }
 
 const isModel = (p: Poll) => /\bMRP\b/i.test(p.pollster);
+/** The firm behind a poll, so a firm's partnered releases ("RedBridge", "RedBridge/Accent") count once. */
+const firm = (p: Poll) => p.pollster.toLowerCase().replace(/\/accent$/, '');
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const dayMs = 864e5;
 
@@ -55,7 +58,7 @@ export function pollAverage(polls: Poll[], measure: string, days = 30, asOf?: st
   const to = asOf ?? withM[0].end;
   const cutoff = new Date(new Date(to).getTime() - days * dayMs).toISOString().slice(0, 10);
   const latest = new Map<string, Poll>();
-  for (const p of withM) if (p.end > cutoff && p.end <= to && !latest.has(p.pollster)) latest.set(p.pollster, p);
+  for (const p of withM) if (p.end > cutoff && p.end <= to && !latest.has(firm(p))) latest.set(firm(p), p);
   const list = [...latest.values()];
   if (!list.length) return null;
   return {
@@ -78,7 +81,7 @@ export function monthlyTrend(polls: Poll[], measure: string): Point[] {
 /** Each pollster's latest poll that reports a measure, newest first. */
 export function latestByPollster(polls: Poll[], measure: string): Poll[] {
   const seen = new Set<string>();
-  return polls.filter((p) => p.values[measure] != null && !seen.has(p.pollster) && seen.add(p.pollster));
+  return polls.filter((p) => p.values[measure] != null && !isModel(p) && !seen.has(firm(p)) && seen.add(firm(p)));
 }
 
 export const dayLabel = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
@@ -116,4 +119,46 @@ export function moodCheck(consumers: SectionReading, direction: PollAverage | nu
       : verdict === 'backs' ? 'The official numbers back the optimism.' : 'The official numbers give the optimism only partial support.',
   ].filter(Boolean);
   return { gloomy, verdict, lines, worse, ok };
+}
+
+// ---------------------------------------------------------------------------------------------------- leaders
+
+export type Role = 'pm' | 'opposition' | 'other';
+export const ROLE_LABEL: Record<Role, string> = { pm: 'Prime Minister', opposition: 'Opposition leader', other: 'Other leader' };
+
+/** The measure for whoever currently holds a role (from the latest poll naming one), e.g. approval_net:pm:Albanese. */
+export function currentMeasure(polls: Poll[], prefix: string, role: Role, name?: string): string | null {
+  for (const p of polls) {
+    const k = Object.keys(p.values).find((x) => x.startsWith(`${prefix}:${role}:`) && (!name || x.endsWith(`:${name}`)));
+    if (k) return k;
+  }
+  return null;
+}
+export const personOf = (measure: string) => measure.split(':')[2];
+
+/** A role's monthly average whoever held it, with who held it when (for captions). */
+export function roleTrend(polls: Poll[], prefix: string, role: Role): { points: Point[]; holders: { name: string; from: string; to: string }[] } {
+  const by = new Map<string, number[]>();
+  const holders: { name: string; from: string; to: string }[] = [];
+  for (const p of [...polls].reverse()) {
+    if (isModel(p)) continue;
+    const k = Object.keys(p.values).find((x) => x.startsWith(`${prefix}:${role}:`));
+    if (!k) continue;
+    const m = p.end.slice(0, 7);
+    by.set(m, [...(by.get(m) ?? []), p.values[k]]);
+    const name = personOf(k);
+    if (holders.at(-1)?.name === name) holders.at(-1)!.to = m; else holders.push({ name, from: m, to: m });
+  }
+  return {
+    points: [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([period, v]) => ({ period, value: round1(v.reduce((s, x) => s + x, 0) / v.length) })),
+    holders,
+  };
+}
+
+/** Head-to-head preferred-PM polls only (the PM against the Opposition leader, no third name). */
+export function headToHead(polls: Poll[]): Poll[] {
+  return polls.filter((p) => p.table.startsWith('ppm') && (() => {
+    const ks = Object.keys(p.values).filter((k) => k.startsWith('ppm:'));
+    return ks.length === 2 && ks.some((k) => k.startsWith('ppm:pm:')) && ks.some((k) => k.startsWith('ppm:opposition:'));
+  })());
 }

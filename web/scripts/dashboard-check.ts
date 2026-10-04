@@ -7,7 +7,7 @@
 import { loadEconomyDashboard, loadDashboard, formatReading } from '@/lib/economy-dashboard';
 import { QOL_SECTIONS } from '@/content/dashboard/quality-of-life';
 import { SENTIMENT_SECTIONS } from '@/content/dashboard/sentiment';
-import { loadPolls, moodCheck, pollAverage } from '@/lib/polls';
+import { currentMeasure, headToHead, loadPolls, moodCheck, pollAverage } from '@/lib/polls';
 
 async function main() {
   const dashboards = [['Economy', await loadEconomyDashboard()], ['Quality of life', await loadDashboard(QOL_SECTIONS)], ['Sentiment', await loadDashboard(SENTIMENT_SECTIONS)]] as const;
@@ -27,6 +27,17 @@ async function main() {
   }
   const net = pollAverage(polls, 'direction_net', 60), wrong = pollAverage(polls, 'direction_wrong', 60);
   console.log(`- direction_net: ${net ? `${net.value} (${net.pollsters.join(', ')}; to ${net.to})` : 'none'}`);
+  for (const role of ['pm', 'opposition'] as const) {
+    const m = currentMeasure(polls, 'approval_net', role);
+    const a = m ? pollAverage(polls, m) : null;
+    console.log(`- ${m ?? `approval_net:${role}`}: ${a ? `${a.value} (${a.pollsters.join(', ')}; ${a.from} to ${a.to})` : 'none'}`);
+  }
+  const h2h = headToHead(polls);
+  for (const role of ['pm', 'opposition'] as const) {
+    const m = currentMeasure(h2h, 'ppm', role);
+    const a = m ? pollAverage(h2h, m) : null;
+    console.log(`- preferred PM head-to-head ${m ?? role}: ${a ? `${a.value} (${a.pollsters.join(', ')})` : 'none'}`);
+  }
   const consumers = dashboards[2][1].find((s) => s.section.id === 'consumers')!;
   const check = moodCheck(consumers, net, wrong);
   console.log(`- mood check: ${check.verdict}`);

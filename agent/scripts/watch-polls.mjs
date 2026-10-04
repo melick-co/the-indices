@@ -4,10 +4,14 @@
  *   node scripts/watch-polls.mjs --dry-run   parse and print, write nothing (no database needed)
  *   node scripts/watch-polls.mjs             upsert, and drop polls the compilation no longer lists
  */
-import { loadPolls, POLL_PAGE } from './lib/wiki-polls.mjs';
+import { loadLeaderPolls, loadPolls, POLL_PAGE } from './lib/wiki-polls.mjs';
 
 const dry = process.argv.includes('--dry-run');
-const { revid, polls, rejected } = await loadPolls();
+const main = await loadPolls();
+const leaders = await loadLeaderPolls();
+const polls = [...main.polls, ...leaders.polls.map((p) => ({ ...p, revid: leaders.revid }))];
+const rejected = [...main.rejected, ...leaders.rejected];
+const revid = main.revid;
 
 const rows = [];
 for (const p of polls) {
@@ -15,7 +19,8 @@ for (const p of polls) {
   for (const [measure, value] of Object.entries(p.values)) {
     rows.push({
       poll_key, measure, value, field_start: p.field_start, field_end: p.field_end, pollster: p.pollster,
-      client: p.client, mode: p.mode, sample_size: p.sample_size, source_url: p.source_url, wiki_revision: revid,
+      client: p.client, mode: p.mode, sample_size: p.sample_size, source_url: p.source_url, wiki_revision: p.revid ?? revid,
+      ...(p.compiled_from ? { compiled_from: p.compiled_from } : {}),
     });
   }
 }
@@ -26,7 +31,11 @@ const clean = rows.filter((r) => counts.get(`${r.poll_key}|${r.measure}`) === 1)
 for (const [k, n] of counts) if (n > 1) rejected.push({ poll: k, reason: `${n} rows for one poll and measure` });
 
 const byTable = (t) => polls.filter((p) => p.table === t).length;
-console.log(`Wikipedia ${POLL_PAGE} revision ${revid}: ${byTable('vi')} voting-intention polls, ${byTable('dir')} direction polls, ${clean.length} figures.`);
+console.log(`Wikipedia ${POLL_PAGE} revision ${revid}: ${byTable('vi')} voting-intention polls, ${byTable('dir')} direction polls.`);
+console.log(`Leadership page revision ${leaders.revid}: ${byTable('appr')} approval polls, ${polls.filter((p) => p.table.startsWith('ppm')).length} preferred-PM contests. ${clean.length} figures in all.`);
+for (const p of polls.filter((x) => x.table === 'appr' || x.table.startsWith('ppm')).slice(0, 8)) {
+  console.log(`  ${p.field_end} ${p.pollster.padEnd(18)} ${Object.entries(p.values).map(([k, v]) => `${k}=${v}`).join(' ')}`);
+}
 const pollsters = [...new Set(polls.map((p) => p.pollster))].sort();
 console.log(`Pollsters: ${pollsters.join(', ')}`);
 const latest = [...polls].filter((p) => p.values.tpp_alp_lnp != null).sort((a, b) => b.field_end.localeCompare(a.field_end)).slice(0, 8);

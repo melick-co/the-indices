@@ -104,6 +104,14 @@ export function tables(html) {
   });
 }
 
+/** One spelling per firm ("Redbridge" → "RedBridge"); the compilation is not consistent. */
+export function pollsterName(text) {
+  return text.replace(/\[\d+\]/g, '').trim().replace(/^Redbridge/i, 'RedBridge');
+}
+
+/** Rows that are not polls: repeated header rows and event notes ("X replaces Y as leader"). */
+const notAPoll = (row, dateC, firmC) => /^Date$/i.test(row[dateC]?.text ?? '') || (row[firmC]?.text ?? '').length > 60 || row[firmC] === row[firmC + 1] && (row[firmC]?.text ?? '').split(' ').length > 4;
+
 // ---------------------------------------------------------------------------------------------------- fields
 
 const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
@@ -187,7 +195,7 @@ export function votingIntention(grid, year, refs) {
   const polls = [], rejected = [];
   for (const [dateCell, rows] of groups) {
     const r0 = rows[0];
-    const pollster = r0[firmC].text.replace(/\[\d+\]/g, '').trim();
+    const pollster = pollsterName(r0[firmC].text);
     const dates = fieldDates(dateCell.text, year);
     const label = `${dateCell.text} ${pollster}`;
     if (!dates) { rejected.push({ poll: label, reason: 'field dates not recognised' }); continue; }
@@ -248,8 +256,8 @@ export function directionPolls(grid, refs) {
   if ([dateC, firmC, rightC, wrongC].some((i) => i < 0)) throw new Error(`direction table layout not recognised: ${JSON.stringify(labels)}`);
   const polls = [], rejected = [];
   for (const row of parts.body) {
-    if (!row[dateC] || !row[firmC] || row[firmC] === row[dateC]) continue;
-    const pollster = row[firmC].text.replace(/\[\d+\]/g, '').trim();
+    if (!row[dateC] || !row[firmC] || row[firmC] === row[dateC] || notAPoll(row, dateC, firmC)) continue;
+    const pollster = pollsterName(row[firmC].text);
     const label = `${row[dateC].text} ${pollster}`;
     const dates = fieldDates(row[dateC].text);
     if (!dates) { rejected.push({ poll: label, reason: 'field dates not recognised' }); continue; }
@@ -268,6 +276,117 @@ export function directionPolls(grid, refs) {
     });
   }
   return { polls, rejected };
+}
+
+export const LEADER_PAGE = 'Leadership_approval_opinion_polling_for_the_next_Australian_federal_election';
+
+/**
+ * Leadership tables list the Prime Minister first and the Opposition leader second (the page's convention);
+ * anyone after is "other". Measures carry the role and the surname, so a change of leader stays readable:
+ * approval_pos|neg|net:<role>:<Name>, ppm:<role>:<Name>, ppm_unsure.
+ */
+const ROLES = ['pm', 'opposition'];
+const roleAt = (i) => ROLES[i] ?? 'other';
+
+function leaderRows(grid, year, refs, kind) {
+  const parts = splitHeader(grid);
+  if (!parts) return { polls: [], rejected: [] };
+  const labels = columnLabels(parts.header);
+  const top = (i) => labels[i][0] ?? '';
+  const dateC = labels.findIndex((l) => /^Date/.test(l[0] ?? ''));
+  const firmC = labels.findIndex((l) => /^Polling firm/i.test(l[0] ?? ''));
+  const sampleC = labels.findIndex((l) => /^Sample/i.test(l[0] ?? ''));
+  if (dateC < 0 || firmC < 0) throw new Error(`${kind} table layout not recognised: ${JSON.stringify(labels)}`);
+  const skip = new Set([dateC, firmC, sampleC]);
+  // Columns: [{ i, name, field }] where field is pos/neg/net (approval) or the person (preferred PM).
+  const people = [];
+  const cols = [];
+  labels.forEach((l, i) => {
+    if (skip.has(i)) return;
+    if (kind === 'appr') {
+      const name = l.find((x) => !/^(Pos\.?|Neg\.?|Net)$/i.test(x));
+      const field = (l.find((x) => /^(Pos\.?|Neg\.?|Net)$/i.test(x)) ?? '').replace('.', '').toLowerCase();
+      if (!name || !field) return;
+      if (!people.includes(name)) people.push(name);
+      cols.push({ i, name, field });
+    } else {
+      const last = l.at(-1) ?? '';
+      if (/^Lead$/i.test(last)) cols.push({ i, field: 'lead' });
+      else if (/^(Unsure|Undecided|Don't know)$/i.test(last)) cols.push({ i, field: 'unsure' });
+      else if (/Party leaders/i.test(top(i)) || l.length > 1) { if (!people.includes(last)) people.push(last); cols.push({ i, name: last, field: 'share' }); }
+    }
+  });
+  const polls = [], rejected = [];
+  for (const row of parts.body) {
+    if (!row[dateC] || !row[firmC] || row[firmC] === row[dateC] || notAPoll(row, dateC, firmC)) continue;
+    const pollster = pollsterName(row[firmC].text);
+    const label = `${row[dateC].text} ${pollster} (${kind === 'appr' ? 'approval' : 'preferred PM'})`;
+    const dates = fieldDates(row[dateC].text, year);
+    if (!dates) { rejected.push({ poll: label, reason: 'field dates not recognised' }); continue; }
+    const source = citedNotes(row[firmC].html).map((n) => refs.get(n)).find(Boolean);
+    if (!source) { rejected.push({ poll: label, reason: 'no cited release' }); continue; }
+    const values = {};
+    let bad = null;
+    if (kind === 'appr') {
+      for (const name of people) {
+        const get = (f) => { const c = cols.find((x) => x.name === name && x.field === f); return c ? pct(row[c.i]?.text ?? '') : null; };
+        const pos = get('pos'), neg = get('neg'), net = get('net');
+        if (pos == null && neg == null && net == null) continue;
+        if (pos != null && neg != null && (pos + neg > 101 || (net != null && Math.abs(pos - neg - net) > 1))) { bad = `${name}: ${pos} − ${neg} ≠ net ${net}`; break; }
+        if (net != null && Math.abs(net) > 100) { bad = `${name}: net ${net}`; break; }
+        const role = roleAt(people.indexOf(name));
+        if (pos != null) values[`approval_pos:${role}:${name}`] = pos;
+        if (neg != null) values[`approval_neg:${role}:${name}`] = neg;
+        values[`approval_net:${role}:${name}`] = net ?? (pos != null && neg != null ? pos - neg : null);
+        if (values[`approval_net:${role}:${name}`] == null) delete values[`approval_net:${role}:${name}`];
+      }
+    } else {
+      const shares = cols.filter((c) => c.field === 'share').map((c) => ({ name: c.name, v: pct(row[c.i]?.text ?? '') })).filter((x) => x.v != null);
+      const unsureC = cols.find((c) => c.field === 'unsure');
+      const leadC = cols.find((c) => c.field === 'lead');
+      const unsure = unsureC ? pct(row[unsureC.i]?.text ?? '') : null;
+      const lead = leadC ? pct(row[leadC.i]?.text ?? '') : null;
+      const sum = shares.reduce((t, x) => t + x.v, 0) + (unsure ?? 0);
+      const sorted = shares.map((x) => x.v).sort((a, b) => b - a);
+      if (shares.length < 2) bad = 'fewer than two leaders';
+      else if (sum > 101 || (unsure != null && sum < 97)) bad = `shares sum to ${sum}`;
+      else if (lead != null && Math.abs(sorted[0] - sorted[1] - Math.abs(lead)) > 1) bad = `lead ${lead} ≠ ${sorted[0]} − ${sorted[1]}`;
+      else {
+        for (const x of shares) values[`ppm:${roleAt(people.indexOf(x.name))}:${x.name}`] = x.v;
+        if (unsure != null) values.ppm_unsure = unsure;
+      }
+    }
+    if (bad) { rejected.push({ poll: label, reason: bad }); continue; }
+    if (!Object.keys(values).length) continue;
+    // Several contests from one poll (Albanese v Taylor, Albanese v Hanson) are separate rows with separate keys.
+    const contest = kind === 'ppm' ? `ppm:${Object.keys(values).filter((k) => k !== 'ppm_unsure').map((k) => k.split(':')[2]).sort().join('-')}` : 'appr';
+    polls.push({
+      table: contest, pollster, client: null, mode: null, sample_size: sampleC >= 0 ? pct(row[sampleC].text) : null,
+      field_start: dates.start, field_end: dates.end, source_url: source, values, compiled_from: `Wikipedia: ${LEADER_PAGE.replace(/_/g, ' ')}`,
+    });
+  }
+  return { polls, rejected };
+}
+
+/** Preferred prime minister and leader approval, from the leadership page. */
+export async function loadLeaderPolls({ since = '2025-05-04' } = {}) {
+  const { revid, html, sections } = await fetchPage(LEADER_PAGE);
+  const refs = referenceUrls(html);
+  const polls = [], rejected = [];
+  for (const [heading, kind] of [[/^Preferred prime minister$/i, 'ppm'], [/^Leadership approval$/i, 'appr']]) {
+    const at = sections.findIndex((s) => heading.test(s.line));
+    if (at < 0) throw new Error(`No "${heading.source}" section on the leadership page`);
+    for (const s of sections.slice(at + 1)) {
+      if (s.level <= sections[at].level) break;
+      if (!/^\d{4}$/.test(s.line)) continue;
+      const t = sectionTable(html, s.anchor);
+      if (!t) continue;
+      const r = leaderRows(t, Number(s.line), refs, kind);
+      polls.push(...r.polls); rejected.push(...r.rejected);
+    }
+  }
+  const today = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
+  return { revid, polls: polls.filter((p) => p.field_end >= since && p.field_end <= today && p.field_start <= p.field_end), rejected };
 }
 
 /** Every poll on the page, with what was rejected and why. */
