@@ -134,11 +134,38 @@ export async function applyRevision(slug: string, opts: { note?: string; force?:
  * does not erase it.
  */
 export function withCorrections(note: string, previous: string | null | undefined): string {
-  const old = (previous ?? '').trim();
-  if (!old || !/\bCorrection\b/.test(old)) return note;
-  const corrections = old.split(/(?=Correction, )/).map((p) => p.trim()).filter((p) => p.startsWith('Correction'));
-  const kept = corrections.filter((c) => !note.includes(c.slice(0, 60)));
+  const kept = correctionsIn(previous).filter((c) => !note.includes(c.slice(0, 60)));
   return [note, ...kept].join(' ');
+}
+
+/** The correction notices in a note ("Correction, 4 October 2026: …", "Correction: …", "Corrections: …"). */
+export function correctionsIn(note: string | null | undefined): string[] {
+  return (note ?? '').split(/(?=\bCorrections?(?:, [^:]{3,30})?:)/).map((p) => p.trim()).filter((p) => /^Corrections?\b/.test(p));
+}
+
+/**
+ * Put every correction the article has ever carried back on its note (oldest first, after the current note):
+ * notes applied before corrections were kept could have dropped them. Returns the corrections restored.
+ */
+export async function restoreCorrections(slug: string): Promise<string[]> {
+  const db = createClient();
+  const row = await loadPublished(slug);
+  const live = String(row.update_note ?? '').trim();
+  const key = (c: string) => c.toLowerCase().replace(/[^a-z0-9]+/g, ' ').slice(0, 80);
+  const have = new Set(correctionsIn(live).map(key));
+  const missing: string[] = [];
+  for (const n of await noteHistory(slug)) {
+    for (const c of correctionsIn(n.note)) {
+      if (have.has(key(c))) continue;
+      have.add(key(c));
+      missing.push(c);
+    }
+  }
+  if (!missing.length) return [];
+  const { error } = await db.from('stories').update({ update_note: [live, ...missing].join(' '), updated_at: new Date().toISOString() })
+    .eq('story_id', row.story_id);
+  if (error) throw new Error(error.message);
+  return missing;
 }
 
 /** Stored check result: what the desk shows next to a draft or revision. */
@@ -495,4 +522,15 @@ export async function renameStory(from: string, to: string) {
   if (error) throw new Error(error.message);
   await db.from('story_desk').update({ slug: to }).eq('slug', from);
   return { from, to };
+}
+
+/** Every update note the article has carried, oldest first (from the archived versions and the live row). */
+export async function noteHistory(slug: string) {
+  const db = createClient();
+  const row = await loadPublished(slug);
+  const { data } = await db.from('story_revisions').select('content, resolved_at')
+    .eq('story_id', row.story_id).eq('status', 'archived').order('resolved_at', { ascending: true });
+  const notes = (data ?? []).map((r) => ({ at: r.resolved_at as string, note: ((r.content as { update_note?: string | null })?.update_note ?? '').trim() }));
+  notes.push({ at: 'live', note: String(row.update_note ?? '').trim() });
+  return notes.filter((n, i, all) => n.note && (i === 0 || n.note !== all[i - 1].note));
 }
