@@ -1,115 +1,80 @@
 import Link from 'next/link';
-import DialCard from '@/components/DialCard';
-import { loadDashboard } from '@/lib/dashboard-indicators';
+import { loadEconomyDashboard } from '@/lib/economy-dashboard';
+import { Change, Sparkline, StatusBadge, Value } from '@/components/dashboard/DashParts';
+import { periodLabel } from '@/lib/economy-dashboard';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Indices & indicators — Caveat' };
+export const metadata = {
+  title: 'Economy dashboard — Caveat',
+  description: 'The health of the Australian economy on one page: growth, jobs, prices, rates, housing, population and public finances.',
+};
 
-export default async function IndicesDashboard() {
-  const { sections, readings, staleCount } = await loadDashboard();
+export default async function EconomyDashboard() {
+  const sections = await loadEconomyDashboard();
+  const good = sections.filter((s) => ['on-target', 'better'].includes(s.headline.status)).length;
 
   return (
-    <>
-      <main className="article dashboard">
-        <p className="desk-kicker">Australia · latest readings</p>
-        <h1 className="section-head" style={{ borderBottom: 'none' }}>Indices &amp; indicators</h1>
-        <p className="measure">
-          Every dial is one series: the latest observation, how it moved on the previous
-          print, and the recent history behind it. Colour runs green for low pressure to
-          red for high. For income and productivity, green means stronger readings.
-        </p>
-        <p className="measure">
-          Each reading is dated. Australian rates, prices, wages and credit are current to
-          the last release; the annual international series sit further back, and
-          {staleCount > 0 ? ` ${staleCount} of them are` : ' none are'} flagged with their
-          age. Nothing here is estimated forward to fill the gap.
-        </p>
+    <main className="article econ-dash">
+      <p className="desk-kicker">Australia · economy dashboard</p>
+      <h1 className="section-head econ-dash-title">How is the economy doing?</h1>
+      <p className="measure econ-dash-intro">
+        Seven sections, each led by the number economists watch, with the indicators that explain it alongside.
+        Every reading is official data, judged against its target where there is one and otherwise against its own
+        ten-year average. {good} of {sections.length} headline readings are on target or better than usual.
+        Open any section or number for what it means and how Australia compares.
+      </p>
 
-        {sections.map((section) => (
-          <section key={section.id} className="dashboard-section">
-            <h2 className="dashboard-section-title">{section.title}</h2>
-            {section.description && (
-              <p className="dashboard-section-desc">{section.description}</p>
-            )}
-            <div className={`dial-grid${section.dials.length === 1 ? ' dial-grid-solo' : ''}`}>
-              {section.dials.map((d) => (
-                <DialCard
-                  key={d.id}
-                  id={d.id}
-                  href={d.href}
-                  kicker={d.kicker}
-                  tier={d.tier}
-                  label={d.label}
-                  subtitle={d.subtitle}
-                  value={d.value}
-                  unit={d.unit}
-                  min={d.min}
-                  max={d.max}
-                  invertScale={d.invertScale}
-                  decimals={d.decimals}
-                  compact={d.compact}
-                  footnote={d.footnote}
-                  spark={d.spark}
-                  step={d.step}
-                  change={d.change}
-                  age={d.age}
-                />
+      <div className="econ-grid">
+        {sections.map(({ section, headline, others }) => (
+          <section key={section.id} className="econ-card">
+            <Link href={`/indices/${section.id}`} className="econ-card-head">
+              <h2>{section.title}</h2>
+              <span className="econ-card-q">{section.question}</span>
+            </Link>
+
+            <Link href={`/indices/${section.id}/${headline.key}`} className="econ-headline">
+              <span className="econ-headline-label">{headline.indicator.short ?? headline.indicator.label}</span>
+              <span className="econ-headline-row">
+                <Value reading={headline} big />
+                <Sparkline points={headline.history.slice(-24)} step={headline.indicator.step} width={140} height={40} />
+              </span>
+              <span className="econ-headline-meta">
+                <StatusBadge reading={headline} />
+                <Change reading={headline} />
+                {headline.latest && <span className="econ-period">{periodLabel(headline.latest.period)}</span>}
+              </span>
+            </Link>
+
+            <ul className="econ-tiles">
+              {others.map((r) => (
+                <li key={r.key}>
+                  <Link href={`/indices/${section.id}/${r.key}`} className="econ-tile">
+                    <span className="econ-tile-label">{r.indicator.short ?? r.indicator.label}</span>
+                    <Value reading={r} />
+                    <span className={`econ-dot ${r.status}`} title={r.verdict} />
+                    <Change reading={r} />
+                  </Link>
+                </li>
               ))}
-            </div>
+              {(section.composites ?? []).map((c) => (
+                <li key={c.id}>
+                  <Link href={`/indices/${c.id}`} className="econ-tile composite">
+                    <span className="econ-tile-label">{c.label}</span>
+                    <span className="econ-composite-tag">Caveat composite →</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </section>
         ))}
+      </div>
 
-        <div className="dashboard-legend">
-          <span className="dashboard-legend-item"><i style={{ background: '#2a9d6e' }} /> Low pressure</span>
-          <span className="dashboard-legend-item"><i style={{ background: '#e9b949' }} /> Mid</span>
-          <span className="dashboard-legend-item"><i style={{ background: '#c0392b' }} /> High pressure</span>
-        </div>
-
-        <h2 id="readings" className="dashboard-section-title">Every reading on this page</h2>
-        <p className="measure">
-          The same numbers as a table, so a figure can be checked without opening a dial.
-          Change is measured on the previous observation in the series.
-        </p>
-        <div className="ops-card ops-table-card">
-          <table className="data readings-table">
-            <thead>
-              <tr>
-                <th>Series</th>
-                <th className="num">Latest</th>
-                <th>As at</th>
-                <th>Change</th>
-                <th>Publisher</th>
-                <th>Tier</th>
-              </tr>
-            </thead>
-            <tbody>
-              {readings.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    {r.href
-                      ? <Link href={r.href} className="readings-link">{r.label}</Link>
-                      : r.label}
-                  </td>
-                  <td className="num">
-                    {r.value}
-                    <span className="readings-unit"> {r.unit}</span>
-                  </td>
-                  <td className="readings-period">{r.period}</td>
-                  <td className="readings-change">{r.change}</td>
-                  <td>{r.source}</td>
-                  <td>{r.tier ? <span className={`tier t${r.tier}`}>Tier {r.tier}</span> : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <p className="ops-quiet-note">
-          More indices are specified in the{' '}
-          <Link href="/methodology" className="studio-link">construction standard</Link>
-          {' '}and will appear here as vintages publish.
-        </p>
-      </main>
-    </>
+      <p className="ops-quiet-note econ-legend">
+        <span className="econ-dot better" /> on target or better than usual
+        <span className="econ-dot worse" /> outside target or worse than usual
+        <span className="econ-dot neutral" /> neither better nor worse (a level, not a goal)
+        · Quality of life and public mood dashboards are coming next.
+      </p>
+    </main>
   );
 }
