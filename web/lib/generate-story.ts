@@ -1,4 +1,5 @@
 import { mergeDuplicateFootnotes } from '@/lib/footnotes';
+import { pinReleaseLinks } from '@/lib/pin-sources';
 import { sydneyDay } from '@/lib/dates';
 import { createClient } from '@/lib/supabase-server';
 import { runFoundryTurn, type FoundryEvent } from '@/lib/foundry-agent';
@@ -8,7 +9,7 @@ import { bindOneNumber, bindStoryCharts } from '@/lib/chart-from-data';
 import { checkStyle, splitLongParagraphs, verifyQuotes } from '@/lib/style-check';
 import { factCheckStory, type FactCheck } from '@/lib/fact-check';
 import { auditClaims, reviseForChecks } from '@/lib/claim-audit';
-import { latestOfficialDocuments, verifySourcedStatements } from '@/lib/source-check';
+import { latestOfficialDocuments, verifyFootnoteLinks, verifySourcedStatements } from '@/lib/source-check';
 import { eventsContext } from '@/lib/events';
 import { canonicalMetricId, loadKnownMetrics, normaliseMetricIds } from '../../agent/scripts/lib/metric-ids.mjs';
 import type { StoryChartBlock } from '@/lib/story-types';
@@ -324,6 +325,8 @@ export async function checkStory(supabase: SupabaseClient, draft: StructuredStor
   const queried = ctx.queried ?? new Set<string>();
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   const opts = { audit: ctx.audit };
+  // ABS "latest-release" links drift to newer releases: pin each to the release its footnote names.
+  await pinReleaseLinks(draft).catch(() => 0);
   // One source, one footnote (the writer sometimes cites the same page as two notes).
   mergeDuplicateFootnotes(draft as never);
 
@@ -379,8 +382,10 @@ export async function checkStory(supabase: SupabaseClient, draft: StructuredStor
     onEvent({ type: 'tool_start', name: 'sources', label: 'Checking sourced statements against the source documents', at: new Date().toISOString() });
     try {
       const src = await verifySourcedStatements(supabase, draft);
-      result.issues.push(...src.issues);
-      if (src.issues.length) result.ok = false;
+      // And every footnote's link must open the document it describes.
+      const links = await verifyFootnoteLinks(supabase, draft);
+      result.issues.push(...src.issues, ...links);
+      if (src.issues.length || links.length) result.ok = false;
     } catch (e) {
       result.ok = false;
       result.issues.push(`source check failed: ${e instanceof Error ? e.message : String(e)}`);
