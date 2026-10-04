@@ -217,12 +217,27 @@ function Line({ chart }: { chart: StoryChartBlock }) {
   const min = Math.min(...vals), max = Math.max(...vals);
   const span = max - min || Math.abs(max) || 1;
   const lo = min - span * 0.12, hi = max + span * 0.12;
-  const x = (i: number) => padL + (i * (W - padL - padR)) / Math.max(1, pts.length - 1);
+  // Series dated to the day (policy-rate decisions) change on irregular dates and hold between them: space them by
+  // time and draw steps, so 18 months at one rate look like 18 months. Monthly and quarterly series are evenly
+  // spaced already.
+  const dated = pts.every((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.label));
+  const t = pts.map((p) => (dated ? Date.parse(`${p.label}T00:00:00Z`) : 0));
+  const x = (i: number) => (dated
+    ? padL + ((t[i] - t[0]) * (W - padL - padR)) / Math.max(1, t[t.length - 1] - t[0])
+    : padL + (i * (W - padL - padR)) / Math.max(1, pts.length - 1));
   const y = (v: number) => padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
-  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
+  const path = (series: typeof pts) => series.map((p, i) => (i === 0
+    ? `M${x(0).toFixed(1)},${y(p.value).toFixed(1)}`
+    : dated
+      ? `H${x(i).toFixed(1)} V${y(p.value).toFixed(1)}`
+      : `L${x(i).toFixed(1)},${y(p.value).toFixed(1)}`)).join(' ');
+  const d = path(pts);
   const last = pts[pts.length - 1];
   const first = pts[0];
-  const dAlt = alt?.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
+  const dAlt = alt ? path(alt) : undefined;
+  // On a step chart the low point (e.g. the pandemic-era 0.1%) is labelled too, unless it is an end point.
+  const lowIdx = dated ? vals.indexOf(Math.min(...pts.map((p) => p.value))) : -1;
+  const low = lowIdx > 0 && lowIdx < pts.length - 1 ? pts[lowIdx] : null;
   const altLast = alt?.[alt.length - 1];
   // End labels sit apart when the two latest values are close.
   const gap = altLast ? y(altLast.value) - y(last.value) : 0;
@@ -239,6 +254,13 @@ function Line({ chart }: { chart: StoryChartBlock }) {
         <line x1={padL} x2={W - padR} y1={H - padB} y2={H - padB} className="story-line-axis" />
         {dAlt && <path d={dAlt} pathLength={1} className={`story-line-path alt${seen ? ' drawn' : ''}`} />}
         <path d={d} pathLength={1} className={`story-line-path${seen ? ' drawn' : ''}`} />
+        {low && (
+          // In the empty space beside the drop to the low: left of it (under the earlier, higher line), or right of the
+          // low segment when the drop is near the chart's left edge.
+          x(lowIdx) > padL + 110
+            ? <text x={x(lowIdx) - 6} y={Math.min(y(low.value) + 14, H - padB - 4)} textAnchor="end" className="story-line-label">{formatNum(low.value)} ({low.label.slice(0, 7)})</text>
+            : <text x={x(lowIdx + 1) + 6} y={Math.min(y(low.value) + 14, H - padB - 4)} textAnchor="start" className="story-line-label">{formatNum(low.value)} ({low.label.slice(0, 7)})</text>
+        )}
         <circle cx={x(0)} cy={y(first.value)} r={3} className="story-line-dot" />
         <text x={x(0)} y={y(first.value) - 8} className="story-line-label">{formatNum(first.value)}</text>
         <circle cx={x(pts.length - 1)} cy={y(last.value)} r={4.5} className={`story-line-dot key${seen ? ' shown' : ''}`} />
