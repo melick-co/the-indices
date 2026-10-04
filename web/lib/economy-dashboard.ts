@@ -195,7 +195,7 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
     }
   }
   // Cross-country: the series itself when it covers other countries, else the configured peer series.
-  let peers = all.some((o) => o.entity !== 'AUS') ? peerTable(all, ind.metric_id, ind.label, ind.unit, ind.higherIsBetter) : null;
+  let peers = all.some((o) => o.entity !== 'AUS') ? peerTable(all, ind.metric_id, byOecd ? (ind.short ?? ind.label) : ind.label, ind.unit, ind.higherIsBetter) : null;
   if (!peers && ind.peers) peers = peerTable(await loadObservations(db, ind.peers.metric_id).catch(() => []), ind.peers.metric_id, ind.peers.label, ind.peers.unit as Indicator['unit'], ind.higherIsBetter);
 
   let status: Status = latest ? judge(ind, latest.value, average) : 'neutral';

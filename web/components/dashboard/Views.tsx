@@ -9,7 +9,7 @@ export type DashboardRef = { base: string; name: string };
 
 /** The grid: one card per section, the headline reading large, the rest as tiles. */
 export function DashboardView({ dash, kicker, title, intro, sections, legendNote }: {
-  dash: DashboardRef; kicker: string; title: string; intro: React.ReactNode; sections: SectionReading[]; legendNote?: string;
+  dash: DashboardRef; kicker: string; title: string; intro: React.ReactNode; sections: SectionReading[]; legendNote?: React.ReactNode;
 }) {
   return (
     <main className="article econ-dash">
@@ -62,7 +62,7 @@ export function DashboardView({ dash, kicker, title, intro, sections, legendNote
         <span className="econ-dot better" /> on target or better
         <span className="econ-dot worse" /> outside target or worse
         <span className="econ-dot neutral" /> neither (a level, not a goal)
-        {legendNote ? ` · ${legendNote}` : ''}
+        {legendNote && <> · {legendNote}</>}
       </p>
     </main>
   );

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { loadEconomyDashboard } from '@/lib/economy-dashboard';
 import { DashboardView } from '@/components/dashboard/Views';
 
@@ -22,7 +23,7 @@ export default async function EconomyDashboard() {
         Open any section or number for what it means and how Australia compares.
       </>}
       sections={sections}
-      legendNote="See also the quality of life dashboard."
+      legendNote={<>See also the <Link href="/quality-of-life" className="studio-link">quality of life dashboard</Link>.</>}
     />
   );
 }
