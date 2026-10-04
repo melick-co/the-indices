@@ -73,7 +73,7 @@ export function peersChart(r: Reading, names: Map<string, string>): StoryChartBl
   return {
     type: 'chart', kind: 'bars',
     title: `Australia ranks ${r.peers.rank} of ${r.peers.of} OECD countries`,
-    subtitle: `${r.peers.label}, ${r.peers.period}; OECD median ${formatReading(r.peers.median, r.peers.metric_id === r.indicator.metric_id ? r.indicator.unit : undefined)}`,
+    subtitle: `${r.peers.label}, ${r.peers.period}; OECD median ${formatReading(r.peers.median, r.peers.unit)}`,
     series: shown.map((x) => ({ label: names.get(x.entity) ?? x.entity, value: x.value, ...(x.entity === 'AUS' ? { highlight: true } : {}) })),
     caption: 'Source: OECD and World Bank cross-country series as stored.',
   };

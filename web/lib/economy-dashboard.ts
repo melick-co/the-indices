@@ -28,7 +28,9 @@ export type Reading = {
   verdict: string;
   /** What the numbers are telling us: a few sentences generated from the data. */
   summary: string[];
-  peers: { metric_id: string; label: string; period: string; rank: number; of: number; median: number; aus: number; rows: Obs[] } | null;
+  peers: { metric_id: string; label: string; unit: Indicator['unit']; period: string; rank: number; of: number; median: number; aus: number; rows: Obs[] } | null;
+  /** How the average is described: "10-year average" or "average since August 2025". */
+  averageLabel: string | null;
 };
 
 const round = (n: number, d = 2) => Math.round(n * 10 ** d) / 10 ** d;
@@ -42,6 +44,7 @@ function fmt(n: number, unit: Indicator['unit']): string {
     case 'aud_bn': return `A$${Math.round(n).toLocaleString('en-AU')} billion`;
     case 'persons': return Math.round(n).toLocaleString('en-AU');
     case 'per_1000': return `${round(n, 2)} per 1,000`;
+    case 'usd': return `US$${Math.round(n).toLocaleString('en-AU')}`;
     default: return round(n, 2).toLocaleString('en-AU');
   }
 }
@@ -83,7 +86,7 @@ async function seriesOf(db: ReturnType<typeof createClient>, ind: Indicator): Pr
 }
 
 /** Latest cross-section of OECD members for a series, with Australia's rank (highest first) and the median. */
-function peerTable(all: Obs[], metric_id: string, label: string): Reading['peers'] {
+function peerTable(all: Obs[], metric_id: string, label: string, unit: Indicator['unit']): Reading['peers'] {
   const latestAus = all.filter((o) => o.entity === 'AUS').map((o) => o.period).sort().at(-1);
   if (!latestAus) return null;
   // The comparison period: Australia's latest that at least ten OECD members also report.
@@ -96,7 +99,7 @@ function peerTable(all: Obs[], metric_id: string, label: string): Reading['peers
     if (!aus) continue;
     const vals = sorted.map((r) => r.value).sort((a, b) => a - b);
     const median = vals.length % 2 ? vals[(vals.length - 1) / 2] : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2;
-    return { metric_id, label, period, rank: sorted.indexOf(aus) + 1, of: sorted.length, median: round(median, 2), aus: aus.value, rows: sorted };
+    return { metric_id, label, unit, period, rank: sorted.indexOf(aus) + 1, of: sorted.length, median: round(median, 2), aus: aus.value, rows: sorted };
   }
   return null;
 }
@@ -121,15 +124,36 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
   const previous = aus.at(-2) ?? null;
   const years = ind.benchmark.kind === 'average' ? ind.benchmark.years : 10;
   let average: number | null = null;
+  let averageLabel: string | null = null;
   if (latest) {
     const from = periodDate(latest.period);
     from.setUTCFullYear(from.getUTCFullYear() - years);
     const window = aus.filter((p) => periodDate(p.period) > from);
-    if (window.length >= 3) average = round(window.reduce((s, p) => s + p.value, 0) / window.length, 2);
+    if (window.length >= 3) {
+      if (ind.step) {
+        // A policy rate holds between decisions: weight each setting by how long it held (to today for the last).
+        const start = Math.max(from.getTime(), periodDate(window[0].period).getTime());
+        const before = aus.filter((p) => periodDate(p.period) <= from).at(-1);
+        const pts = before ? [{ ...before, period: from.toISOString().slice(0, 10) }, ...window] : window;
+        let sum = 0, span = 0;
+        pts.forEach((p, i) => {
+          const a = Math.max(periodDate(p.period).getTime(), start);
+          const b = i + 1 < pts.length ? periodDate(pts[i + 1].period).getTime() : Date.now();
+          if (b > a) { sum += p.value * (b - a); span += b - a; }
+        });
+        average = span ? round(sum / span, 2) : null;
+      } else {
+        average = round(window.reduce((s, p) => s + p.value, 0) / window.length, 2);
+      }
+      // Name the average by the span the data actually cover.
+      const first = periodDate(window[0].period);
+      const covered = (periodDate(latest.period).getTime() - first.getTime()) / (365.25 * 864e5);
+      averageLabel = covered >= years * 0.85 || ind.step ? `${years}-year average` : `average since ${periodLabel(window[0].period)}`;
+    }
   }
   // Cross-country: the series itself when it covers other countries, else the configured peer series.
-  let peers = all.some((o) => o.entity !== 'AUS') ? peerTable(all, ind.metric_id, ind.label) : null;
-  if (!peers && ind.peers) peers = peerTable(await loadObservations(db, ind.peers.metric_id).catch(() => []), ind.peers.metric_id, ind.peers.label);
+  let peers = all.some((o) => o.entity !== 'AUS') ? peerTable(all, ind.metric_id, ind.label, ind.unit) : null;
+  if (!peers && ind.peers) peers = peerTable(await loadObservations(db, ind.peers.metric_id).catch(() => []), ind.peers.metric_id, ind.peers.label, ind.peers.unit as Indicator['unit']);
 
   const status = latest ? judge(ind, latest.value, average) : 'neutral';
   const b = ind.benchmark;
@@ -152,25 +176,27 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
       const gap = round(latest.value - b.value, 2);
       const unitWord = u === 'percent' || u === 'pts' ? ' pts' : '';
       verdict = gap >= 0 ? 'Above benchmark' : 'Below benchmark';
-      summary.push(`The benchmark is ${b.label.charAt(0).toLowerCase()}${b.label.slice(1)}: the latest reading is ${Math.abs(gap)}${unitWord} ${gap >= 0 ? 'above' : 'below'} it.`);
+      summary.push(`The benchmark is ${b.label}. The latest reading is ${Math.abs(gap)}${unitWord} ${gap >= 0 ? 'above' : 'below'} it.`);
     }
-    if (average != null) {
+    if (average != null && averageLabel) {
       const diff = latest.value - average;
       const near = Math.abs(diff) <= Math.max(0.1, Math.abs(average) * 0.02);
-      if (b.kind === 'average') verdict = near ? `Near its ${years}-year average` : `${diff > 0 ? 'Above' : 'Below'} its ${years}-year average`;
+      if (b.kind === 'average') verdict = near ? `Near its ${averageLabel}` : `${diff > 0 ? 'Above' : 'Below'} its ${averageLabel}`;
       summary.push(near
-        ? `It is close to its ${years}-year average of ${fmt(average, u)}.`
-        : `It is ${diff > 0 ? 'above' : 'below'} its ${years}-year average of ${fmt(average, u)}${ind.higherIsBetter === undefined ? '' : `, which is ${(diff > 0) === ind.higherIsBetter ? 'a better' : 'a worse'} reading than usual`}.`);
+        ? `It is close to its ${averageLabel} of ${fmt(average, u)}.`
+        : `It is ${diff > 0 ? 'above' : 'below'} its ${averageLabel} of ${fmt(average, u)}${ind.higherIsBetter === undefined ? '' : `, which is ${(diff > 0) === ind.higherIsBetter ? 'a better' : 'a worse'} reading than usual`}.`);
     }
     if (peers) {
       const mid = peers.aus > peers.median ? 'above' : peers.aus < peers.median ? 'below' : 'at';
-      summary.push(`Across ${peers.of} OECD countries (${periodLabel(peers.period)}), Australia ranks ${peers.rank} of ${peers.of} on ${peers.label.charAt(0).toLowerCase()}${peers.label.slice(1)}, ${mid} the median of ${fmt(peers.median, peers.metric_id === ind.metric_id ? u : undefined)}.`);
+      // Lower-case the label's first letter only when it is an ordinary word (keeps "GDP", "Treasury").
+      const name = /^[A-Z][a-z]/.test(peers.label) ? peers.label.charAt(0).toLowerCase() + peers.label.slice(1) : peers.label;
+      summary.push(`Across ${peers.of} OECD countries (${periodLabel(peers.period)}), Australia ranks ${peers.rank} of ${peers.of} on ${name}, ${mid} the median of ${fmt(peers.median, peers.unit)}.`);
     }
   }
   return {
     key: ind.key, indicator: ind, name: (meta as { name?: string } | null)?.name ?? ind.label,
     source: [(meta as { source_org?: string } | null)?.source_org, (meta as { source_dataset?: string } | null)?.source_dataset].filter(Boolean).join(', ') || null,
-    latest, previous, history: aus.slice(-(ind.history ?? 40)), average, averageYears: average != null ? years : null,
+    latest, previous, history: aus.slice(-(ind.history ?? 40)), average, averageYears: average != null ? years : null, averageLabel,
     status, verdict, summary, peers,
   };
 }

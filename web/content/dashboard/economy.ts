@@ -30,9 +30,9 @@ export type Indicator = {
   /** How many recent readings the history chart shows. */
   history?: number;
   /** Cross-country series to compare against, when the Australian series has no peers of its own. */
-  peers?: { metric_id: string; label: string };
+  peers?: { metric_id: string; label: string; unit?: Indicator['unit'] | 'usd' };
   /** Display unit when the stored one is not reader-friendly. */
-  unit?: 'percent' | 'pts' | 'aud' | 'aud_bn' | 'persons' | 'per_1000' | 'index' | 'percent_gdp';
+  unit?: 'percent' | 'pts' | 'aud' | 'aud_bn' | 'persons' | 'per_1000' | 'index' | 'percent_gdp' | 'usd';
 };
 
 export type Section = {
@@ -60,7 +60,7 @@ export const SECTIONS: Section[] = [
       metric_id: 'gdp_per_capita_qoq_au', label: 'Real GDP per person, quarterly growth', short: 'GDP per person',
       why: 'Output per resident is the closest single measure of living standards: headline GDP can grow while each person\'s share shrinks.',
       benchmark: { kind: 'average', years: 10 }, higherIsBetter: true, history: 40, unit: 'percent',
-      peers: { metric_id: 'gdp_per_capita', label: 'GDP per person (US dollars)' },
+      peers: { metric_id: 'gdp_per_capita', label: 'GDP per person (US dollars)', unit: 'usd' },
     },
     others: [
       { metric_id: 'gdp_growth_qoq_au', label: 'Real GDP, quarterly growth', short: 'GDP growth',
@@ -87,7 +87,7 @@ export const SECTIONS: Section[] = [
       metric_id: 'unemployment_rate_au', label: 'Unemployment rate', short: 'Unemployment',
       why: 'The share of the labour force looking for work; the RBA\'s mandate includes full employment, and a rising rate is usually the first sign of a slowdown.',
       benchmark: { kind: 'average', years: 10 }, higherIsBetter: false, history: 60, unit: 'percent',
-      peers: { metric_id: 'unemployment_rate', label: 'Unemployment rate' },
+      peers: { metric_id: 'unemployment_rate', label: 'Unemployment rate', unit: 'percent' },
     },
     others: [
       { metric_id: 'wpi_annual_au', label: 'Wage Price Index, annual growth', short: 'Wages',
@@ -123,7 +123,7 @@ export const SECTIONS: Section[] = [
       { metric_id: 'trimmed_mean_cpi_au', label: 'Trimmed mean inflation (quarterly CPI), annual', short: 'Underlying (quarterly)',
         why: 'The quarterly measure with the longest history, used in the RBA\'s forecasts.',
         benchmark: { kind: 'target', low: 2, high: 3, label: 'RBA target band, 2–3%', source: RBA_TARGET }, history: 40, unit: 'percent',
-        peers: { metric_id: 'inflation_wb', label: 'Consumer price inflation' } },
+        peers: { metric_id: 'inflation_wb', label: 'Consumer price inflation', unit: 'percent' } },
       { metric_id: 'rent_cpi_annual_au', label: 'Rents, annual change (CPI)', short: 'Rents',
         why: 'Rents are the largest service in the CPI basket and track how tight the housing market is for tenants.',
         benchmark: { kind: 'average', years: 10 }, higherIsBetter: false, history: 40, unit: 'percent' },
@@ -180,9 +180,9 @@ export const SECTIONS: Section[] = [
     title: 'Population',
     question: 'How fast is the population growing, and why?',
     headline: {
-      metric_id: 'population_growth_annual', label: 'Population growth, annual', short: 'Population growth',
+      metric_id: 'population_growth_annual', label: 'Population increase, calendar year', short: 'Population increase',
       why: 'Population growth adds to demand for housing and services and to the size of the economy, but not to income per person.',
-      benchmark: { kind: 'average', years: 10 }, history: 40, unit: 'percent',
+      benchmark: { kind: 'average', years: 10 }, history: 40, unit: 'persons',
     },
     others: [
       { metric_id: 'nom_annual', label: 'Net overseas migration, year to date', short: 'Net migration',

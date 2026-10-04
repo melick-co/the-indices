@@ -49,8 +49,8 @@ export default async function IndicatorPage({ params }: { params: { id: string; 
       <p className="measure">
         {b.kind === 'target' && <>The RBA aims to keep inflation between {b.low} and {b.high} per cent, averaged over time. <a href={b.source.url} className="studio-link">{b.source.text}</a>.</>}
         {b.kind === 'floor' && <>{b.label}. <a href={b.source.url} className="studio-link">{b.source.text}</a>.</>}
-        {b.kind === 'average' && <>There is no official target for this measure, so it is judged against its own {r.averageYears}-year average{r.average != null ? ` of ${formatReading(r.average, r.indicator.unit)}` : ''}{r.indicator.higherIsBetter === undefined ? ': a higher or lower reading is not in itself better or worse' : `: ${r.indicator.higherIsBetter ? 'higher' : 'lower'} is better`}.</>}
-        {r.peers && <> Among OECD countries the median is {formatReading(r.peers.median, r.peers.metric_id === r.indicator.metric_id ? r.indicator.unit : undefined)}.</>}
+        {b.kind === 'average' && <>There is no official target for this measure, so it is judged against its own {r.averageLabel ?? 'long-run average'}{r.average != null ? ` of ${formatReading(r.average, r.indicator.unit)}` : ''}{r.indicator.higherIsBetter === undefined ? ': a higher or lower reading is not in itself better or worse' : `: ${r.indicator.higherIsBetter ? 'higher' : 'lower'} is better`}.</>}
+        {r.peers && <> Among OECD countries the median is {formatReading(r.peers.median, r.peers.unit)}.</>}
       </p>
 
       <StoryChart chart={historyChart(r)} />
