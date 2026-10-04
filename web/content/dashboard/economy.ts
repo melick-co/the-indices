@@ -22,6 +22,8 @@ export type Indicator = {
   label: string;
   /** Short plain name for tiles. */
   short?: string;
+  /** The subject for summary sentences when the label does not read as one ("The share of people in poverty"). */
+  subject?: string;
   /** Why the number matters, in one or two sentences. */
   why: string;
   benchmark: Benchmark;

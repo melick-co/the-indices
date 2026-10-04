@@ -28,11 +28,12 @@ export type Reading = {
   verdict: string;
   /** What the numbers are telling us: a few sentences generated from the data. */
   summary: string[];
-  peers: { metric_id: string; label: string; unit: Indicator['unit']; period: string; rank: number; of: number; median: number; aus: number; rows: Obs[] } | null;
+  peers: { metric_id: string; label: string; unit: Indicator['unit']; period: string; rank: number; of: number; median: number; aus: number; rows: Obs[]; bestFirst: boolean } | null;
   /** How the average is described: "10-year average" or "average since August 2025". */
   averageLabel: string | null;
 };
 
+export const ordinal = (n: number) => `${n}${[11, 12, 13].includes(n % 100) ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 const round = (n: number, d = 2) => Math.round(n * 10 ** d) / 10 ** d;
 
 function fmt(n: number, unit: Indicator['unit']): string {
@@ -49,14 +50,26 @@ function fmt(n: number, unit: Indicator['unit']): string {
     case 'points': return `${Math.round(n)} points`;
     case 'score': return `${round(n, 1)} / 10`;
     case 'per_100k': return `${round(n, 1)} per 100,000`;
-    case 'ratio': return `${round(n, 1)}×`;
+    case 'ratio': return `${round(n, 2)}×`;
     default: return round(n, 2).toLocaleString('en-AU');
   }
 }
 export { fmt as formatReading };
 
-/** Change wording: points for rates, per cent for levels. */
+/** Units whose changes read as an absolute amount ("up 0.2 years"), not a percentage. */
+const ABSOLUTE: Partial<Record<NonNullable<Indicator['unit']>, (d: number) => string>> = {
+  years: (d) => `${round(d, 1)} years`, points: (d) => `${Math.round(d)} points`, score: (d) => `${round(d, 1)} points`,
+  per_100k: (d) => `${round(d, 1)} per 100,000`, ratio: (d) => `${round(d, 2)}`,
+};
+export { ABSOLUTE as absoluteChange };
+
+/** Change wording: points for rates, the amount for scores and years, per cent for other levels. */
 function changeText(latest: number, prev: number, unit: Indicator['unit']): string {
+  const abs = unit && ABSOLUTE[unit];
+  if (abs) {
+    const d = latest - prev;
+    return abs(Math.abs(d)) === abs(0) ? 'unchanged' : `${d > 0 ? 'up' : 'down'} ${abs(Math.abs(d))}`;
+  }
   const rate = unit === 'percent' || unit === 'percent_gdp' || unit === 'pts';
   const d = rate ? latest - prev : prev ? ((latest - prev) / Math.abs(prev)) * 100 : 0;
   if (Math.abs(d) < 0.005) return 'unchanged';
@@ -72,6 +85,7 @@ function periodDate(p: string): Date {
 }
 
 function periodLabel(p: string): string {
+  if (p.startsWith('latest')) return p;
   if (/^\d{4}-Q[1-4]$/.test(p)) return `${['March', 'June', 'September', 'December'][Number(p[6]) - 1]} quarter ${p.slice(0, 4)}`;
   if (/^\d{4}-\d{2}$/.test(p)) return periodDate(p).toLocaleDateString('en-AU', { month: 'long', year: 'numeric', timeZone: 'UTC' });
   if (/^\d{4}$/.test(p)) return p;
@@ -90,21 +104,44 @@ async function seriesOf(db: ReturnType<typeof createClient>, ind: Indicator): Pr
   return { aus, all };
 }
 
-/** Latest cross-section of OECD members for a series, with Australia's rank (highest first) and the median. */
-function peerTable(all: Obs[], metric_id: string, label: string, unit: Indicator['unit']): Reading['peers'] {
-  const latestAus = all.filter((o) => o.entity === 'AUS').map((o) => o.period).sort().at(-1);
-  if (!latestAus) return null;
-  // The comparison period: Australia's latest that at least ten OECD members also report.
-  const periods = [...new Set(all.filter((o) => o.entity === 'AUS').map((o) => o.period))].sort().reverse();
-  for (const period of periods) {
-    const rows = all.filter((o) => o.period === period && OECD.has(o.entity));
-    if (rows.length < 10) continue;
-    const sorted = [...rows].sort((a, b) => b.value - a.value);
+/**
+ * Cross-section of OECD members for a series, with Australia's rank and the median. Ranked best first when the
+ * measure has a direction (so 1st is always best), otherwise highest first.
+ */
+function peerTable(all: Obs[], metric_id: string, label: string, unit: Indicator['unit'], higherIsBetter?: boolean): Reading['peers'] {
+  const build = (rows: Obs[], period: string): Reading['peers'] => {
+    const sorted = [...rows].sort((a, b) => (higherIsBetter === false ? a.value - b.value : b.value - a.value));
     const aus = sorted.find((r) => r.entity === 'AUS');
-    if (!aus) continue;
+    if (!aus) return null;
     const vals = sorted.map((r) => r.value).sort((a, b) => a - b);
     const median = vals.length % 2 ? vals[(vals.length - 1) / 2] : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2;
-    return { metric_id, label, unit, period, rank: sorted.indexOf(aus) + 1, of: sorted.length, median: round(median, 2), aus: aus.value, rows: sorted };
+    return { metric_id, label, unit, period, rank: sorted.indexOf(aus) + 1, of: sorted.length, median: round(median, 2), aus: aus.value, rows: sorted, bestFirst: higherIsBetter !== undefined };
+  };
+  const periods = [...new Set(all.filter((o) => o.entity === 'AUS').map((o) => o.period))].sort().reverse();
+  if (!periods.length) return null;
+  // 1. Australia's latest period, when at least ten OECD members report it.
+  const same = all.filter((o) => o.period === periods[0] && OECD.has(o.entity));
+  if (same.length >= 10) return build(same, periods[0]);
+  // 2. Annual surveys run in different years: each member's latest reading within three years of Australia's,
+  //    so the comparison uses Australia's latest figure (the one on the tile) rather than an old common year.
+  if (/^\d{4}$/.test(periods[0])) {
+    const y = Number(periods[0]);
+    const latestOf = new Map<string, Obs>();
+    for (const o of all) {
+      if (!OECD.has(o.entity) || !/^\d{4}$/.test(o.period) || Math.abs(Number(o.period) - y) > 3) continue;
+      const cur = latestOf.get(o.entity);
+      if (o.entity === 'AUS' ? o.period === periods[0] : !cur || o.period > cur.period) latestOf.set(o.entity, o);
+    }
+    const rows = [...latestOf.values()];
+    if (rows.length >= 10) {
+      const ps = rows.map((r) => r.period).sort();
+      return build(rows, ps[0] === ps.at(-1) ? ps[0] : `latest available, ${ps[0]}–${ps.at(-1)}`);
+    }
+  }
+  // 3. Otherwise the latest period Australia shares with at least ten members.
+  for (const period of periods.slice(1)) {
+    const rows = all.filter((o) => o.period === period && OECD.has(o.entity));
+    if (rows.length >= 10) return build(rows, period);
   }
   return null;
 }
@@ -158,8 +195,8 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
     }
   }
   // Cross-country: the series itself when it covers other countries, else the configured peer series.
-  let peers = all.some((o) => o.entity !== 'AUS') ? peerTable(all, ind.metric_id, ind.label, ind.unit) : null;
-  if (!peers && ind.peers) peers = peerTable(await loadObservations(db, ind.peers.metric_id).catch(() => []), ind.peers.metric_id, ind.peers.label, ind.peers.unit as Indicator['unit']);
+  let peers = all.some((o) => o.entity !== 'AUS') ? peerTable(all, ind.metric_id, ind.label, ind.unit, ind.higherIsBetter) : null;
+  if (!peers && ind.peers) peers = peerTable(await loadObservations(db, ind.peers.metric_id).catch(() => []), ind.peers.metric_id, ind.peers.label, ind.peers.unit as Indicator['unit'], ind.higherIsBetter);
 
   let status: Status = latest ? judge(ind, latest.value, average) : 'neutral';
   // With too little history for an average, judge against the OECD median instead.
@@ -176,8 +213,8 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
     const p = latest.period;
     const when = /^\d{4}-Q/.test(p) ? `in the ${periodLabel(p)}` : /^\d{4}-\d{2}$/.test(p) ? `in ${periodLabel(p)}` : /^\d{4}$/.test(p) ? `in ${p}` : null;
     const was = ind.step
-      ? `${ind.label} has been ${fmt(latest.value, u)} since ${periodLabel(p)}`
-      : `${ind.label} was ${fmt(latest.value, u)} ${when ?? `at ${periodLabel(p)}`}`;
+      ? `${ind.subject ?? ind.label} has been ${fmt(latest.value, u)} since ${periodLabel(p)}`
+      : `${ind.subject ?? ind.label} was ${fmt(latest.value, u)} ${when ?? `at ${periodLabel(p)}`}`;
     summary.push(`${was}${previous ? `, ${changeText(latest.value, previous.value, u)} on the previous reading (${fmt(previous.value, u)})` : ''}.`);
     if (b.kind === 'target') {
       verdict = status === 'on-target' ? `Within the ${b.low}–${b.high}% target` : `${status === 'above' ? 'Above' : 'Below'} the ${b.low}–${b.high}% target`;
@@ -208,7 +245,8 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
       }
       // Lower-case the label's first letter only when it is an ordinary word (keeps "GDP", "Treasury").
       const name = /^[A-Z][a-z]/.test(peers.label) ? peers.label.charAt(0).toLowerCase() + peers.label.slice(1) : peers.label;
-      summary.push(`Across ${peers.of} OECD countries (${periodLabel(peers.period)}), Australia ranks ${peers.rank} of ${peers.of} on ${name}, ${mid} the median of ${fmt(peers.median, peers.unit)}.`);
+      const rank = peers.bestFirst ? `${ordinal(peers.rank)} best of ${peers.of}` : `${ordinal(peers.rank)} highest of ${peers.of}`;
+      summary.push(`Across ${peers.of} OECD countries (${periodLabel(peers.period)}), Australia ranks ${rank} on ${name}, ${mid} the median of ${fmt(peers.median, peers.unit)}.`);
     }
   }
   return {
