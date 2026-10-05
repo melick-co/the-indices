@@ -4,6 +4,8 @@ import { indexById } from '@/content/indices/registry';
 import { sectionById } from '@/content/dashboard/economy';
 import { loadSection } from '@/lib/economy-dashboard';
 import { SectionView } from '@/components/dashboard/Views';
+import { PopulationView } from '@/components/dashboard/Population';
+import { loadPopulation } from '@/lib/population';
 
 // Section pages of the economy dashboard share this route with the composite indices (/indices/hsi).
 export const dynamic = 'force-dynamic';
@@ -19,6 +21,10 @@ const fmt = (n: number | null, d = 1) => (n == null ? '—' : n.toFixed(d));
 
 export default async function IndexOrSectionPage({ params }: { params: { id: string } }) {
   const section = sectionById(params.id);
+  if (section?.id === 'people') {
+    const [reading, d] = await Promise.all([loadSection(section), loadPopulation()]);
+    return <PopulationView dash={{ base: '/indices', name: 'Economy dashboard' }} reading={reading} d={d} />;
+  }
   if (section) return <SectionView dash={{ base: '/indices', name: 'Economy dashboard' }} reading={await loadSection(section)} />;
   return <IndexPage id={params.id} />;
 }
