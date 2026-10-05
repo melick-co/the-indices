@@ -63,7 +63,8 @@ export function Bars({ chart }: { chart: ReelChartFrame }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const max = Math.max(...chart.series.map((s) => Math.abs(s.value)), 1);
-  const step = stagger(chart.reveal, fps);
+  // The reveal finishes inside a second and a half whatever the count.
+  const step = chart.reveal === 'all_at_once' ? 0 : Math.min(stagger(chart.reveal, fps), Math.round((fps * 1.5) / Math.max(1, chart.series.length)));
   return (
     <ChartFrame chart={chart}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -173,26 +174,46 @@ export function RankSwap({ chart }: { chart: ReelChartFrame }) {
   );
 }
 
+/**
+ * Bars over time. A story's series can run to dozens of periods (the cash rate from 2003 was 27),
+ * so past a dozen bars the labels thin to the ends and the highlights, the values to the ends,
+ * the peak and the highlights, and the whole reveal still finishes inside a second and a half.
+ */
 export function Timeline({ chart }: { chart: ReelChartFrame }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const n = chart.series.length;
+  const dense = n > 12;
   const max = Math.max(...chart.series.map((s) => Math.abs(s.value)), 1);
-  const step = stagger(chart.reveal, fps);
+  const peak = chart.series.findIndex((s) => Math.abs(s.value) === max);
+  const step = chart.reveal === 'all_at_once' ? 0 : Math.min(stagger(chart.reveal, fps), Math.round((fps * 1.5) / Math.max(1, n)));
   const H = 360;
+  const labelled = (i: number) => !dense || i === 0 || i === n - 1 || Boolean(chart.series[i].highlight);
+  const valued = (i: number) => labelled(i) || i === peak;
+  const labelSize = n > 20 ? 18 : n > 8 ? 20 : 24;
   return (
     <ChartFrame chart={chart}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 18, height: H + 90, paddingTop: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: dense ? 6 : 18, height: H + 90, paddingTop: 10 }}>
         {chart.series.map((s, i) => {
           const g = grow(frame, fps, i * step);
           const shown = clamp(frame, [i * step + fps * 0.3, i * step + fps * 0.6], [0, 1]);
           const h = Math.max(6, (Math.abs(s.value) / max) * H) * g;
           return (
-            <div key={s.label} style={{
-              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 12, height: '100%',
+            <div key={`${s.label}-${i}`} style={{
+              flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 12, height: '100%',
             }}>
-              <span style={{ ...figure, fontSize: 24, opacity: shown }}>{formatNum(s.value)}</span>
-              <div style={{ width: '100%', maxWidth: 110, height: h, background: s.highlight ? NAVY : MUTED, borderRadius: 3 }} />
-              <span style={{ fontFamily: FONT.ui, fontSize: 24, color: FOSSIL, textAlign: 'center' }}>{s.label}</span>
+              <span style={{ ...figure, fontSize: dense ? 20 : 24, opacity: valued(i) ? shown : 0, whiteSpace: 'nowrap' }}>{formatNum(s.value)}</span>
+              <div style={{ width: '100%', maxWidth: 110, height: h, background: s.highlight ? NAVY : MUTED, borderRadius: dense ? 2 : 3 }} />
+              <span style={{
+                fontFamily: FONT.ui, fontSize: labelSize, lineHeight: 1.15, color: FOSSIL, textAlign: 'center',
+                minHeight: labelSize * 2.3, overflow: 'hidden', visibility: labelled(i) ? 'visible' : 'hidden',
+                // A dense axis keeps its end labels on one line and lets them sit past the bar's own column.
+                whiteSpace: dense ? 'nowrap' : 'normal', overflowWrap: 'anywhere',
+                ...(dense && i === 0 ? { alignSelf: 'flex-start', textAlign: 'left' } : {}),
+                ...(dense && i === n - 1 ? { alignSelf: 'flex-end', textAlign: 'right' } : {}),
+              }}>
+                {s.label}
+              </span>
             </div>
           );
         })}

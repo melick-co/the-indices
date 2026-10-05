@@ -2,10 +2,11 @@ import Link from 'next/link';
 import { QOL_SECTIONS } from '@/content/dashboard/quality-of-life';
 import { loadDashboard } from '@/lib/economy-dashboard';
 import { DashboardView } from '@/components/dashboard/Views';
+import { IX } from '@/lib/indices-paths';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'Quality of life dashboard — Caveat',
+  title: 'Quality of life dashboard — The Indices',
   description: 'How Australians are living: income, work, housing, health, skills, safety, life satisfaction and civic life, against the rest of the OECD.',
 };
 
@@ -14,7 +15,7 @@ export default async function QualityOfLifeDashboard() {
   const better = sections.filter((s) => s.headline.status === 'better').length;
   return (
     <DashboardView
-      dash={{ base: '/quality-of-life', name: 'Quality of life' }}
+      dash={{ base: IX.qol, name: 'Quality of life' }}
       kicker="Australia · quality of life dashboard"
       title="How are Australians living?"
       intro={<>
@@ -25,7 +26,7 @@ export default async function QualityOfLifeDashboard() {
         comparison.
       </>}
       sections={sections}
-      legendNote={<>Dates differ by measure: each tile shows the latest year available. See also the <Link href="/sentiment" className="studio-link">sentiment &amp; polls</Link> dashboard.</>}
+      legendNote={<>Dates differ by measure: each tile shows the latest year available. See also the <Link href={IX.sentiment} className="studio-link">sentiment &amp; polls</Link> dashboard.</>}
     />
   );
 }

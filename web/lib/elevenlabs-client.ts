@@ -214,8 +214,15 @@ export async function narrationVoiceId(): Promise<string> {
   return best.voice_id;
 }
 
-/** MP3 narration for a short script. */
-export async function synthesizeSpeech(text: string, voiceId?: string): Promise<Buffer> {
+/**
+ * MP3 narration for a short script, with the characters ElevenLabs billed for it: the
+ * `character-cost` response header when present, else the text's own length (one credit a
+ * character on the multilingual v2 model).
+ */
+export async function synthesizeSpeechWithCost(
+  text: string,
+  voiceId?: string,
+): Promise<{ audio: Buffer; characters: number; voiceId: string }> {
   const voice = voiceId ?? await narrationVoiceId();
   const res = await eleven(`/v1/text-to-speech/${voice}?output_format=mp3_44100_128`, {
     method: 'POST',
@@ -223,5 +230,15 @@ export async function synthesizeSpeech(text: string, voiceId?: string): Promise<
     body: JSON.stringify({ text, model_id: ELEVEN_TTS_MODEL }),
   });
   if (!res.ok) throw new MediaApiError(res.status, await res.text());
-  return Buffer.from(await res.arrayBuffer());
+  const billed = Number(res.headers.get('character-cost'));
+  return {
+    audio: Buffer.from(await res.arrayBuffer()),
+    characters: Number.isFinite(billed) && billed > 0 ? billed : text.length,
+    voiceId: voice,
+  };
+}
+
+/** MP3 narration for a short script. */
+export async function synthesizeSpeech(text: string, voiceId?: string): Promise<Buffer> {
+  return (await synthesizeSpeechWithCost(text, voiceId)).audio;
 }

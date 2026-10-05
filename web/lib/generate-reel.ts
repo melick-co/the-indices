@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
 import { CHARTER, MODEL } from '@/lib/research-agent';
+import { anthropicEntries, readAnthropicUsage, recordCosts, type AnthropicUsage } from '@/lib/story-costs';
 import { loadStoryBySlug } from '@/lib/stories-loader';
 import type { Story } from '@/lib/story-types';
 import {
@@ -12,6 +13,7 @@ import {
   REEL_FORMAT,
   REEL_SECONDS,
   SCENE_SECONDS,
+  fitSecondsToWords,
   validateReel,
   wordBudget,
   WORDS_PER_SECOND,
@@ -82,9 +84,10 @@ Rules that are checked mechanically after you answer, so breaking them wastes th
   or prose. Do not compute new ratios, growth rates, totals or per-capita figures. Restating a
   number in a different unit is fine; inventing one is not.
 - Do not add precision the story does not have. If it says 8.8, say 8.8 or 9, never 8.83.
-- Narration is a spoken read at about ${WORDS_PER_SECOND} words per second, so a scene of N seconds
-  carries roughly N x ${WORDS_PER_SECOND} words. Write to that, not past it.
-- Scenes run ${SCENE_SECONDS.min}-${SCENE_SECONDS.max}s. The whole reel runs ${REEL_SECONDS.min}-${REEL_SECONDS.max}s.
+- Narration is a spoken read at about ${WORDS_PER_SECOND} words per second. Each scene's seconds
+  are set from its word count at that pace after you answer, so every extra word lengthens the
+  reel. Say what the beat needs and no more.
+- Aim for scenes of ${SCENE_SECONDS.min}-${SCENE_SECONDS.max}s and a reel of ${REEL_SECONDS.min}-${REEL_SECONDS.max}s; a scene with more to say may run longer.
 - on_screen is burned in: at most ${ON_SCREEN_CHARS} characters. lower_third at most ${LOWER_THIRD_CHARS}.
 - Australian English. No em dashes or en dashes anywhere. No hype adjectives.
 - Headlines and on-screen text state the finding, not the topic.`;
@@ -217,7 +220,12 @@ Notes:
 - Include every locked scene id. Do not add scenes.`;
 }
 
-async function callAnthropic(system: string, user: string, maxTokens: number): Promise<string> {
+/** One model call, with the usage Anthropic reports so the stage can put it on the cost ledger. */
+async function callAnthropic(
+  system: string,
+  user: string,
+  maxTokens: number,
+): Promise<{ text: string; usage: AnthropicUsage }> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
@@ -238,10 +246,16 @@ async function callAnthropic(system: string, user: string, maxTokens: number): P
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
 
   const body = await res.json();
-  return (body.content ?? [])
+  const text = (body.content ?? [])
     .filter((c: { type: string }) => c.type === 'text')
     .map((c: { text: string }) => c.text)
     .join('\n');
+  return { text, usage: readAnthropicUsage(body.usage) };
+}
+
+/** Every stage write goes on the ledger, whether or not its JSON then parses: the tokens were spent. */
+async function recordStage(slug: string, stage: 'script' | 'storyboard' | 'prompts', usage: AnthropicUsage): Promise<void> {
+  await recordCosts(anthropicEntries(slug, stage, MODEL, usage, { stage }));
 }
 
 function parseModelJson<T>(raw: string, label: string): T {
@@ -253,14 +267,18 @@ function parseModelJson<T>(raw: string, label: string): T {
   }
 }
 
-/** Rounds seconds to whole frames' worth and keeps them inside the per-scene range. */
+/**
+ * Whole seconds, and never fewer than the narration needs at the house pace: the words decide the
+ * length. The writer's own figure stands when it is the longer.
+ */
 function normaliseScene(scene: Omit<ReelScene, 'id'> & { id?: string }, i: number): ReelScene {
-  const seconds = Math.round(Number(scene.seconds) || SCENE_SECONDS.min);
+  const narration = String(scene.narration ?? '').trim();
+  const seconds = fitSecondsToWords(Number(scene.seconds) || SCENE_SECONDS.min, narration);
   return {
     ...scene,
     id: scene.id || `s${i + 1}`,
     seconds,
-    narration: String(scene.narration ?? '').trim(),
+    narration,
     on_screen: String(scene.on_screen ?? '').trim(),
     lower_third: scene.lower_third ? String(scene.lower_third).trim() : undefined,
     visual_prompt: String(scene.visual_prompt ?? '').trim(),
@@ -336,7 +354,8 @@ async function generateScript(
   const story = await loadStoryForVideo(slug);
 
   onProgress('Writing the script from the findings');
-  const raw = await callAnthropic(structureSystem(), scriptUserPrompt(story), 4000);
+  const { text: raw, usage } = await callAnthropic(structureSystem(), scriptUserPrompt(story), 4000);
+  await recordStage(slug, 'script', usage);
   const model = parseModelJson<{
     scenes: Array<Omit<ReelScene, 'id' | 'visual_prompt'>>;
     generation_note?: string;
@@ -409,11 +428,12 @@ async function generateStoryboard(
   if (!script.length) throw new Error('The saved script has no scenes. Rewrite the script first.');
 
   onProgress('Drawing the storyboard against the locked script');
-  const raw = await callAnthropic(
+  const { text: raw, usage } = await callAnthropic(
     structureSystem(),
     storyboardUserPrompt(story, script),
     6000,
   );
+  await recordStage(slug, 'storyboard', usage);
   const model = parseModelJson<{ scenes: StoryboardModelScene[] }>(raw, 'Storyboard generator');
   if (!Array.isArray(model.scenes) || !model.scenes.length) {
     throw new Error('Storyboard generator returned no scenes');

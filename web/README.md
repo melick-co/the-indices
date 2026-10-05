@@ -197,5 +197,22 @@ Remotion is free for individuals, non-profits and for-profits of up to three peo
 a company licence is required (remotion.pro). Not in the cut yet: music (the audio direction's
 sparse bed) and word-level captions.
 
+### What a video costs
+
+Every billable call made for a story goes on `story_costs` (migration `40_story_costs.sql`,
+`lib/story-costs.ts`): the Anthropic tokens of each script and storyboard write, each ElevenLabs
+still, clip and voice read (the `character-cost` header when ElevenLabs sends it), the runner
+minutes of each cut, and the hero illustration, clip and reads. Regenerations are more rows, so a
+story's total is everything ever spent on it. The reel page shows the total by stage under "Cost
+so far".
+
+Prices are rows in `story_cost_price`, copied onto each cost row at write time so history keeps
+the price it was made at. The seeded rows are list prices read on 5 October 2026: Claude Sonnet
+4.6 per token, one ElevenLabs credit at the Pro, Scale and Business rate (about $0.000165; set it
+to the plan in use), runner minutes at $0 because the repository is public. ElevenLabs does not
+publish credits per image or per second of video, so those two skus start unpriced: the page
+counts them and marks the total as a floor until the figures are set from the account's usage
+page. A failed ledger write is logged and never stops a generation.
+
 ## Not yet built
 - OG image generation per story

@@ -2,7 +2,8 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createVideo, isMediaConfigured, synthesizeSpeech, waitForTask, type ImageRef } from '@/lib/elevenlabs-client';
+import { createVideo, ELEVEN_TTS_MODEL, ELEVEN_VIDEO_MODEL, isMediaConfigured, synthesizeSpeechWithCost, waitForTask, type ImageRef } from '@/lib/elevenlabs-client';
+import { recordCost, SKU } from '@/lib/story-costs';
 import { heroPrompt } from '@/lib/hero-image';
 import { attachGeneratedArt } from '@/lib/story-art';
 import { hasFfmpeg, mediaDuration, webVideo } from '@/lib/media-encode';
@@ -57,6 +58,10 @@ export async function generateHeroVideo(
     }), 10 * 60 * 1000);
     const src = task.output?.[0];
     if (task.status !== 'SUCCEEDED' || !src) { log(`Hero video ${task.status}: ${task.failure ?? 'no output'}`); return null; }
+    await recordCost({
+      slug: story.slug, stage: 'hero_video', provider: 'elevenlabs', model: ELEVEN_VIDEO_MODEL,
+      sku: SKU.elevenVideo(ELEVEN_VIDEO_MODEL), quantity: CLIP_SECONDS, unit: 'second', detail: { generation: task.id, resolution: '1080p' },
+    }, log);
     const videoRes = await fetch(src);
     if (!videoRes.ok) { log(`Hero video download failed (${videoRes.status}).`); return null; }
     const videoFile = join(dir, 'video.mp4');
@@ -68,7 +73,13 @@ export async function generateHeroVideo(
     for (const [i, line] of narrationCandidates(story).entries()) {
       try {
         const file = join(dir, `vo-${i}.mp3`);
-        await writeFile(file, await synthesizeSpeech(line));
+        const read = await synthesizeSpeechWithCost(line);
+        await writeFile(file, read.audio);
+        // Each candidate read is billed, fitting or not.
+        await recordCost({
+          slug: story.slug, stage: 'hero_voice', provider: 'elevenlabs', model: ELEVEN_TTS_MODEL, sku: SKU.elevenCredit,
+          quantity: read.characters, unit: 'credit', detail: { candidate: i, voice: read.voiceId },
+        }, log);
         const secs = await mediaDuration(file);
         if (secs > 0 && secs <= CLIP_SECONDS - 0.3) { narration = line; audioFile = file; break; }
         log(`  Voiceover "${line.slice(0, 60)}" runs ${secs.toFixed(1)}s; too long for the clip.`);
