@@ -16,14 +16,18 @@ export const REEL_FORMAT = {
   fps: 30,
 };
 
-/** The pace a reel is written to: brisk, still clear. Quoted to the generator. */
-export const WORDS_PER_SECOND = 3;
+/**
+ * The pace a reel is written to, and the pace the voice actually reads at. Measured 5 October 2026
+ * on the first real cut: ElevenLabs read nine scenes at 2.1 to 2.4 words a second, so a board
+ * written to the old 3 stretched every scene and ran 97 seconds. Quoted to the generator.
+ */
+export const WORDS_PER_SECOND = 2.3;
 
 /**
  * The pace past which a read stops fitting its scene. Sits above the target so a scene is only
  * flagged for a real overrun, not for landing a word or two long.
  */
-export const WORD_CEILING_PER_SECOND = 3.6;
+export const WORD_CEILING_PER_SECOND = 2.7;
 
 export const SCENE_SECONDS = { min: 3, max: 9 };
 export const REEL_SECONDS = { min: 20, max: 75 };
