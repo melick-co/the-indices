@@ -17,7 +17,7 @@ import {
   type MediaTask,
   type MediaTaskStatus,
 } from '@/lib/elevenlabs-client';
-import { compactRunwayPrompt } from '@/lib/runway-prompts';
+import { compactRunwayPrompt, madeWithoutText } from '@/lib/runway-prompts';
 import { recordCost, SKU } from '@/lib/story-costs';
 import { clipDuration } from '@/lib/elevenlabs-client';
 import {
@@ -299,12 +299,19 @@ async function allRows(slug: string): Promise<RenderRow[]> {
   return (data ?? []) as RenderRow[];
 }
 
+/**
+ * The still a video job may animate from. A still made under the old prompt, with the model's
+ * lettering drawn in, does not count: animating it carries the lettering into the clip, so the
+ * scene is drawn again instead (the fourth real cut, 5 October 2026, found every regeneration had
+ * animated the old stills and no scene had a clean picture). Chart stills are traced from the
+ * locked series and are taken as they are.
+ */
 function latestStillUrl(rows: RenderRow[], sceneId: string): string | null {
   const latest = latestByKey(rows);
   const chart = latest.get(`${sceneId}:chart`);
   const still = latest.get(`${sceneId}:still`);
   if (chart?.status === 'succeeded' && chart.output_url) return chart.output_url;
-  if (still?.status === 'succeeded' && still.output_url) return still.output_url;
+  if (still?.status === 'succeeded' && still.output_url && madeWithoutText(still)) return still.output_url;
   return null;
 }
 

@@ -184,6 +184,11 @@ draw a number or a word:
   and the MP4 goes into the `reel-renders` bucket with a `story_reel_renders` row (kind `reel`,
   model `remotion`, `prompt_text` the account of what ran). A storyboard with an untraced chart
   figure is refused.
+- Pictures are prompted without text (`NO_TEXT_RULE` in `lib/runway-prompts.ts`) because the cut
+  burns the words and charts itself. A still made before that rule is never used behind a scene and
+  never animated: "Generate whole reel" and a scene's video button draw the scene again first and
+  chain the clip from the new still. The cut's log lists every picture row with its status and
+  prompt type, so a regeneration that failed shows up with its reason.
 - It runs on the GitHub runner, not on Vercel: `agent.yml` task `reel-cut` with the story slug as
   the pitch input. The reel page's "Cut the reel" button queues a row and dispatches that task when
   `GITHUB_DISPATCH_TOKEN` (a fine-grained token with Actions: write on this repo; optional

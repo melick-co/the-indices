@@ -60,6 +60,16 @@ export const NO_TEXT_RULE =
   + 'Keep the top third and bottom quarter of the frame quiet (plain wall, soft background).';
 
 /**
+ * Whether a picture was made under the no-text rule. Earlier pictures were prompted with the
+ * script and came back with the model's own lettering; a cut then burned the real text on top, and
+ * a clip animated from one carries the lettering into the moving picture. Anything that puts a
+ * picture behind text, or animates one, checks this first.
+ */
+export function madeWithoutText(row: { prompt_text: string | null }): boolean {
+  return Boolean(row.prompt_text && row.prompt_text.includes(NO_TEXT_RULE.slice(0, 24)));
+}
+
+/**
  * Style notes without the clauses about type, straps and charts, which a generator reads as things
  * to draw. Split on sentence and clause ends so "the charts move, not the camera" goes while
  * "Presenter holds still" stays.
