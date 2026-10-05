@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createTextToImage, isMediaConfigured, waitForTask } from '@/lib/elevenlabs-client';
 import { STORY_ART_BUCKET, attachGeneratedArt } from '@/lib/story-art';
 import { webImage } from '@/lib/media-encode';
+import { recordCost, SKU } from '@/lib/story-costs';
+import { ELEVEN_IMAGE_MODEL } from '@/lib/elevenlabs-client';
 
 /**
  * Generate a landscape hero still for a story with ElevenLabs (Gemini 3 Pro
@@ -32,6 +34,10 @@ export async function generateHeroImage(
   const task = await waitForTask(await createTextToImage({ promptText: prompt, ratio: '16:9', resolution: '2K' }));
   const src = task.output?.[0];
   if (task.status !== 'SUCCEEDED' || !src) { log(`Hero image ${task.status}: ${task.failure ?? 'no output'}`); return null; }
+  await recordCost({
+    slug: story.slug, stage: 'hero_image', provider: 'elevenlabs', model: ELEVEN_IMAGE_MODEL,
+    sku: SKU.elevenImage(ELEVEN_IMAGE_MODEL), quantity: 1, unit: 'image', detail: { generation: task.id, resolution: '2K' },
+  }, log);
 
   const img = await fetch(src);
   if (!img.ok) { log(`Hero image download failed (${img.status}).`); return null; }

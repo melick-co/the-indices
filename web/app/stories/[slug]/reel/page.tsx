@@ -7,6 +7,7 @@ import { loadReel } from '@/lib/generate-reel';
 import { loadStoryBySlug } from '@/lib/stories-loader';
 import { VIDEO_STAGE_LABEL } from '@/lib/reel-types';
 import ReelRenderer from '@/components/ReelRenderer';
+import ReelCosts from '@/components/ReelCosts';
 import ReelActions from './ReelActions';
 import ReelPayload from './ReelPayload';
 
@@ -83,6 +84,7 @@ export default async function ReelPage({
             {(reel.stage === 'storyboard' || reel.stage === 'prompts') && (
               <ReelRenderer slug={story.slug} scenes={reel.spec.scenes} />
             )}
+            <ReelCosts slug={story.slug} />
           </>
         ) : (
           <p className="reel-lede">
