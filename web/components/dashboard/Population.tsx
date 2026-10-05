@@ -108,7 +108,10 @@ function ComponentsChart({ data }: { data: PopulationData['annual'] }) {
             <title>{`${r.period}: natural increase ${n(r.natural)}, net overseas migration ${signed(r.nom)}`}</title>
             <rect x={x} width={w} y={natTop} height={Math.max(0.5, natBottom - natTop)} className="nat" />
             <rect x={x} width={w} y={nomTop} height={Math.max(0.5, nomBottom - nomTop)} className={`nom${nomPos ? '' : ' neg'}`} />
-            {(i % 5 === 0 || i === rows.length - 1) && <text x={x + w / 2} y={H - 8} textAnchor="middle">{label}</text>}
+            {(i % 5 === 0 || i === rows.length - 1) && (
+              // The last label ends at its bar's right edge so it is never cut off by the chart edge.
+              <text x={i === rows.length - 1 ? x + w : x + w / 2} y={H - 8} textAnchor={i === rows.length - 1 ? 'end' : 'middle'}>{label}</text>
+            )}
             {CLOSED.includes(r.period) && (
               // The border-closure years: each one's net overseas migration, under its bar.
               <text className="dx-stack-value" x={x + w / 2} y={(r.nom < 0 ? nomBottom : y(0)) + 12} textAnchor="middle">{k(r.nom)}</text>
