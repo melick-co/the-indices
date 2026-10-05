@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReelScene } from '@/lib/reel-types';
 import {
+  CUT_MODEL,
   REEL_SCENE_ID,
   RENDER_KIND_LABEL,
   type RenderKind,
@@ -84,6 +85,9 @@ export default function ReelRenderer({
   }, [renders]);
 
   const open = renders.some((r) => r.status === 'queued' || r.status === 'running');
+  const isWholeReel = (r: StoryReelRender) => r.sceneId === REEL_SCENE_ID && r.kind === 'reel';
+  const cut = renders.find((r) => isWholeReel(r) && r.model === CUT_MODEL);
+  const reel = renders.find((r) => isWholeReel(r) && r.model !== CUT_MODEL);
 
   const apply = useCallback((data: RenderListResponse) => {
     setConfigured(data.configured);
@@ -150,17 +154,61 @@ export default function ReelRenderer({
     }
   }
 
-  const reel = byKey.get(`${REEL_SCENE_ID}:reel`);
+  async function startCut() {
+    setBusy('cut');
+    setNote(null);
+    try {
+      const res = await fetch(`/api/stories/${slug}/reel/cut`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `Failed (${res.status})`);
+      setNote(data.message);
+      await load();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : 'The cut could not be queued');
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const missingKey = configured === false;
 
   return (
+    <>
     <section className="runway-block">
-      <h2 className="reel-h2">ElevenLabs render</h2>
+      <h2 className="reel-h2">The cut</h2>
       <p className="reel-lede">
-        After the prompt pack, ElevenLabs draws the stills and animates the clips.
-        Chart scenes send the locked series and caption; the model is not asked
-        for new figures. Jobs are async: we poll ElevenLabs until each task lands,
-        then copy the file into our storage before the download link expires.
+        Remotion renders the locked storyboard to one MP4: every chart and every line of burned-in
+        text is drawn from the traced figures, and ElevenLabs reads each scene. A scene without a
+        chart takes its generated still or clip from below as the picture behind the text, when one
+        exists. The render runs on the GitHub runner and takes a few minutes; this page follows it.
+      </p>
+      <div className="runway-toolbar">
+        <button
+          type="button"
+          className="reel-action-primary"
+          disabled={busy !== null || (cut !== undefined && (cut.status === 'queued' || cut.status === 'running'))}
+          onClick={startCut}
+        >
+          {busy === 'cut' ? 'Queueing…' : cut?.status === 'succeeded' ? 'Cut again' : 'Cut the reel'}
+        </button>
+        {cut && <Status render={cut} />}
+      </div>
+      {cut?.status === 'succeeded' && <Preview render={cut} />}
+      {cut?.status === 'succeeded' && (
+        <details className="runway-series">
+          <summary>What this cut ran</summary>
+          <pre className="reel-code">{cut.promptText}</pre>
+        </details>
+      )}
+    </section>
+
+    <section className="runway-block">
+      <h2 className="reel-h2">ElevenLabs pictures</h2>
+      <p className="reel-lede">
+        After the prompt pack, ElevenLabs draws the stills and animates the clips that the cut
+        places behind its text. Chart scenes send the locked series and caption; the model is not
+        asked for new figures, and the cut draws charts itself. Jobs are async: we poll ElevenLabs
+        until each task lands, then copy the file into our storage before the download link expires.
       </p>
 
       {missingKey && (
@@ -235,5 +283,6 @@ export default function ReelRenderer({
         })}
       </div>
     </section>
+    </>
   );
 }

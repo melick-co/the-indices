@@ -169,6 +169,33 @@ and rank, and the current vintage. It reads the published JSON in
 `content/indices/`, so it needs no database and new indices appear automatically
 once their vintage is committed.
 
+## Video cut
+
+`/stories/[slug]/reel` writes a reel in three locked passes (script, storyboard, prompt pack;
+`lib/reel-types.ts`). The cut turns the locked storyboard into one MP4 without asking a model to
+draw a number or a word:
+
+- `remotion/` is the composition: one scene layout per scene kind (`scenes.tsx`) and the four chart
+  kinds drawn frame by frame from the traced series (`charts.tsx`), in the site's own fonts and
+  palette. Nothing counts up or ticks over, so no frame shows a figure the story never stated.
+- `lib/reel-cut.ts` plans and renders it: ElevenLabs reads each scene (the read is measured with
+  ffmpeg and a scene stretches to fit it, never the reverse), a scene without a chart takes its
+  newest ElevenLabs still or clip from the ledger as the picture behind the text, Remotion renders,
+  and the MP4 goes into the `reel-renders` bucket with a `story_reel_renders` row (kind `reel`,
+  model `remotion`, `prompt_text` the account of what ran). A storyboard with an untraced chart
+  figure is refused.
+- It runs on the GitHub runner, not on Vercel: `agent.yml` task `reel-cut` with the story slug as
+  the pitch input. The reel page's "Cut the reel" button queues a row and dispatches that task when
+  `GITHUB_DISPATCH_TOKEN` (a fine-grained token with Actions: write on this repo; optional
+  `GITHUB_DISPATCH_REPO`) is set in Vercel; without it, run the task by hand and the row picks up
+  the result. The page polls the ledger until the cut lands.
+- Locally: `npm run reel-cut -- --demo --out=demo.mp4` renders the sample scenes with no database
+  and no voice, to check the look. `REMOTION_BROWSER=/path/to/chrome` skips the headless shell
+  download. `npm run check:reel-cut` runs the planning checks.
+
+Remotion is free for individuals, non-profits and for-profits of up to three people; beyond that
+a company licence is required (remotion.pro). Not in the cut yet: music (the audio direction's
+sparse bed) and word-level captions.
+
 ## Not yet built
-- Remotion render pipeline for MP4 story videos
 - OG image generation per story
