@@ -4845,3 +4845,44 @@ a.dx-driver:hover { background: #f5f7fb; }
   .ix-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .ix-tile-value { font-size: 1.2rem; }
 }
+
+/* Visuals: posters in the Visual Capitalist manner */
+.vz-page { max-width: 880px; margin: 0 auto; padding: 24px 20px 64px !important; }
+.vz-crumb { margin: 0 0 12px; font-size: .8rem; } .vz-crumb a { color: #2e4170; text-decoration: none; }
+.vz-poster { background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 14px rgba(16,24,40,.08); border: 1px solid #dfe4ec; }
+.vz-head { background: #0f1830; color: #fff; padding: 22px 26px 20px; }
+.vz-brand { display: inline-flex; align-items: center; gap: 8px; font-size: .7rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; color: #a9b6d3; }
+.vz-title { margin: 10px 0 6px; font-size: 1.9rem; line-height: 1.12; font-weight: 800; letter-spacing: -.015em; color: #fff; }
+.vz-sub { margin: 0; color: #c9d3e8; font-size: .95rem; line-height: 1.45; }
+.vz-chart { padding: 18px 20px 10px; }
+.vz-svg { display: block; width: 100%; height: auto; font-family: inherit; }
+.vz-svg text { font-size: 12px; fill: #121a2b; }
+.vz-label { font-weight: 550; }
+.vz-row rect { fill: #9fb3d6; } .vz-row.hl rect { fill: #c2372d; } .vz-row.hl text { font-weight: 800; fill: #c2372d; }
+.vz-value { fill: #5b6b85 !important; font-size: 11px !important; font-variant-numeric: tabular-nums; }
+.vz-median line { stroke: #121a2b; stroke-dasharray: 4 3; stroke-width: 1; } .vz-median text { font-size: 11px; fill: #121a2b; font-weight: 650; }
+.vz-tile-label { font-size: 12px; fill: #fff !important; font-weight: 600; } .vz-tile-label.dark { fill: #121a2b !important; }
+.vz-tile-share { font-size: 16px; font-weight: 800; } .vz-tile-value { font-size: 11px; opacity: .85; }
+.vz-dumb line { stroke: #c3cad6; stroke-width: 3; }
+.vz-dumb circle.prior, .vz-legend circle.prior { fill: #c3cad6; }
+.vz-dumb.up circle.now, .vz-legend circle.now { fill: #2e4170; } .vz-dumb.down circle.now { fill: #c2372d; }
+.vz-dumb.up line { stroke: #8db8e8; } .vz-dumb.down line { stroke: #f0b4ae; }
+.vz-dumb.down .vz-value { fill: #c2372d !important; }
+.vz-legend text { font-size: 11px; fill: #5b6b85; }
+.vz-takeaways { padding: 6px 26px 18px; }
+.vz-takeaways h2 { margin: 0 0 8px; font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #2e4170; }
+.vz-takeaways ul { margin: 0; padding-left: 18px; } .vz-takeaways li { margin: 0 0 6px; line-height: 1.5; font-size: .95rem; color: #121a2b; }
+.vz-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding: 12px 26px; border-top: 1px solid #e6eaf1; background: #f7f9fc; font-size: .72rem; color: #5b6b85; }
+.vz-foot a { color: #2e4170; }
+.vz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.vz-card { display: flex; flex-direction: column; gap: 6px; text-decoration: none !important; color: inherit; }
+.vz-card .vz-poster { transition: transform .15s, box-shadow .15s; }
+.vz-card:hover .vz-poster { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(16,24,40,.12); }
+.vz-poster.compact .vz-head { padding: 14px 16px 12px; } .vz-poster.compact .vz-title { font-size: 1.1rem; } .vz-poster.compact .vz-sub { display: none; }
+.vz-poster.compact .vz-chart { padding: 10px; max-height: 260px; overflow: hidden; }
+.vz-card-meta { font-size: .72rem; color: #5b6b85; }
+.vz-videos { margin-top: 24px; } .vz-videos h2 { font-size: 1rem; color: #1d2a48; }
+.vz-video-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.vz-video-row figure { margin: 0; } .vz-video-row video { max-height: 420px; max-width: 100%; border-radius: 8px; background: #000; }
+.vz-video-row figcaption { font-size: .72rem; color: #5b6b85; text-align: center; }
+@media (max-width: 760px) { .vz-title { font-size: 1.4rem; } .vz-head, .vz-takeaways, .vz-foot { padding-left: 16px; padding-right: 16px; } }

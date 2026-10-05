@@ -10,6 +10,7 @@ export const IX = {
   polls: '/indices/sentiment/polls',
   population: '/indices/population',
   pnl: '/indices/australia-inc',
+  visuals: '/indices/visuals',
   /** Caveat composite indices (e.g. the Household Squeeze Index). */
   composite: (id: string) => `/indices/${id}`,
 } as const;

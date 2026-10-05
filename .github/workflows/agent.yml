@@ -20,12 +20,14 @@ on:
     # (Supabase dispatches it at each event's exact time once its GitHub token is set; see 34_events.sql).
     - cron: '23 2 * * *'
     - cron: '41 0-8 * * 1-5'
+    # Visuals for The Indices: one a day at about 8am Sydney (web/scripts/generate-visuals.ts, daily cap in the script).
+    - cron: '19 21 * * *'
   workflow_dispatch:
     inputs:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, reel-cut, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, visuals, visuals-dry-run, visuals-list, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, reel-cut, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, story-refresh(-apply): story slug(s). Space separated.'
@@ -273,6 +275,34 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+
+  visuals:
+    # Visual Capitalist-style graphics for The Indices: pick a dataset, write the words from its numbers, check every
+    # number, publish under the daily cap. pitch input = a dataset key to force (e.g. rank:hsl_11_1).
+    if: >-
+      github.event_name == 'workflow_dispatch' && startsWith(inputs.task, 'visuals') ||
+      github.event_name == 'schedule' && github.event.schedule == '19 21 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run: { working-directory: web }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm ci --silent
+      - run: npm install @supabase/supabase-js --no-save --silent
+        working-directory: agent
+      - name: Generate visuals
+        run: >-
+          npx tsx --import ./scripts/node-shims.mjs scripts/generate-visuals.ts
+          ${{ inputs.task == 'visuals-dry-run' && '--dry-run' || inputs.task == 'visuals-list' && '--list' || '' }}
+        env:
+          VISUAL_KEY: ${{ inputs.pitch }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
   story-refresh:
     # Rewrite published articles in the house news style (web/scripts/refresh-stories.ts; pitch input = slugs).
