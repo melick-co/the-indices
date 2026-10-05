@@ -19,8 +19,12 @@ export const VOICE_LEAD_SECONDS = 0.2;
 /** Room left after the last word before the scene cuts. */
 export const VOICE_TAIL_SECONDS = 0.4;
 
-/** A model-drawn picture behind a scene's text. Never a chart: charts are drawn here from the series. */
-export type CutMedia = { kind: 'image' | 'video'; url: string; seconds?: number };
+/**
+ * A model-drawn picture behind a scene's text. Never a chart: charts are drawn here from the series.
+ * `file` is a copy in the bundle's public folder, which the composition prefers to the URL so the
+ * render never waits on the network; `seconds` is measured from that copy and lets a short clip loop.
+ */
+export type CutMedia = { kind: 'image' | 'video'; url: string; file?: string; seconds?: number };
 
 /** One scene's narration as an audio file in the bundle's public folder, with its measured length. */
 export type CutVoice = { file: string; seconds: number };
