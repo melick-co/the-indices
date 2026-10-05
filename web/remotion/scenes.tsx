@@ -158,22 +158,29 @@ function Standard({ scene, index, total }: SceneProps) {
   );
 }
 
+/** The charter rules out em dashes in burned-in text; a label written with one is set with a comma. */
+function noDash(text: string): string {
+  return text.replace(/\s*—\s*/g, ', ').replace(/\s*–\s*(?=[A-Za-z])/g, ', ');
+}
+
 function OneNumber({ scene, index, total, props }: SceneProps) {
   const number = props.oneNumber;
   const value = number?.value ?? '';
   const size = value.length > 7 ? 120 : value.length > 4 ? 160 : 210;
+  // When the board's headline is the number itself, the big figure carries it alone.
+  const headline = scene.on_screen.trim() === value.trim() ? null : scene.on_screen;
   return (
     <Frame scene={scene}>
       <Kicker left="One number" index={index} total={total} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 36, flex: 1, justifyContent: 'center' }}>
-        <OnScreen text={scene.on_screen} size={scene.on_screen.length > 40 ? 50 : 58} />
+        {headline && <OnScreen text={headline} size={headline.length > 40 ? 50 : 58} />}
         {number && (
           <div style={useArrival(0.5)}>
             <div style={{ fontFamily: FONT.mono, fontWeight: 500, fontSize: size, lineHeight: 1, color: NAVY, fontVariantNumeric: 'tabular-nums' }}>
               {value}
             </div>
             <div style={{ fontFamily: FONT.ui, fontSize: 36, lineHeight: 1.3, color: CHARCOAL, marginTop: 20, maxWidth: CONTENT_WIDTH }}>
-              {number.label}
+              {noDash(number.label)}
             </div>
           </div>
         )}
