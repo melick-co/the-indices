@@ -46,7 +46,11 @@ export function Change({ reading }: { reading: Reading }) {
   if (!latest || !previous) return null;
   const d = latest.value - previous.value;
   if (Math.abs(d) < 1e-9) return <span className="dash-change">unchanged</span>;
-  const good = reading.indicator.higherIsBetter === undefined ? null : (d > 0) === reading.indicator.higherIsBetter;
+  const b = reading.indicator.benchmark;
+  // Against a target band, a move towards the band is good and a move away is bad; inside the band, neither.
+  const good = b.kind === 'target'
+    ? (latest.value > b.high ? d < 0 : latest.value < b.low ? d > 0 : null)
+    : reading.indicator.higherIsBetter === undefined ? null : (d > 0) === reading.indicator.higherIsBetter;
   const rate = ['percent', 'percent_gdp', 'pts'].includes(reading.indicator.unit ?? '');
   const abs = reading.indicator.unit && absoluteChange[reading.indicator.unit];
   const size = abs ? abs(Math.abs(d)) : rate ? `${Math.abs(Math.round(d * 100) / 100)} pts` : `${Math.abs(Math.round((d / Math.abs(previous.value)) * 1000) / 10)}%`;
