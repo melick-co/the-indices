@@ -14,7 +14,7 @@ async function main() {
   for (const [name, sections] of dashboards) for (const { section, headline, others } of sections) {
     console.log(`\n## ${name}: ${section.title}`);
     for (const r of [headline, ...others]) {
-      const v = r.latest ? `${formatReading(r.latest.value, r.indicator.unit)} (${r.latest.period})` : 'NO DATA';
+      const v = r.latest ? `${formatReading(r.latest.value, r.indicator.unit, r.indicator.decimals)} (${r.latest.period})` : 'NO DATA';
       console.log(`- ${r === headline ? '[headline] ' : ''}${r.indicator.label}: ${v} · ${r.verdict || r.status} [${r.status}] · history ${r.history.length}${r.peers ? ` · OECD ${r.peers.rank}/${r.peers.of} (${r.peers.period})` : ''}`);
       for (const s of r.summary) console.log(`    ${s}`);
     }

@@ -38,14 +38,14 @@ export function StatusBadge({ reading }: { reading: Reading }) {
 
 export function Value({ reading, big = false }: { reading: Reading; big?: boolean }) {
   if (!reading.latest) return <span className="dash-value">—</span>;
-  return <span className={big ? 'dash-value big' : 'dash-value'}>{formatReading(reading.latest.value, reading.indicator.unit)}</span>;
+  return <span className={big ? 'dash-value big' : 'dash-value'}>{formatReading(reading.latest.value, reading.indicator.unit, reading.indicator.decimals)}</span>;
 }
 
 /** Short forms for tight columns (driver rows, ticker): "22.2/100k", "498 pts". Summaries keep the full wording. */
-export function compactReading(v: number, unit: Reading['indicator']['unit']): string {
+export function compactReading(v: number, unit: Reading['indicator']['unit'], decimals?: number): string {
   if (unit === 'per_100k') return `${Math.round(v * 10) / 10}/100k`;
   if (unit === 'points') return `${Math.round(v)} pts`;
-  return formatReading(v, unit);
+  return formatReading(v, unit, decimals);
 }
 const COMPACT_CHANGE: Partial<Record<NonNullable<Reading['indicator']['unit']>, (d: number) => string>> = {
   per_100k: (d) => `${Math.round(d * 10) / 10}/100k`, points: (d) => `${Math.round(d)} pts`,
@@ -167,7 +167,7 @@ export function DeviationBar({ reading }: { reading: Reading }) {
   const pct = Math.min(50, (Math.abs(dev) / scale) * 50);
   const side = dev >= 0 ? { left: '50%' } : { right: '50%' };
   return (
-    <span className={`dx-dev ${tone(reading)}`} title={`${formatReading(reading.latest.value, reading.indicator.unit)} against ${ref.label}`}>
+    <span className={`dx-dev ${tone(reading)}`} title={`${formatReading(reading.latest.value, reading.indicator.unit, reading.indicator.decimals)} against ${ref.label}`}>
       <span className="dx-dev-fill" style={{ ...side, width: `${pct}%` }} />
       <span className="dx-dev-mid" />
     </span>

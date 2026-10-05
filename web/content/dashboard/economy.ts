@@ -22,6 +22,8 @@ export type Indicator = {
   label: string;
   /** Short plain name for tiles. */
   short?: string;
+  /** Minimum decimal places for this reading ("0.0%" rather than "0%"). */
+  decimals?: number;
   /** The subject for summary sentences when the label does not read as one ("The share of people in poverty"). */
   subject?: string;
   /** Why the number matters, in one or two sentences. */
@@ -62,7 +64,7 @@ export const SECTIONS: Section[] = [
     title: 'Growth & living standards',
     question: 'Is the economy growing faster than the population it supports?',
     headline: {
-      metric_id: 'gdp_per_capita_qoq_au', label: 'Real GDP per person, quarterly growth', short: 'GDP per person',
+      metric_id: 'gdp_per_capita_qoq_au', label: 'Real GDP per person, quarterly growth', short: 'GDP per person', decimals: 1,
       why: 'Output per resident is the closest single measure of living standards: headline GDP can grow while each person\'s share shrinks.',
       benchmark: { kind: 'average', years: 10 }, higherIsBetter: true, history: 40, unit: 'percent',
       peers: { metric_id: 'gdp_per_capita', label: 'GDP per person (US dollars)', unit: 'usd' },

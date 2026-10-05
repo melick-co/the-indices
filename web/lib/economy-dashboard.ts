@@ -36,7 +36,20 @@ export type Reading = {
 export const ordinal = (n: number) => `${n}${[11, 12, 13].includes(n % 100) ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 const round = (n: number, d = 2) => Math.round(n * 10 ** d) / 10 ** d;
 
-function fmt(n: number, unit: Indicator['unit']): string {
+/** At least `min` decimal places ("0" → "0.0"), keeping any extra precision the value has ("0.18" stays). */
+function atLeast(text: string, min?: number): string {
+  if (!min) return text;
+  const m = text.match(/^([^0-9-]*-?[\d,]+)(?:\.(\d+))?(.*)$/);
+  if (!m) return text;
+  const dec = m[2] ?? '';
+  return dec.length >= min ? text : `${m[1]}.${dec.padEnd(min, '0')}${m[3]}`;
+}
+
+function fmt(n: number, unit: Indicator['unit'], minDecimals?: number): string {
+  return atLeast(fmtBase(n, unit), minDecimals);
+}
+
+function fmtBase(n: number, unit: Indicator['unit']): string {
   const a = Math.abs(n);
   switch (unit) {
     case 'percent': case 'percent_gdp': return `${round(n, a < 10 ? 2 : 1)}%`;
@@ -215,9 +228,9 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
     const p = latest.period;
     const when = /^\d{4}-Q/.test(p) ? `in the ${periodLabel(p)}` : /^\d{4}-\d{2}$/.test(p) ? `in ${periodLabel(p)}` : /^\d{4}$/.test(p) ? `in ${p}` : null;
     const was = ind.step
-      ? `${ind.subject ?? ind.label} has been ${fmt(latest.value, u)} since ${periodLabel(p)}`
-      : `${ind.subject ?? ind.label} was ${fmt(latest.value, u)} ${when ?? `at ${periodLabel(p)}`}`;
-    summary.push(`${was}${previous ? `, ${changeText(latest.value, previous.value, u)} on the previous reading (${fmt(previous.value, u)})` : ''}.`);
+      ? `${ind.subject ?? ind.label} has been ${fmt(latest.value, u, ind.decimals)} since ${periodLabel(p)}`
+      : `${ind.subject ?? ind.label} was ${fmt(latest.value, u, ind.decimals)} ${when ?? `at ${periodLabel(p)}`}`;
+    summary.push(`${was}${previous ? `, ${changeText(latest.value, previous.value, u)} on the previous reading (${fmt(previous.value, u, ind.decimals)})` : ''}.`);
     if (b.kind === 'target') {
       verdict = status === 'on-target' ? `Within the ${b.low}–${b.high}% target` : `${status === 'above' ? 'Above' : 'Below'} the ${b.low}–${b.high}% target`;
       summary.push(status === 'on-target'
