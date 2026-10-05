@@ -4756,3 +4756,22 @@ a.dx-driver:hover { background: #f5f7fb; }
 
 .dx-grid.two.flush { margin-bottom: 0; gap: 20px; }
 .dx-rank-track span.out { background: color-mix(in srgb, var(--dx-bad) 60%, white); }
+
+/* Australia Inc. income statement */
+.dx-pnl-wrap { overflow-x: auto; }
+.dx-pnl { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.dx-pnl th { padding: 8px 12px; text-align: right; font-size: .66rem; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; color: var(--dx-muted); border-bottom: 1px solid var(--dx-line); white-space: nowrap; }
+.dx-pnl td { padding: 7px 12px; text-align: right; border-bottom: 1px solid #f0f2f6; white-space: nowrap; }
+.dx-pnl td:first-child { text-align: left; white-space: normal; font-weight: 550; width: 42%; min-width: 260px; }
+.dx-pnl { min-width: 720px; }
+.dx-pnl td small { display: block; font-size: .7rem; font-weight: 400; color: var(--dx-muted); }
+.dx-pnl tr.sub td { background: #f5f7fb; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--dx-navy); }
+.dx-pnl tr.total td { font-weight: 700; border-top: 1px solid var(--dx-navy); background: #fafbfd; }
+.dx-pnl tr.less td:nth-child(2), .dx-pnl tr.less td:nth-child(3) { color: var(--dx-bad); }
+.dx-pnl tr.bottom td { font-weight: 800; font-size: .95rem; color: #fff; background: var(--dx-navy); border-top: 2px solid var(--dx-navy); }
+.dx-pnl tr.bottom td small { color: var(--dx-on-navy-muted); }
+.dx-pnl td.up { color: var(--dx-navy-3); } .dx-pnl td.down { color: var(--dx-muted); }
+.dx-pnl tr.bottom td.up, .dx-pnl tr.bottom td.down { color: #fff; }
+.dx-pad { padding: 0 14px 14px; }
+.dx-band-link { text-decoration: none !important; margin-top: 16px; }
+.dx-band-link:hover { background: var(--dx-navy-3); }

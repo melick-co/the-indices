@@ -8,6 +8,7 @@ import { loadEconomyDashboard, loadDashboard, formatReading } from '@/lib/econom
 import { QOL_SECTIONS } from '@/content/dashboard/quality-of-life';
 import { SENTIMENT_SECTIONS } from '@/content/dashboard/sentiment';
 import { currentMeasure, headToHead, loadPolls, moodCheck, pollAverage } from '@/lib/polls';
+import { loadPnl } from '@/lib/pnl';
 
 async function main() {
   const dashboards = [['Economy', await loadEconomyDashboard()], ['Quality of life', await loadDashboard(QOL_SECTIONS)], ['Sentiment', await loadDashboard(SENTIMENT_SECTIONS)]] as const;
@@ -42,5 +43,16 @@ async function main() {
   const check = moodCheck(consumers, net, wrong);
   console.log(`- mood check: ${check.verdict}`);
   for (const l of check.lines) console.log(`    ${l}`);
+  const pnl = await loadPnl();
+  if (!pnl) console.log('\n## Australia Inc.: NO DATA');
+  else {
+    const { now: n, prior, population, years } = pnl;
+    const b = (m: number) => `${(m / 1000).toFixed(1)}bn`;
+    console.log(`\n## Australia Inc.: four quarters to ${n.end} (population ${population?.value} at ${population?.period})`);
+    for (const [k, v] of Object.entries(n)) if (typeof v === 'number') console.log(`- ${k}: ${b(v)}${prior && typeof (prior as Record<string, unknown>)[k] === 'number' ? ` (a year earlier ${b((prior as unknown as Record<string, number>)[k])})` : ''}`);
+    const income = n.coe + n.profitsPrivate + n.profitsFinancial + n.profitsPublic + n.govSurplus + n.homes + n.smallBusiness + n.taxes + n.discrepancy;
+    console.log(`- check: income lines sum ${b(income)} vs GDP ${b(n.gdp)}; GDP − paid abroad − depreciation + transfers − consumption = ${b(n.gdp - n.paidAbroad - n.depreciation + n.transfers - n.consumptionHh - n.consumptionGov)} vs saving ${b(n.saving)}`);
+    console.log(`- margin by financial year: ${years.slice(-6).map((y) => `${y.fy} ${y.savingRate.toFixed(1)}%`).join(', ')}`);
+  }
 }
 main().catch((e) => { console.error(e); process.exit(1); });
