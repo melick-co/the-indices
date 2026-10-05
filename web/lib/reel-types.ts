@@ -29,6 +29,11 @@ export const WORDS_PER_SECOND = 2.3;
  */
 export const WORD_CEILING_PER_SECOND = 2.7;
 
+/**
+ * The range a scene and a reel are written to. A scene whose words need longer runs longer
+ * (Marcel, 5 October 2026: the words decide the length, not the other way round), so these are
+ * the limits on padding, not on the read: see secondsForWords and validateReel.
+ */
 export const SCENE_SECONDS = { min: 3, max: 9 };
 export const REEL_SECONDS = { min: 20, max: 75 };
 
@@ -159,6 +164,16 @@ export function wordBudget(seconds: number): number {
   return Math.floor(seconds * WORD_CEILING_PER_SECOND);
 }
 
+/** The seconds a read of this many words needs at the house pace, whole seconds, never under the scene minimum. */
+export function secondsForWords(words: number): number {
+  return Math.max(SCENE_SECONDS.min, Math.ceil(words / WORDS_PER_SECOND));
+}
+
+/** A scene runs for the longer of what the writer set and what its words need. */
+export function fitSecondsToWords(seconds: number, narration: string): number {
+  return Math.max(Math.round(seconds) || SCENE_SECONDS.min, secondsForWords(wordCount(narration)));
+}
+
 function numbersIn(text: string): number[] {
   // Strips grouping commas so "1,234.5" reads as one number rather than two.
   const matches = text.replace(/(\d),(?=\d{3}\b)/g, '$1').match(/-?\d+(?:\.\d+)?/g);
@@ -282,13 +297,15 @@ export function validateReel(
   const checked = scenes.map((scene, i) => {
     const ref = `Scene ${i + 1} (${scene.kind})`;
 
-    if (scene.seconds < SCENE_SECONDS.min || scene.seconds > SCENE_SECONDS.max) {
+    const words = wordCount(scene.narration);
+    // Length that the words need is never a fault; padding past both the range and the read is.
+    const longest = Math.max(SCENE_SECONDS.max, secondsForWords(words));
+    if (scene.seconds < SCENE_SECONDS.min || scene.seconds > longest) {
       warnings.push(
         `${ref}: ${scene.seconds}s is outside the ${SCENE_SECONDS.min}-${SCENE_SECONDS.max}s range`,
       );
     }
 
-    const words = wordCount(scene.narration);
     const budget = wordBudget(scene.seconds);
     if (words > budget) {
       warnings.push(
@@ -353,7 +370,8 @@ export function validateReel(
   }
 
   const total = checked.reduce((sum, s) => sum + s.seconds, 0);
-  if (total < REEL_SECONDS.min || total > REEL_SECONDS.max) {
+  const needed = checked.reduce((sum, s) => sum + secondsForWords(wordCount(s.narration)), 0);
+  if (total < REEL_SECONDS.min || total > Math.max(REEL_SECONDS.max, needed)) {
     warnings.push(
       `Reel runs ${total}s, outside the ${REEL_SECONDS.min}-${REEL_SECONDS.max}s a reel holds`,
     );
