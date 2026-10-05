@@ -110,6 +110,17 @@ export function checkNumbers(text: string, factText: string, years: Set<number>)
 
 type Copy = { title: string; subtitle: string; takeaways: string[]; alt: string };
 
+/** The last JSON object in a model reply, even if the model wrote reasoning around it; null if there is none. */
+export function extractJson<T>(raw: string): T | null {
+  const text = raw.replace(/```json|```/g, '');
+  for (let end = text.lastIndexOf('}'); end >= 0; end = text.lastIndexOf('}', end - 1)) {
+    for (let start = text.lastIndexOf('{', end); start >= 0; start = text.lastIndexOf('{', start - 1)) {
+      try { return JSON.parse(text.slice(start, end + 1)) as T; } catch { /* keep widening */ }
+    }
+  }
+  return null;
+}
+
 async function write(d: Dataset, factLines: string[], feedback?: string): Promise<Copy> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY is not set');
@@ -133,7 +144,9 @@ ${factLines.map((l) => `- ${l}`).join('\n')}${feedback ? `\n\nYour last draft fa
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const body = await res.json();
   const raw = (body.content ?? []).filter((c: { type: string }) => c.type === 'text').map((c: { text: string }) => c.text).join('\n');
-  return JSON.parse(raw.replace(/```json|```/g, '').trim()) as Copy;
+  const copy = extractJson<Copy>(raw);
+  if (!copy) throw new Error('the writer returned no JSON');
+  return copy;
 }
 
 /**
@@ -144,18 +157,22 @@ async function auditClaims(c: Copy, factLines: string[]): Promise<string[]> {
   const key = process.env.ANTHROPIC_API_KEY!;
   const system = `You audit the words of a data graphic against its facts. Be strict.
 For every sentence, check each claim (values, comparisons such as "less than half", counts such as "20 countries", ranking positions such as "second-lowest", superlatives, "only", "all") against the facts. A claim passes only if the facts state it or it follows by simple exact reading of the listed values and ranks. Check arithmetic yourself where a claim implies it (e.g. half of 90.7 is 45.35).
-Return JSON only: {"problems": ["<quote the wrong words> — <why>"]} with an empty list if everything is supported.`;
+Reply with the JSON object only, no reasoning before or after: {"problems": ["<quote the wrong words> — <why>"]}, with an empty list if everything is supported.`;
   const user = `Facts:\n${factLines.map((l) => `- ${l}`).join('\n')}\n\nWords to audit:\nTitle: ${c.title}\nSubtitle: ${c.subtitle}\n${c.takeaways.map((t, i) => `Takeaway ${i + 1}: ${t}`).join('\n')}\nAlt: ${c.alt}`;
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 700, system, messages: [{ role: 'user', content: user }] }),
-  });
-  if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const body = await res.json();
-  const raw = (body.content ?? []).filter((x: { type: string }) => x.type === 'text').map((x: { text: string }) => x.text).join('\n');
-  const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim()) as { problems?: string[] };
-  return (parsed.problems ?? []).map((p) => `claim: ${p}`);
+  // Two tries at a parseable verdict; no verdict is a failure, never a pass.
+  for (let tryNo = 0; tryNo < 2; tryNo++) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: MODEL, max_tokens: 1200, system, messages: [{ role: 'user', content: user }] }),
+    });
+    if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    const body = await res.json();
+    const raw = (body.content ?? []).filter((x: { type: string }) => x.type === 'text').map((x: { text: string }) => x.text).join('\n');
+    const parsed = extractJson<{ problems?: string[] }>(raw);
+    if (parsed && Array.isArray(parsed.problems)) return parsed.problems.map((p) => `claim: ${p}`);
+  }
+  return ['claim audit returned no verdict'];
 }
 
 function styleProblems(c: Copy): string[] {
