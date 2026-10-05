@@ -68,7 +68,9 @@ for (const kind of ['still', 'clip'] as const) {
   assert.match(picture, /Presenter centre frame/);
   assert.doesNotMatch(picture, /LOCKED SCRIPT|ON SCREEN|LOWER THIRD|VO:/);
   assert.doesNotMatch(picture, /Rents not mentioned|29 September/);
-  assert.doesNotMatch(picture, /Plex Mono|tabular|Charts drawn/);
+  assert.doesNotMatch(picture, /Plex Mono|tabular|Charts drawn|burned-in text|charts move/);
+  assert.match(picture, /Presenter holds still/);
+  assert.match(picture, /LOOK: Swiss editorial grid/);
 }
 // A chart scene asked for a picture still gets no chart in it: the cut draws the chart.
 const chartPicture = compactRunwayPrompt({ scene: chartScene, storyTitle: 'Rank', style, kind: 'still' });

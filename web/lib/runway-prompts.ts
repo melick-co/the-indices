@@ -57,14 +57,18 @@ function pack(keep: string, optional: string[], max: number): string {
 export const NO_TEXT_RULE =
   'NO TEXT OF ANY KIND in the frame: no lettering, captions, titles, straps, numbers, charts, graphs, '
   + 'logos, screens or interface. Titles and charts are added afterwards over this picture. '
-  + 'Keep the top third and the bottom quarter of the frame quiet (plain wall, soft background) '
-  + 'so the text added later sits clear of the subject.';
+  + 'Keep the top third and bottom quarter of the frame quiet (plain wall, soft background).';
 
-/** Look notes without the typography and chart cues, which would otherwise be read as things to draw. */
-function pictureLook(style: ReelStyle): string {
-  return style.look
-    .split(/(?<=\.)\s+/)
-    .filter((sentence) => !/mono|figure|label|strap|chart|caption|tabular|letter/i.test(sentence))
+/**
+ * Style notes without the clauses about type, straps and charts, which a generator reads as things
+ * to draw. Split on sentence and clause ends so "the charts move, not the camera" goes while
+ * "Presenter holds still" stays.
+ */
+function pictureNotes(text: string): string {
+  return text
+    .split(/(?<=[.;])\s+/)
+    .filter((clause) => !/mono|figure|label|strap|chart|caption|tabular|letter|text|third/i.test(clause))
+    .map((clause) => clause.replace(/;$/, '.'))
     .join(' ');
 }
 
@@ -86,9 +90,10 @@ function picturePrompt(
   const motion = opts.kind === 'clip'
     ? 'Animate this first frame. Subtle motion only: the presenter holds, the camera holds, nothing is added to the frame.'
     : 'STILL FRAME, photographic, raw off-white paper tones.';
+  const presenter = `PRESENTER: Single presenter, piece to camera, framed centre. ${pictureNotes(opts.style.presenter)}`;
   const keep = pack(header, [NO_TEXT_RULE, `SCENE: ${scene.visual_prompt}`], max);
   return clipUtf16(
-    pack(keep, [motion, `PRESENTER: ${opts.style.presenter}`, `LOOK: ${pictureLook(opts.style)}`], max),
+    pack(keep, [motion, presenter, `LOOK: ${pictureNotes(opts.style.look)}`], max),
     max,
   );
 }
