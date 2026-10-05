@@ -125,15 +125,29 @@ function Nameplate({ size = 112 }: { size?: number }) {
 
 type SceneProps = { scene: CutScene; index: number; total: number; props: CutProps };
 
+/**
+ * The cold open. On paper the headline sits mid-frame; over a picture it drops to the bottom third,
+ * where the backdrop wash is strongest and the subject (a presenter, centre frame) is not under it.
+ */
 function ColdOpen({ scene, props }: SceneProps) {
+  const headline = <OnScreen text={scene.on_screen} size={scene.on_screen.length > 36 ? 76 : 92} at={0.3} />;
   return (
     <Frame scene={scene}>
       <div>
         <Nameplate />
         <div style={{ ...mono, marginTop: 22 }}>{props.story.kicker}</div>
       </div>
-      <OnScreen text={scene.on_screen} size={scene.on_screen.length > 36 ? 76 : 92} at={0.3} />
-      <LowerThird text={scene.lower_third} />
+      {scene.media ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
+          {headline}
+          <LowerThird text={scene.lower_third} />
+        </div>
+      ) : (
+        <>
+          {headline}
+          <LowerThird text={scene.lower_third} />
+        </>
+      )}
     </Frame>
   );
 }
@@ -149,7 +163,8 @@ function Standard({ scene, index, total }: SceneProps) {
           <Chart chart={scene.chart} />
         </>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: centred ? 'center' : 'flex-start', flex: 1, paddingTop: centred ? 0 : 40 }}>
+        // Over a picture the headline sits low, in the strongest part of the wash, clear of the subject.
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: centred ? 'center' : 'flex-end', flex: 1, paddingBottom: centred ? 0 : 40 }}>
           <OnScreen text={scene.on_screen} size={centred ? (scene.on_screen.length > 40 ? 72 : 88) : 68} />
         </div>
       )}
