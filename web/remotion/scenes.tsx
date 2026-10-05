@@ -1,5 +1,5 @@
 import React from 'react';
-import { AbsoluteFill, Easing, Img, Loop, OffthreadVideo, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Easing, Img, Loop, OffthreadVideo, interpolate, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import type { CutMedia, CutProps, CutScene } from '../lib/reel-cut-types';
 import { framesFor } from '../lib/reel-cut-types';
 import { Chart } from './charts';
@@ -80,12 +80,13 @@ function Backdrop({ media, seconds }: { media: CutMedia; seconds: number }) {
   const total = framesFor(seconds);
   const scale = 1 + (frame / Math.max(1, total)) * 0.06;
   const clipFrames = media.seconds && media.seconds > 0 ? framesFor(media.seconds) : null;
-  const video = <OffthreadVideo src={media.url} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
+  const src = media.file ? staticFile(media.file) : media.url;
+  const video = <OffthreadVideo src={src} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
   return (
     <AbsoluteFill>
       <AbsoluteFill style={{ transform: media.kind === 'image' ? `scale(${scale})` : undefined }}>
         {media.kind === 'image'
-          ? <Img src={media.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ? <Img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : clipFrames && clipFrames < total
             ? <Loop durationInFrames={clipFrames}>{video}</Loop>
             : video}
