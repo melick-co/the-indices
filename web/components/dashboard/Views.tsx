@@ -32,7 +32,7 @@ function Ticker({ dash, s }: { dash: DashboardRef; s: SectionReading }) {
   return (
     <Link href={`${dash.base}/${s.section.id}/${h.key}`} className={`dx-tick ${tone(h)}`}>
       <span className="dx-tick-label"><Icon name={sectionIcon(s.section.id)} size={13} />{h.indicator.short ?? h.indicator.label}</span>
-      <span className="dx-tick-value">{h.latest ? compactReading(h.latest.value, h.indicator.unit) : '—'}</span>
+      <span className="dx-tick-value">{h.latest ? compactReading(h.latest.value, h.indicator.unit, h.indicator.decimals) : '—'}</span>
       <span className="dx-tick-meta"><Change reading={h} compact />{h.latest && <span>{periodLabel(h.latest.period)}</span>}</span>
     </Link>
   );
@@ -49,7 +49,7 @@ export function DriverRow({ href, r }: { href?: string; r: Reading }) {
         <span className="dx-driver-ref">{ref ? `vs ${ref.label}` : r.verdict}</span>
       </span>
       <DeviationBar reading={r} />
-      <span className="dx-driver-value">{r.latest ? compactReading(r.latest.value, r.indicator.unit) : '—'}</span>
+      <span className="dx-driver-value">{r.latest ? compactReading(r.latest.value, r.indicator.unit, r.indicator.decimals) : '—'}</span>
       <span className="dx-driver-change"><Change reading={r} compact /></span>
     </>
   );
@@ -71,7 +71,7 @@ function SectionCard({ dash, s }: { dash: DashboardRef; s: SectionReading }) {
       <Link href={`${dash.base}/${section.id}/${h.key}`} className="dx-headline">
         <span className="dx-headline-label">{h.indicator.short ?? h.indicator.label}{h.latest && <span className="dx-period">{periodLabel(h.latest.period)}</span>}</span>
         <span className="dx-headline-row">
-          <span className="dx-big">{h.latest ? formatReading(h.latest.value, h.indicator.unit) : '—'}</span>
+          <span className="dx-big">{h.latest ? formatReading(h.latest.value, h.indicator.unit, h.indicator.decimals) : '—'}</span>
           <span className="dx-headline-side"><ToneChip reading={h} /><Change reading={h} /></span>
         </span>
         <Trend points={h.history.slice(-36)} step={h.indicator.step} refValue={b.kind === 'target' ? null : ref?.value} tone={tone(h)}
@@ -140,7 +140,7 @@ export function SectionView({ dash, reading }: { dash: DashboardRef; reading: Se
           </Link>
           <div className="dx-headline static">
             <span className="dx-headline-row">
-              <span className="dx-big">{h.latest ? formatReading(h.latest.value, h.indicator.unit) : '—'}</span>
+              <span className="dx-big">{h.latest ? formatReading(h.latest.value, h.indicator.unit, h.indicator.decimals) : '—'}</span>
               <span className="dx-headline-side"><ToneChip reading={h} /><Change reading={h} /></span>
             </span>
             <Trend points={h.history} step={h.indicator.step} height={110} refValue={b.kind === 'target' ? null : ref?.value} tone={tone(h)}

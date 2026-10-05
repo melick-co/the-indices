@@ -19,7 +19,7 @@ export default async function EconomyDashboard() {
       intro={<>
         Seven sections, each led by the number economists watch, with the indicators that explain it alongside.
         Every reading is official data, judged against its target where there is one and otherwise against its own
-        ten-year average. {good} of {sections.length} headline readings are on target or better than usual.
+        ten-year average. {good} of {sections.length} headline readings {good === 1 ? 'is' : 'are'} on target or better than usual.
         Open any section or number for what it means and how Australia compares.
       </>}
       sections={sections}
