@@ -5,8 +5,8 @@
  *      pop_erp_q, pop_births_q, pop_deaths_q, pop_natural_increase_q, pop_os_arrivals_q, pop_os_departures_q,
  *      pop_nom_q, pop_change_q, the same as rolling twelve-month sums (…_12m), and pop_growth_rate_12m (%).
  *  - Breakdowns (agent/supabase/38_breakdowns.sql): residents by country of birth (ERP_COB), migrant arrivals
- *    and departures by visa group (OMAD_VISA, quarterly), short-term visitor arrivals by reason (OAD_REASON) and by
- *    country of residence (OAD_COUNTRY).
+ *    and departures by visa group (OMAD_VISA, quarterly), and short-term movements by reason (OAD_REASON) and
+ *    country (OAD_COUNTRY): visitors arriving, and Australian residents returning from trips abroad.
  *
  *   node scripts/load-population.mjs --dry-run   fetch and print, write nothing
  *   node scripts/load-population.mjs             upsert
@@ -118,23 +118,26 @@ async function breakdowns() {
       category_level: r.VISA === '1041' ? 'total' : ['1020', '1040', '22'].includes(r.VISA) ? 'group' : 'item',
       period: r.TIME_PERIOD, value: Math.round(r.value), source_url: src('OMAD_VISA', '..AUS.Q') });
   }
-  // Short-term visitor arrivals by main reason, all lengths of stay, monthly.
-  const reason = await absCsv('OAD_REASON', '06.TOT..10.M');
+  // Short-term movements, monthly: visitors arriving (traveller category 06) and Australian residents returning from
+  // trips abroad (05; for residents the country dimension is the main destination). Reasons since 1975, countries
+  // since 2005.
   const reasonNames = await codeNames('OAD_REASON', 'JOUR_REASON');
-  for (const r of reason) {
-    out.push({ dataset: 'visitors_reason', category: r.JOUR_REASON, category_name: reasonNames.get(r.JOUR_REASON) ?? r.JOUR_REASON,
-      category_level: r.JOUR_REASON === 'TOT' ? 'total' : 'item', period: r.TIME_PERIOD, value: Math.round(r.value),
-      source_url: src('OAD_REASON', '06.TOT..10.M') });
-  }
-  // Short-term visitor arrivals by country of residence, monthly, from 2005.
-  const country = await absCsv('OAD_COUNTRY', '06..10.M', '?startPeriod=2005-01');
   const countryNames = await codeNames('OAD_COUNTRY', 'COUNTRY_RESID');
-  for (const r of country) {
-    const code = r.COUNTRY_RESID;
-    const name = countryNames.get(code) ?? code;
-    out.push({ dataset: 'visitors_country', category: code, category_name: name,
-      category_level: code === 'TOT' ? 'total' : /^total/i.test(name) || /^T/.test(code) ? 'group' : 'item',
-      period: r.TIME_PERIOD, value: Math.round(r.value), source_url: src('OAD_COUNTRY', '06..10.M') });
+  for (const [cat, prefix] of [['06', 'visitors'], ['05', 'residents_trips']]) {
+    const reason = await absCsv('OAD_REASON', `${cat}.TOT..10.M`);
+    for (const r of reason) {
+      out.push({ dataset: `${prefix}_reason`, category: r.JOUR_REASON, category_name: reasonNames.get(r.JOUR_REASON) ?? r.JOUR_REASON,
+        category_level: r.JOUR_REASON === 'TOT' ? 'total' : 'item', period: r.TIME_PERIOD, value: Math.round(r.value),
+        source_url: src('OAD_REASON', `${cat}.TOT..10.M`) });
+    }
+    const country = await absCsv('OAD_COUNTRY', `${cat}..10.M`, '?startPeriod=2005-01');
+    for (const r of country) {
+      const code = r.COUNTRY_RESID;
+      const name = countryNames.get(code) ?? code;
+      out.push({ dataset: `${prefix}_country`, category: code, category_name: name,
+        category_level: code === 'TOT' ? 'total' : /^total/i.test(name) || /^T/.test(code) ? 'group' : 'item',
+        period: r.TIME_PERIOD, value: Math.round(r.value), source_url: src('OAD_COUNTRY', `${cat}..10.M`) });
+    }
   }
   return out;
 }

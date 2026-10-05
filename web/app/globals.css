@@ -4754,6 +4754,9 @@ a.dx-driver:hover { background: #f5f7fb; }
 @container (max-width: 860px) { .dx-tick { flex-basis: calc(100% / var(--cols-md, var(--cols, 5)) - 1px); } }
 @container (max-width: 480px) { .dx-tick { flex-basis: calc(100% / var(--cols-sm, 2) - 1px); } }
 
+.dx-grid.two.flush { margin-bottom: 0; gap: 20px; }
+.dx-rank-track span.out { background: color-mix(in srgb, var(--dx-bad) 60%, white); }
+
 /* Australia Inc. income statement */
 .dx-pnl-wrap { overflow-x: auto; }
 .dx-pnl { width: 100%; border-collapse: collapse; font-size: .86rem; }

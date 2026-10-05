@@ -49,8 +49,62 @@ function pack(keep: string, optional: string[], max: number): string {
 }
 
 /**
+ * The rule a picture is made under. The cut (lib/reel-cut.ts) burns the on-screen line, the lower
+ * third and every chart itself, so a picture that carries its own lettering ends up with two
+ * versions of the text on top of each other, one of them the model's misspelling. Measured on the
+ * second real cut, 5 October 2026: "Rents alcoay falling", "Sepulibution", a chart behind a chart.
+ */
+export const NO_TEXT_RULE =
+  'NO TEXT OF ANY KIND in the frame: no lettering, captions, titles, straps, numbers, charts, graphs, '
+  + 'logos, screens or interface. Titles and charts are added afterwards over this picture. '
+  + 'Keep the top third and bottom quarter of the frame quiet (plain wall, soft background).';
+
+/**
+ * Style notes without the clauses about type, straps and charts, which a generator reads as things
+ * to draw. Split on sentence and clause ends so "the charts move, not the camera" goes while
+ * "Presenter holds still" stays.
+ */
+function pictureNotes(text: string): string {
+  return text
+    .split(/(?<=[.;])\s+/)
+    .filter((clause) => !/mono|figure|label|strap|chart|caption|tabular|letter|text|third/i.test(clause))
+    .map((clause) => clause.replace(/;$/, '.'))
+    .join(' ');
+}
+
+/**
+ * A prompt for the picture behind a scene (a still, or a clip animated from it). It carries the
+ * visual direction, the presenter and the palette, and none of the script: the words are not the
+ * generator's to draw.
+ */
+function picturePrompt(
+  opts: { scene: ReelScene; storyTitle: string; style: ReelStyle; kind: RunwayPromptKind },
+  max: number,
+): string {
+  const scene = opts.scene;
+  const header = [
+    `Caveat vertical news explainer, 9:16.`,
+    `Story: ${opts.storyTitle}`,
+    `Shot ${scene.kind.replace('_', ' ')} · ${scene.seconds}s`,
+  ].join(' ');
+  const motion = opts.kind === 'clip'
+    ? 'Animate this first frame. Subtle motion only: the presenter holds, the camera holds, nothing is added to the frame.'
+    : 'STILL FRAME, photographic, raw off-white paper tones.';
+  const presenterNotes = pictureNotes(opts.style.presenter);
+  const presenter = /^single presenter/i.test(presenterNotes)
+    ? `PRESENTER: ${presenterNotes}`
+    : `PRESENTER: Single presenter, piece to camera, framed centre. ${presenterNotes}`;
+  const keep = pack(header, [NO_TEXT_RULE, `SCENE: ${scene.visual_prompt}`], max);
+  return clipUtf16(
+    pack(keep, [motion, presenter, `LOOK: ${pictureNotes(opts.style.look)}`], max),
+    max,
+  );
+}
+
+/**
  * One Runway prompt per shot, under the 1000 UTF-16-unit cap. Chart values
  * and the locked VO are packed first so truncation can only eat look notes.
+ * Pictures (still, clip) take the no-text form above; chart shots keep the lock.
  */
 export function compactRunwayPrompt(opts: {
   scene: ReelScene;
@@ -61,6 +115,7 @@ export function compactRunwayPrompt(opts: {
 }): string {
   const max = opts.maxChars ?? RUNWAY_PROMPT_MAX;
   const scene = opts.scene;
+  if (opts.kind === 'still' || opts.kind === 'clip') return picturePrompt(opts, max);
   const chart = scene.chart;
   const lock = chart ? chartLockBlock(chart) : '';
 

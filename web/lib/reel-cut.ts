@@ -96,8 +96,32 @@ export async function renderCut(
 
 type MediaRow = { scene_id: string; kind: string; output_url: string | null; content_type: string | null; created_at: string };
 
+function mediaExtension(row: MediaRow): string {
+  const type = row.content_type ?? '';
+  if (type.includes('png')) return 'png';
+  if (type.includes('webp')) return 'webp';
+  if (type.includes('jpeg') || type.includes('jpg')) return 'jpg';
+  if (type.includes('quicktime')) return 'mov';
+  return row.kind === 'clip' ? 'mp4' : 'png';
+}
+
+/**
+ * Copy a picture into the bundle's public folder. The composition then reads it from disk rather
+ * than over the network, and a clip's length can be read locally: the static ffmpeg on the runner
+ * cannot open an https URL, which is how the first real cut lost every clip's length.
+ */
+async function fetchMedia(row: MediaRow, publicDir: string): Promise<string | null> {
+  if (!row.output_url) return null;
+  const res = await fetch(row.output_url);
+  if (!res.ok) return null;
+  const file = `media/${row.scene_id}-${row.kind}.${mediaExtension(row)}`;
+  await mkdir(join(publicDir, 'media'), { recursive: true });
+  await writeFile(join(publicDir, file), Buffer.from(await res.arrayBuffer()));
+  return file;
+}
+
 /** Newest succeeded ElevenLabs clip, else still, per scene. Chart renders are not pictures and are skipped. */
-async function latestMedia(slug: string, canProbe: boolean, log: CutLog): Promise<Map<string, CutMedia>> {
+async function latestMedia(slug: string, publicDir: string, canProbe: boolean, log: CutLog): Promise<Map<string, CutMedia>> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('story_reel_renders')
@@ -114,15 +138,25 @@ async function latestMedia(slug: string, canProbe: boolean, log: CutLog): Promis
     if (row.kind === 'clip') {
       if (out.get(row.scene_id)?.kind === 'video') continue;
       const media: CutMedia = { kind: 'video', url: row.output_url };
-      if (canProbe) {
-        const secs = await mediaDuration(row.output_url);
-        if (secs > 0) media.seconds = Math.round(secs * 100) / 100;
-        else log(`  Could not read the length of the clip for ${row.scene_id}; it will not loop.`);
+      const file = await fetchMedia(row, publicDir).catch(() => null);
+      if (file) {
+        media.file = file;
+        if (canProbe) {
+          const secs = await mediaDuration(join(publicDir, file));
+          if (secs > 0) media.seconds = Math.round(secs * 100) / 100;
+          else log(`  Could not read the length of the clip for ${row.scene_id}; it will not loop.`);
+        }
+      } else {
+        log(`  Could not fetch the clip for ${row.scene_id}; the render will stream it and it will not loop.`);
       }
       out.set(row.scene_id, media);
     } else if (!out.has(row.scene_id) && !seenStill.has(row.scene_id)) {
       seenStill.add(row.scene_id);
-      out.set(row.scene_id, { kind: 'image', url: row.output_url });
+      const media: CutMedia = { kind: 'image', url: row.output_url };
+      const file = await fetchMedia(row, publicDir).catch(() => null);
+      if (file) media.file = file;
+      else log(`  Could not fetch the still for ${row.scene_id}; the render will stream it.`);
+      out.set(row.scene_id, media);
     }
   }
   return out;
@@ -193,7 +227,7 @@ export async function cutReel(slug: string, opts: { log?: CutLog } = {}): Promis
     if (!ffmpeg) log('ffmpeg unavailable: scene lengths stay as the storyboard set them, clips will not loop.');
 
     log('Pictures from the ledger…');
-    const media = await latestMedia(slug, ffmpeg, log);
+    const media = await latestMedia(slug, publicDir, ffmpeg, log);
     log(`  ${media.size} scene${media.size === 1 ? '' : 's'} with a generated picture`);
 
     log('Voice…');
