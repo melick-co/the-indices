@@ -2,7 +2,7 @@ import Link from 'next/link';
 import StoryChart from '@/components/StoryChart';
 import { Trend } from '@/components/dashboard/DashParts';
 import { Icon } from '@/components/dashboard/Icons';
-import { DriverRow, Hero, Legend, type DashboardRef } from '@/components/dashboard/Views';
+import { DriverRow, Hero, Legend, tickerStyle, type DashboardRef } from '@/components/dashboard/Views';
 import type { SectionReading } from '@/lib/economy-dashboard';
 import { windowLabel, type PopulationData, type Ranked } from '@/lib/population';
 
@@ -155,7 +155,7 @@ export function PopulationView({ dash, reading, d }: { dash: DashboardRef; readi
     <main className="dx">
       <Hero kicker={<><Link href={dash.base}>{dash.name}</Link> · {section.title}</>} title="How fast is the population growing, and why?"
         intro={growth && pop && d.latestQ ? <>Australia&apos;s population was {millions(pop.value)} at the end of the {qWord(d.latestQ)}, up {n(growth.value)} ({rate?.value}%) in a year. {migShare != null && <>Net overseas migration supplied {migShare}% of that growth and natural increase (births less deaths) the rest.</>}</> : null}>
-        <div className="dx-ticker">
+        <div className="dx-ticker" style={tickerStyle([pop, growth, ni, nom, v].filter(Boolean).length)}>
           {pop && <span className="dx-tick neutral"><span className="dx-tick-label"><Icon name="users" size={13} />Population</span><span className="dx-tick-value">{millions(pop.value)}</span><span className="dx-tick-meta">{qWord(pop.period)}</span></span>}
           {growth && <span className="dx-tick neutral"><span className="dx-tick-label"><Icon name="trend" size={13} />Growth, 12 months</span><span className="dx-tick-value">{signed(growth.value)}</span><span className="dx-tick-meta">{rate ? `${rate.value}% a year` : ''}</span></span>}
           {ni && <span className="dx-tick neutral"><span className="dx-tick-label"><Icon name="heart" size={13} />Natural increase</span><span className="dx-tick-value">{signed(ni.value)}</span><span className="dx-tick-meta">births less deaths</span></span>}
