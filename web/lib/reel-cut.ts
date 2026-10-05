@@ -5,6 +5,7 @@ import { bundle } from '@remotion/bundler';
 import { ensureBrowser, renderMedia, selectComposition } from '@remotion/renderer';
 import { createClient } from '@/lib/supabase-server';
 import { loadReel } from '@/lib/generate-reel';
+import { pollRenders } from '@/lib/generate-runway';
 import { loadStoryBySlug } from '@/lib/stories-loader';
 import { validateReel, type ReelScene } from '@/lib/reel-types';
 import { ELEVEN_TTS_MODEL, isMediaConfigured, narrationVoiceId, synthesizeSpeechWithCost } from '@/lib/elevenlabs-client';
@@ -38,6 +39,8 @@ export type CutLog = (message: string) => void;
 
 const BUCKET = 'reel-renders';
 const WEB_ROOT = resolve(__dirname, '..');
+/** How long the cut waits for ElevenLabs jobs the page left open. A clip takes one to three minutes. */
+const SETTLE_MINUTES = 4;
 /** Checkout, Node, npm ci and ffmpeg on the runner before this script starts: 30 to 40 seconds measured. */
 const RUNNER_SETUP_MINUTES = 0.6;
 
@@ -140,6 +143,38 @@ async function fetchMedia(row: MediaRow, publicDir: string): Promise<string | nu
   return file;
 }
 
+/**
+ * Finish what the page started. ElevenLabs jobs only move while the reel page is open and polling,
+ * so a still or clip generated and then left behind sits queued forever and the cut never sees it.
+ * Poll them here, chaining a finished still into its clip as the page would, until nothing is open
+ * or the wait runs out.
+ */
+async function settleOpenRenders(slug: string, log: CutLog): Promise<void> {
+  if (!isMediaConfigured()) return;
+  const deadline = Date.now() + SETTLE_MINUTES * 60_000;
+  let reported = -1;
+  while (Date.now() < deadline) {
+    let open = 0;
+    try {
+      const renders = await pollRenders(slug);
+      open = renders.filter((r) => r.kind !== 'reel' && (r.status === 'queued' || r.status === 'running')).length;
+    } catch (e) {
+      log(`  Could not poll open ElevenLabs jobs: ${e instanceof Error ? e.message : e}`);
+      return;
+    }
+    if (open === 0) {
+      if (reported > 0) log('  All ElevenLabs jobs have landed.');
+      return;
+    }
+    if (open !== reported) {
+      log(`  ${open} ElevenLabs job${open === 1 ? '' : 's'} still open on the ledger; waiting for ${open === 1 ? 'it' : 'them'}.`);
+      reported = open;
+    }
+    await new Promise((r) => setTimeout(r, 10_000));
+  }
+  log(`  Gave up waiting after ${SETTLE_MINUTES} minutes; open jobs are left for the page to finish.`);
+}
+
 /** Newest succeeded ElevenLabs clip, else still, per scene. Chart renders are not pictures and are skipped. */
 async function latestMedia(slug: string, publicDir: string, canProbe: boolean, log: CutLog): Promise<Map<string, CutMedia>> {
   const supabase = createClient();
@@ -154,7 +189,12 @@ async function latestMedia(slug: string, publicDir: string, canProbe: boolean, l
   const out = new Map<string, CutMedia>();
   const seenStill = new Set<string>();
   const skipped = new Set<string>();
-  for (const row of (data ?? []) as MediaRow[]) {
+  const rows = (data ?? []) as MediaRow[];
+  log(`  ${rows.length} finished picture${rows.length === 1 ? '' : 's'} on the ledger`);
+  for (const row of rows) {
+    log(`    ${row.scene_id} ${row.kind} ${row.created_at.slice(0, 16)} ${madeWithoutText(row) ? 'text-free prompt' : 'old prompt'}`);
+  }
+  for (const row of rows) {
     if (!row.output_url) continue;
     if (!madeWithoutText(row)) {
       skipped.add(row.scene_id);
@@ -261,6 +301,9 @@ export async function cutReel(slug: string, opts: { log?: CutLog } = {}): Promis
   try {
     const ffmpeg = await hasFfmpeg();
     if (!ffmpeg) log('ffmpeg unavailable: scene lengths stay as the storyboard set them, clips will not loop.');
+
+    log('Finishing any ElevenLabs jobs the page left open…');
+    await settleOpenRenders(slug, log);
 
     log('Pictures from the ledger…');
     const media = await latestMedia(slug, publicDir, ffmpeg, log);
