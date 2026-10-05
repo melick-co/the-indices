@@ -4753,3 +4753,6 @@ a.dx-driver:hover { background: #f5f7fb; }
 /* The strip balances by its own width (see tickerStyle): medium splits five or six tiles into two even rows. */
 @container (max-width: 860px) { .dx-tick { flex-basis: calc(100% / var(--cols-md, var(--cols, 5)) - 1px); } }
 @container (max-width: 480px) { .dx-tick { flex-basis: calc(100% / var(--cols-sm, 2) - 1px); } }
+
+.dx-grid.two.flush { margin-bottom: 0; gap: 20px; }
+.dx-rank-track span.out { background: color-mix(in srgb, var(--dx-bad) 60%, white); }
