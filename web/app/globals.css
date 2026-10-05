@@ -4890,7 +4890,8 @@ a.dx-driver:hover { background: #f5f7fb; }
 .vz-svg text { font-size: 12px; fill: #121a2b; }
 .vz-label { font-weight: 550; }
 .vz-row rect { fill: #9fb3d6; } .vz-row.hl rect { fill: #c2372d; } .vz-row.hl text { font-weight: 800; fill: #c2372d; }
-.vz-value { fill: #5b6b85 !important; font-size: 11px !important; font-variant-numeric: tabular-nums; }
+.vz-value { fill: #5b6b85 !important; font-size: 11px !important; font-variant-numeric: tabular-nums; paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
+.vz-median text { paint-order: stroke; stroke: #fff; stroke-width: 3px; }
 .vz-median line { stroke: #121a2b; stroke-dasharray: 4 3; stroke-width: 1; } .vz-median text { font-size: 11px; fill: #121a2b; font-weight: 650; }
 .vz-tile-label { font-size: 12px; fill: #fff !important; font-weight: 600; } .vz-tile-label.dark { fill: #121a2b !important; }
 .vz-tile-share { font-size: 16px; font-weight: 800; } .vz-tile-value { font-size: 11px; opacity: .85; }
