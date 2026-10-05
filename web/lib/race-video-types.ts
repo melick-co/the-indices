@@ -15,8 +15,8 @@ export const INTRO_SECONDS = 2.5;
 export const OUTRO_SECONDS = 3.5;
 /** The final standings hold before the end card, so a change on the last period has time to show. */
 export const HOLD_SECONDS = 2.5;
-/** Seconds per period: about 28 seconds of racing, never faster than 0.6s or slower than 1.4s a step. */
-export const stepSeconds = (frames: number) => Math.min(1.4, Math.max(0.6, 28 / Math.max(1, frames - 1)));
+/** Seconds per period: about 30 seconds of racing, never faster than 0.5s or slower than 1.4s a step (a 66-year race runs about 41s in all). */
+export const stepSeconds = (frames: number) => Math.min(1.4, Math.max(0.5, 30 / Math.max(1, frames - 1)));
 export const raceSeconds = (r: Race) => INTRO_SECONDS + stepSeconds(r.frames.length) * (r.frames.length - 1) + HOLD_SECONDS + OUTRO_SECONDS;
 export const raceFrames = (r: Race) => Math.round(raceSeconds(r) * RACE_FPS);
 

@@ -119,8 +119,7 @@ async function breakdowns() {
       period: r.TIME_PERIOD, value: Math.round(r.value), source_url: src('OMAD_VISA', '..AUS.Q') });
   }
   // Short-term movements, monthly: visitors arriving (traveller category 06) and Australian residents returning from
-  // trips abroad (05; for residents the country dimension is the main destination). Reasons since 1975, countries
-  // since 2005.
+  // trips abroad (05; for residents the country dimension is the main destination). Both from July 1975.
   const reasonNames = await codeNames('OAD_REASON', 'JOUR_REASON');
   const countryNames = await codeNames('OAD_COUNTRY', 'COUNTRY_RESID');
   for (const [cat, prefix] of [['06', 'visitors'], ['05', 'residents_trips']]) {
@@ -130,7 +129,8 @@ async function breakdowns() {
         category_level: r.JOUR_REASON === 'TOT' ? 'total' : 'item', period: r.TIME_PERIOD, value: Math.round(r.value),
         source_url: src('OAD_REASON', `${cat}.TOT..10.M`) });
     }
-    const country = await absCsv('OAD_COUNTRY', `${cat}..10.M`, '?startPeriod=2005-01');
+    // Every month the ABS publishes (from July 1975), so races can start as early as the data allows.
+    const country = await absCsv('OAD_COUNTRY', `${cat}..10.M`);
     for (const r of country) {
       const code = r.COUNTRY_RESID;
       const name = countryNames.get(code) ?? code;

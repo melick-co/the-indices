@@ -99,16 +99,17 @@ async function travel(db: Db, dataset: 'visitors_country' | 'residents_trips_cou
 }
 
 async function gdpPerPerson(db: Db): Promise<Race | null> {
-  const obs = (await loadObservations(db, 'gdp_per_capita').catch(() => [])).filter((o) => OECD.has(o.entity) && Number(o.period) >= 2000);
+  // World Bank history from 1960 (gdp_per_capita_usd_wb); every year with enough OECD members to fill the top 10.
+  const obs = (await loadObservations(db, 'gdp_per_capita_usd_wb').catch(() => [])).filter((o) => OECD.has(o.entity));
   if (!obs.length) return null;
   const names = await entityNames();
-  const years = [...new Set(obs.map((o) => o.period))].sort().filter((y) => obs.filter((o) => o.period === y).length >= 30);
+  const years = [...new Set(obs.map((o) => o.period))].sort().filter((y) => obs.filter((o) => o.period === y).length >= 10);
   const labels = Object.fromEntries([...new Set(obs.map((o) => o.entity))].map((e) => [e, names.get(e) ?? e]));
   return finish({
     key: 'race:gdp_per_capita', title: `GDP per person in OECD countries, ${years[0]} to ${years.at(-1)}`, subtitle: 'Gross domestic product per person, current US dollars',
     unit: 'usd', labels, topN: 10,
     frames: years.map((y) => ({ period: y, values: Object.fromEntries(obs.filter((o) => o.period === y).map((o) => [o.entity, o.value])) })),
-    source: { org: 'World Bank', dataset: 'GDP per capita (current US$)' },
+    source: { org: 'World Bank', dataset: 'World Development Indicators, GDP per capita (current US$)', url: 'https://data.worldbank.org/indicator/NY.GDP.PCAP.CD' },
   });
 }
 
