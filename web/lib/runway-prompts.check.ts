@@ -53,4 +53,25 @@ assert.match(prompt, /LOCKED SCRIPT/);
 assert.match(prompt, /Do not invent/);
 assert.doesNotMatch(prompt, /9\.1/);
 
+// A picture prompt carries the direction and the presenter, and none of the words or figures.
+const pictureScene: ReelScene = {
+  id: 's1', kind: 'cold_open', seconds: 4,
+  narration: 'The RBA hiked. Rents were not mentioned. Rents are already falling.',
+  on_screen: 'RBA hiked. Rents not mentioned.',
+  lower_third: 'RBA rate decision, 29 September 2026',
+  visual_prompt: 'Presenter centre frame in a warm-white studio, looking to camera.',
+};
+for (const kind of ['still', 'clip'] as const) {
+  const picture = compactRunwayPrompt({ scene: pictureScene, storyTitle: 'RBA hikes', style, kind });
+  assert.ok(picture.length <= RUNWAY_PROMPT_MAX, `${kind} prompt is ${picture.length} utf-16 units`);
+  assert.match(picture, /NO TEXT OF ANY KIND/);
+  assert.match(picture, /Presenter centre frame/);
+  assert.doesNotMatch(picture, /LOCKED SCRIPT|ON SCREEN|LOWER THIRD|VO:/);
+  assert.doesNotMatch(picture, /Rents not mentioned|29 September/);
+  assert.doesNotMatch(picture, /Plex Mono|tabular|Charts drawn/);
+}
+// A chart scene asked for a picture still gets no chart in it: the cut draws the chart.
+const chartPicture = compactRunwayPrompt({ scene: chartScene, storyTitle: 'Rank', style, kind: 'still' });
+assert.doesNotMatch(chartPicture, /CHART TO RENDER|8\.8/);
+
 console.log('runway-prompts ok', prompt.length);

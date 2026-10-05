@@ -190,7 +190,7 @@ Return JSON only, matching this schema exactly:
   "scenes": [
     {
       "id": "s1",
-      "visual_prompt": "what the generator should render: framing, what the presenter does, how the chart enters",
+      "visual_prompt": "the picture behind the scene: framing, setting, what the presenter does. No text, numbers, captions or charts in it; the cut burns those over the picture",
       "chart": {
         "kind": "bars|rank_swap|timeline",
         "title": "optional",
@@ -206,6 +206,9 @@ Return JSON only, matching this schema exactly:
 }
 
 Notes:
+- visual_prompt describes a picture only. The cut draws every chart from the series below and burns
+  on_screen and lower_third itself, so a picture that carries its own lettering or chart comes out
+  with two versions on top of each other. Never ask the generator for text, figures or a chart.
 - Omit "chart" on scenes that are pure presenter, such as cold_open, caveat, and usually turn.
 - Use reveal "sequential" when the chart builds point by point under the narration, "swap" for a
   rank_swap flipping between bases, "all_at_once" when the frame is already on screen.
