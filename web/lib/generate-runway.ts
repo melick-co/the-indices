@@ -19,6 +19,7 @@ import {
 } from '@/lib/elevenlabs-client';
 import { compactRunwayPrompt } from '@/lib/runway-prompts';
 import {
+  CUT_MODEL,
   REEL_SCENE_ID,
   type RenderChainTo,
   type RenderKind,
@@ -104,10 +105,14 @@ async function loadBoard(slug: string): Promise<{ spec: ReelSpec; scenes: ReelSc
   return { spec: reel.spec, scenes: reel.spec.scenes ?? [], title: story.title };
 }
 
+/**
+ * Newest row per scene and kind. The Remotion cut keeps its own key, so the whole-reel assembly
+ * here never reads or overwrites it and the page can show both.
+ */
 function latestByKey(rows: RenderRow[]): Map<string, RenderRow> {
   const map = new Map<string, RenderRow>();
   for (const row of rows) {
-    const key = `${row.scene_id}:${row.kind}`;
+    const key = `${row.scene_id}:${row.kind}${row.kind === 'reel' && row.model === CUT_MODEL ? ':cut' : ''}`;
     const prev = map.get(key);
     if (!prev || prev.created_at < row.created_at) map.set(key, row);
   }

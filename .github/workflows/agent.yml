@@ -25,10 +25,10 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, reel-cut, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
-        description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, story-refresh(-apply): story slug(s). Space separated.'
+        description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, story-refresh(-apply): story slug(s). Space separated.'
         required: false
         default: ''
       edits:
@@ -448,6 +448,36 @@ jobs:
         run: npx tsx --import ./scripts/node-shims.mjs scripts/hero-media.ts ${{ inputs.task == 'hero-media' && '--video' || '' }}
         env:
           HERO_SLUG: ${{ inputs.pitch }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+  reel-cut:
+    # Cuts one story's reel (pitch input = slug): Remotion renders the locked storyboard, charts and
+    # burned-in text drawn from the traced figures, ElevenLabs reads each scene, and the MP4 is
+    # recorded on story_reel_renders. The reel page's "Cut the reel" button dispatches this.
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'reel-cut'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run: { working-directory: web }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm ci --silent
+      - name: Ensure ffmpeg
+        # Measures each read so a scene can stretch to fit it; without ffmpeg scenes keep the storyboard's length.
+        continue-on-error: true
+        timeout-minutes: 4
+        run: |
+          npm install --no-save --silent ffmpeg-static@5.3.0
+          echo "FFMPEG_PATH=$(node -p "require('ffmpeg-static')")" >> "$GITHUB_ENV"
+      - name: Cut the reel for one story (pitch input = story slug)
+        run: npx tsx --import ./scripts/node-shims.mjs scripts/reel-cut.ts
+        env:
+          REEL_SLUG: ${{ inputs.pitch }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

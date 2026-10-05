@@ -26,6 +26,13 @@ export type RenderListResponse = {
 
 export const REEL_SCENE_ID = '_reel';
 
+/**
+ * The cut: the whole reel rendered by Remotion from the locked storyboard (lib/reel-cut.ts). It
+ * shares kind 'reel' and the whole-reel scene id with the ElevenLabs assembly and is told apart by
+ * this model name.
+ */
+export const CUT_MODEL = 'remotion';
+
 export const RENDER_KIND_LABEL: Record<RenderKind, string> = {
   still: 'Still',
   chart: 'Chart still',

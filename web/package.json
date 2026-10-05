@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "reel-cut": "tsx --import ./scripts/node-shims.mjs scripts/reel-cut.ts",
+    "check:reel-cut": "tsx lib/reel-cut.check.ts"
   },
   "dependencies": {
     "@hallelx/youtube-transcript": "0.2.0",
@@ -18,8 +20,12 @@
     "unpdf": "^1.8.1"
   },
   "devDependencies": {
+    "@remotion/bundler": "^4.0.533",
+    "@remotion/fonts": "^4.0.533",
+    "@remotion/renderer": "^4.0.533",
     "@types/node": "^22.7.5",
     "@types/react": "^18.3.11",
+    "remotion": "^4.0.533",
     "tsx": "^4.23.15",
     "typescript": "^5.6.3"
   }
