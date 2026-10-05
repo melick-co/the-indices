@@ -8,7 +8,8 @@ const bn = (m: number) => `${m < 0 ? '−' : ''}$${(Math.abs(m) / 1000).toLocale
 const qWord = (p: string) => { const [y, q] = p.split('-Q'); return `${['March', 'June', 'September', 'December'][Number(q) - 1]} quarter ${y}`; };
 const yearTo = (p: string) => `Year to the ${qWord(p)}`;
 
-type Line = { key: string; label: string; note?: string; get: (s: Statement) => number; kind?: 'sub' | 'total' | 'bottom' | 'less' | 'plus' };
+type Line = { key: string; label: string; note?: string; get: (s: Statement) => number; kind?: 'sub' | 'total' | 'bottom' | 'less' | 'plus';
+  /** Small lines that can change sign: show the change in dollars, not per cent. */ swing?: boolean };
 
 /** The statement, top to bottom: what the country earns, what it pays out, and what it keeps. */
 const LINES: Line[] = [
@@ -21,13 +22,13 @@ const LINES: Line[] = [
   { key: 'homes', label: 'Rental value of owner-occupied homes', note: 'Imputed rent less costs, homes owned by households', get: (s) => s.homes },
   { key: 'small', label: 'Small business and farm income', note: 'Gross mixed income of unincorporated businesses', get: (s) => s.smallBusiness },
   { key: 'tax', label: 'Taxes on production less subsidies', note: 'GST, payroll tax, excise and the like, less subsidies', get: (s) => s.taxes },
-  { key: 'sdi', label: 'Statistical discrepancy', get: (s) => s.discrepancy },
+  { key: 'sdi', label: 'Statistical discrepancy', get: (s) => s.discrepancy, swing: true },
   { key: 'gdp', label: 'Revenue (gross domestic product)', get: (s) => s.gdp, kind: 'total' },
   { key: 'abroad', label: 'Less: income paid to foreign owners and lenders, net', note: 'Dividends and interest paid abroad less received', get: (s) => -s.paidAbroad, kind: 'less' },
   { key: 'gni', label: 'Gross national income', get: (s) => s.gni, kind: 'total' },
   { key: 'dep', label: 'Less: depreciation', note: 'Wear and tear on buildings, machinery, roads and software', get: (s) => -s.depreciation, kind: 'less' },
   { key: 'nni', label: 'Operating profit (net national income)', get: (s) => s.nni, kind: 'total' },
-  { key: 'tr', label: 'Plus: transfers from abroad, net', note: 'Foreign aid, remittances and the like', get: (s) => s.transfers, kind: 'plus' },
+  { key: 'tr', label: 'Plus: transfers from abroad, net', note: 'Foreign aid, remittances and the like', get: (s) => s.transfers, kind: 'plus', swing: true },
   { key: 'hh', label: 'Less: household spending', get: (s) => -s.consumptionHh, kind: 'less' },
   { key: 'govc', label: 'Less: government spending on services', note: 'Health, education, defence, administration', get: (s) => -s.consumptionGov, kind: 'less' },
   { key: 'sav', label: 'Bottom line: net saving', note: 'What the country keeps after paying its way and replacing worn-out capital', get: (s) => s.saving, kind: 'bottom' },
@@ -81,14 +82,16 @@ export function PnlView({ d }: { d: PnlData }) {
                 {LINES.map((l) => {
                   if (l.kind === 'sub') return <tr key={l.key} className="sub"><td colSpan={6}>{l.label}</td></tr>;
                   const v = l.get(now), p = prior ? l.get(prior) : null;
-                  const c = change(v, p);
+                  // Costs ("Less:") compare sizes, so a rising cost shows ▲; swing lines show the dollar change.
+                  const c = l.kind === 'less' ? change(Math.abs(v), p == null ? null : Math.abs(p)) : l.swing ? null : change(v, p);
+                  const dollars = l.swing && p != null ? v - p : null;
                   return (
                     <tr key={l.key} className={l.kind ?? ''}>
                       <td>{l.label}{l.note && <small>{l.note}</small>}</td>
                       <td>{bn(v)}</td>
                       <td>{p != null ? bn(p) : '—'}</td>
-                      <td className={c == null ? '' : c >= 0 ? 'up' : 'down'}>{c == null ? '—' : `${c >= 0 ? '▲' : '▼'} ${Math.abs(c).toFixed(1)}%`}</td>
-                      <td>{perPerson(Math.abs(v))}</td>
+                      <td className={c == null ? '' : c >= 0 ? 'up' : 'down'}>{dollars != null ? `${dollars >= 0 ? '+' : '−'}${bn(Math.abs(dollars))}` : c == null ? '—' : `${c >= 0 ? '▲' : '▼'} ${Math.abs(c).toFixed(1)}%`}</td>
+                      <td>{l.kind === 'less' ? perPerson(Math.abs(v)) : `${v < 0 ? '−' : ''}${perPerson(Math.abs(v))}`}</td>
                       <td>{((Math.abs(v) / now.gdp) * 100).toFixed(1)}%</td>
                     </tr>
                   );
