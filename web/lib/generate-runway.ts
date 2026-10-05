@@ -18,6 +18,8 @@ import {
   type MediaTaskStatus,
 } from '@/lib/elevenlabs-client';
 import { compactRunwayPrompt } from '@/lib/runway-prompts';
+import { recordCost, SKU } from '@/lib/story-costs';
+import { clipDuration } from '@/lib/elevenlabs-client';
 import {
   CUT_MODEL,
   REEL_SCENE_ID,
@@ -541,6 +543,22 @@ async function pollOne(row: RenderRow, board: { spec: ReelSpec; scenes: ReelScen
   }
 
   const saved = await persistOutput(row, remote);
+  if (saved.status === 'succeeded') {
+    // Billed per picture or per second of clip; the price table carries the plan's credit rates.
+    const scene = board.scenes.find((s) => s.id === row.scene_id);
+    const video = row.kind === 'clip' || row.kind === 'chart_video';
+    await recordCost({
+      slug: row.story_slug,
+      stage: row.kind as 'still' | 'chart' | 'clip' | 'chart_video',
+      provider: 'elevenlabs',
+      model: row.model,
+      sku: video ? SKU.elevenVideo(row.model ?? ELEVEN_VIDEO_MODEL) : SKU.elevenImage(row.model ?? ELEVEN_IMAGE_MODEL),
+      quantity: video ? clipDuration(scene?.seconds ?? 5) : 1,
+      unit: video ? 'second' : 'image',
+      renderId: row.render_id,
+      detail: { scene: row.scene_id, generation: row.runway_task_id, endpoint: row.runway_endpoint },
+    });
+  }
   if (saved.status === 'succeeded' && saved.chain_to) {
     const scene = board.scenes.find((s) => s.id === saved.scene_id);
     if (scene && saved.output_url) {

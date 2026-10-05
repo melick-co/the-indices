@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase-server';
 import { loadReel } from '@/lib/generate-reel';
 import { loadStoryBySlug } from '@/lib/stories-loader';
 import { validateReel, type ReelScene } from '@/lib/reel-types';
-import { isMediaConfigured, narrationVoiceId, synthesizeSpeech } from '@/lib/elevenlabs-client';
+import { ELEVEN_TTS_MODEL, isMediaConfigured, narrationVoiceId, synthesizeSpeechWithCost } from '@/lib/elevenlabs-client';
+import { recordCost, SKU } from '@/lib/story-costs';
 import { hasFfmpeg, mediaDuration } from '@/lib/media-encode';
 import { queueCut, updateCut } from '@/lib/reel-cut-ledger';
 import {
@@ -37,6 +38,8 @@ export type CutLog = (message: string) => void;
 
 const BUCKET = 'reel-renders';
 const WEB_ROOT = resolve(__dirname, '..');
+/** Checkout, Node, npm ci and ffmpeg on the runner before this script starts: 30 to 40 seconds measured. */
+const RUNNER_SETUP_MINUTES = 0.6;
 
 async function copyFonts(publicDir: string): Promise<void> {
   const dir = join(publicDir, 'fonts');
@@ -189,6 +192,8 @@ async function latestMedia(slug: string, publicDir: string, canProbe: boolean, l
 
 /** One ElevenLabs read per scene, written into the bundle's public folder and measured. */
 async function voiceScenes(
+  slug: string,
+  renderId: string,
   scenes: ReelScene[],
   publicDir: string,
   canMeasure: boolean,
@@ -207,7 +212,12 @@ async function voiceScenes(
     try {
       const file = `voice/${scene.id}.mp3`;
       const full = join(publicDir, file);
-      await writeFile(full, await synthesizeSpeech(text, voice));
+      const read = await synthesizeSpeechWithCost(text, voice);
+      await writeFile(full, read.audio);
+      await recordCost({
+        slug, stage: 'voice', provider: 'elevenlabs', model: ELEVEN_TTS_MODEL, sku: SKU.elevenCredit,
+        quantity: read.characters, unit: 'credit', renderId, detail: { scene: scene.id, voice: read.voiceId },
+      }, log);
       const seconds = canMeasure ? await mediaDuration(full) : 0;
       if (canMeasure && seconds <= 0) throw new Error('could not read the length of the read');
       out.set(scene.id, { file, seconds: Math.round(seconds * 100) / 100 });
@@ -241,6 +251,7 @@ export async function cutReel(slug: string, opts: { log?: CutLog } = {}): Promis
   }
   for (const w of warnings) log(`  Storyboard warning: ${w}`);
 
+  const startedAt = Date.now();
   const row = await queueCut(slug, 'Cut starting');
   await updateCut(row.render_id, { status: 'running', error: null });
   log(`Cut ${row.render_id} for ${story.title}`);
@@ -256,7 +267,7 @@ export async function cutReel(slug: string, opts: { log?: CutLog } = {}): Promis
     log(`  ${media.size} scene${media.size === 1 ? '' : 's'} with a generated picture`);
 
     log('Voice…');
-    const voices = await voiceScenes(scenes, publicDir, ffmpeg, log);
+    const voices = await voiceScenes(slug, row.render_id, scenes, publicDir, ffmpeg, log);
 
     const props: CutProps = {
       story: { slug: story.slug, title: story.title, kicker: story.kicker, caveat: story.caveat, published: story.published },
@@ -299,6 +310,13 @@ export async function cutReel(slug: string, opts: { log?: CutLog } = {}): Promis
     await updateCut(row.render_id, { status: 'failed', error: message }).catch(() => undefined);
     throw e;
   } finally {
+    // Runner time is spent whether the cut lands or not. The job's install steps run before this
+    // script starts (about half a minute on the runs measured), so they are added here.
+    const minutes = Math.round(((Date.now() - startedAt) / 60_000 + RUNNER_SETUP_MINUTES) * 100) / 100;
+    await recordCost({
+      slug, stage: 'cut', provider: 'github', model: 'ubuntu-latest', sku: SKU.runnerMinute,
+      quantity: minutes, unit: 'minute', renderId: row.render_id, detail: { frames_per_second: 30 },
+    }, log);
     await rm(publicDir, { recursive: true, force: true });
     await rm(workDir, { recursive: true, force: true });
   }

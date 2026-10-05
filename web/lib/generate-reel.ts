@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
 import { CHARTER, MODEL } from '@/lib/research-agent';
+import { anthropicEntries, readAnthropicUsage, recordCosts, type AnthropicUsage } from '@/lib/story-costs';
 import { loadStoryBySlug } from '@/lib/stories-loader';
 import type { Story } from '@/lib/story-types';
 import {
@@ -217,7 +218,12 @@ Notes:
 - Include every locked scene id. Do not add scenes.`;
 }
 
-async function callAnthropic(system: string, user: string, maxTokens: number): Promise<string> {
+/** One model call, with the usage Anthropic reports so the stage can put it on the cost ledger. */
+async function callAnthropic(
+  system: string,
+  user: string,
+  maxTokens: number,
+): Promise<{ text: string; usage: AnthropicUsage }> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
@@ -238,10 +244,16 @@ async function callAnthropic(system: string, user: string, maxTokens: number): P
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
 
   const body = await res.json();
-  return (body.content ?? [])
+  const text = (body.content ?? [])
     .filter((c: { type: string }) => c.type === 'text')
     .map((c: { text: string }) => c.text)
     .join('\n');
+  return { text, usage: readAnthropicUsage(body.usage) };
+}
+
+/** Every stage write goes on the ledger, whether or not its JSON then parses: the tokens were spent. */
+async function recordStage(slug: string, stage: 'script' | 'storyboard' | 'prompts', usage: AnthropicUsage): Promise<void> {
+  await recordCosts(anthropicEntries(slug, stage, MODEL, usage, { stage }));
 }
 
 function parseModelJson<T>(raw: string, label: string): T {
@@ -336,7 +348,8 @@ async function generateScript(
   const story = await loadStoryForVideo(slug);
 
   onProgress('Writing the script from the findings');
-  const raw = await callAnthropic(structureSystem(), scriptUserPrompt(story), 4000);
+  const { text: raw, usage } = await callAnthropic(structureSystem(), scriptUserPrompt(story), 4000);
+  await recordStage(slug, 'script', usage);
   const model = parseModelJson<{
     scenes: Array<Omit<ReelScene, 'id' | 'visual_prompt'>>;
     generation_note?: string;
@@ -409,11 +422,12 @@ async function generateStoryboard(
   if (!script.length) throw new Error('The saved script has no scenes. Rewrite the script first.');
 
   onProgress('Drawing the storyboard against the locked script');
-  const raw = await callAnthropic(
+  const { text: raw, usage } = await callAnthropic(
     structureSystem(),
     storyboardUserPrompt(story, script),
     6000,
   );
+  await recordStage(slug, 'storyboard', usage);
   const model = parseModelJson<{ scenes: StoryboardModelScene[] }>(raw, 'Storyboard generator');
   if (!Array.isArray(model.scenes) || !model.scenes.length) {
     throw new Error('Storyboard generator returned no scenes');
