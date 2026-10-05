@@ -4644,7 +4644,8 @@ a.dx-driver:hover { background: #f5f7fb; }
 .dx-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .dx-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
 .dx-key.good { background: var(--dx-good); } .dx-key.bad { background: var(--dx-bad); } .dx-key.watch { background: var(--dx-watch); } .dx-key.neutral { background: #c3cad6; }
-.dx-legend-note { flex-basis: 100%; }
+/* A sentence, not a key: block, so links inside it flow as text. */
+.dx-legend .dx-legend-note { display: block; flex-basis: 100%; }
 .dx .polls-table th { font-family: inherit; }
 
 @media (max-width: 760px) {
