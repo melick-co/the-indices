@@ -22,12 +22,14 @@ on:
     - cron: '41 0-8 * * 1-5'
     # Visuals for The Indices: one a day at about 8am Sydney (web/scripts/generate-visuals.ts, daily cap in the script).
     - cron: '19 21 * * *'
+    # Bar-chart-race videos for The Indices: weekly, Tuesday about 9am Sydney (web/scripts/render-races.ts).
+    - cron: '43 22 * * 1'
   workflow_dispatch:
     inputs:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, visuals, visuals-dry-run, visuals-list, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, reel-cut, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, reel-cut, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, story-refresh(-apply): story slug(s). Space separated.'
@@ -303,6 +305,32 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  races:
+    # Bar-chart-race videos (9:16, 16:9, 1:1) with music and data-derived captions, published as a visual.
+    # pitch input = a race key to force (e.g. race:erp_cob). races-dry-run uploads to drafts/ and publishes nothing.
+    if: >-
+      github.event_name == 'workflow_dispatch' && startsWith(inputs.task, 'races') ||
+      github.event_name == 'schedule' && github.event.schedule == '43 22 * * 1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run: { working-directory: web }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm ci --silent
+      - name: Render bar-chart races
+        run: >-
+          npx tsx --import ./scripts/node-shims.mjs scripts/render-races.ts
+          ${{ inputs.task == 'races-dry-run' && '--dry-run' || inputs.task == 'races-list' && '--list' || '' }}
+        env:
+          VISUAL_KEY: ${{ inputs.pitch }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
   story-refresh:
     # Rewrite published articles in the house news style (web/scripts/refresh-stories.ts; pitch input = slugs).

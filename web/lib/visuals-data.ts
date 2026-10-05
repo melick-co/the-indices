@@ -15,7 +15,7 @@ import { shortName } from '@/lib/population';
 export type VisualRow = { label: string; code: string; value: number; prior?: number | null; highlight?: boolean };
 export type VisualUnit = Indicator['unit'] | 'aud_m' | 'persons';
 export type VisualSpec = {
-  template: 'ranked' | 'treemap' | 'change';
+  template: 'ranked' | 'treemap' | 'change' | 'race';
   unit: VisualUnit;
   /** What a value is ("Life satisfaction, 0–10", "People born overseas"). */
   measure: string;
