@@ -4,11 +4,11 @@ import { cpiMeta, isCpiId } from '../../agent/scripts/lib/cpi-components.mjs';
 import { SECTIONS, indicatorsOf, type Indicator, type Section } from '@/content/dashboard/economy';
 
 /** OECD members: the peer group for cross-country comparisons. */
-const OECD = new Set(['AUS', 'AUT', 'BEL', 'CAN', 'CHL', 'COL', 'CRI', 'CZE', 'DNK', 'EST', 'FIN', 'FRA', 'DEU', 'GRC',
+export const OECD = new Set(['AUS', 'AUT', 'BEL', 'CAN', 'CHL', 'COL', 'CRI', 'CZE', 'DNK', 'EST', 'FIN', 'FRA', 'DEU', 'GRC',
   'HUN', 'ISL', 'IRL', 'ISR', 'ITA', 'JPN', 'KOR', 'LVA', 'LTU', 'LUX', 'MEX', 'NLD', 'NZL', 'NOR', 'POL', 'PRT', 'SVK',
   'SVN', 'ESP', 'SWE', 'CHE', 'TUR', 'GBR', 'USA']);
 
-type Obs = { entity: string; period: string; value: number };
+export type Obs = { entity: string; period: string; value: number };
 export type Point = { period: string; value: number };
 
 export type Status = 'on-target' | 'better' | 'worse' | 'above' | 'below' | 'neutral';
@@ -122,7 +122,7 @@ async function seriesOf(db: ReturnType<typeof createClient>, ind: Indicator): Pr
  * Cross-section of OECD members for a series, with Australia's rank and the median. Ranked best first when the
  * measure has a direction (so 1st is always best), otherwise highest first.
  */
-function peerTable(all: Obs[], metric_id: string, label: string, unit: Indicator['unit'], higherIsBetter?: boolean): Reading['peers'] {
+export function peerTable(all: Obs[], metric_id: string, label: string, unit: Indicator['unit'], higherIsBetter?: boolean): Reading['peers'] {
   const build = (rows: Obs[], period: string): Reading['peers'] => {
     const sorted = [...rows].sort((a, b) => (higherIsBetter === false ? a.value - b.value : b.value - a.value));
     const aus = sorted.find((r) => r.entity === 'AUS');

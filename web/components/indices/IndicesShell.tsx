@@ -11,6 +11,7 @@ const NAV = [
   { href: IX.sentiment, label: 'Sentiment & polls' },
   { href: IX.population, label: 'Population' },
   { href: IX.pnl, label: 'Australia Inc.' },
+  { href: IX.visuals, label: 'Visuals' },
 ] as const;
 
 /** The Indices' own chrome: masthead and section navigation, no newsroom or desk sidebar. */
