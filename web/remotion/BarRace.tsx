@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { AbsoluteFill, Audio, cancelRender, continueRender, delayRender, interpolate, staticFile, useCurrentFrame, useVideoConfig, Easing } from 'remotion';
+import React, { useMemo, useState, useEffect } from 'react';
+import { AbsoluteFill, Audio, cancelRender, continueRender, delayRender, interpolate, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
+import { curves, glidingRanks, standings } from './race-motion';
+import { FlipYear } from './FlipYear';
 import { loadFonts } from './fonts';
 import { FONT } from './theme';
 import { INTRO_SECONDS, OUTRO_SECONDS, RACE_FPS, stepSeconds, type RaceProps } from '../lib/race-video-types';
@@ -23,31 +25,34 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
   const tall = format === '9:16', wide = format === '16:9';
   const n = race.frames.length;
   const intro = INTRO_SECONDS * RACE_FPS, perStep = stepSeconds(n) * RACE_FPS;
-  const s = Math.min(n - 1, Math.max(0, (frame - intro) / perStep));
-  const i = Math.min(n - 2, Math.floor(s)), t = Easing.inOut(Easing.cubic)(Math.min(1, s - i));
-  const A = race.frames[i], B = race.frames[Math.min(n - 1, i + 1)];
+  // Constant-speed time through the whole timeline; s = 3.5 is halfway between the 4th and 5th periods.
+  const sAt = (f: number) => Math.min(n - 1, Math.max(0, (f - intro) / perStep));
+  const s = sAt(frame);
   const slots = format === '1:1' ? Math.min(race.topN, 8) : race.topN;
-
-  // Ranks at each keyframe (absent = off the bottom), interpolated so bars glide past each other.
-  const rankOf = (f: typeof A) => Object.fromEntries(Object.entries(f.values).sort((a, b) => b[1] - a[1]).map(([k], idx) => [k, idx]));
-  const ra = rankOf(A), rb = rankOf(B);
-  const keys = [...new Set([...Object.keys(A.values), ...Object.keys(B.values)])];
-  const rows = keys.map((k) => ({
-    k, v: (A.values[k] ?? 0) + ((B.values[k] ?? 0) - (A.values[k] ?? 0)) * t,
-    r: (ra[k] ?? slots + 1) + ((rb[k] ?? slots + 1) - (ra[k] ?? slots + 1)) * t,
-  })).filter((x) => x.r < slots);
-  const maxV = Math.max(1, ...rows.filter((x) => x.r < slots).map((x) => x.v));
+  const c = useMemo(() => curves(race), [race]);
+  const now = standings(c, s);
+  const glide = glidingRanks(c, sAt, frame, slots);
+  const rows = now.map((x) => ({ k: x.k, v: x.v, r: glide[x.k] ?? slots + 1 })).filter((x) => x.r < slots);
+  const maxV = Math.max(1, ...now.slice(0, slots).map((x) => x.v));
+  // The clock shows the last period reached; it flips over as each new one arrives.
+  const reached = Math.floor(s + 1e-6);
+  const period = race.frames[reached].period;
+  const prevPeriod = race.frames[Math.max(0, reached - 1)].period;
+  const sinceChange = reached === 0 ? 999 : frame - (intro + reached * perStep);
 
   const pad = tall ? 80 : 70;
+  // Each format gives the clock its own zone so no bar can run into it: top right beside the title (16:9), a band
+  // below the bars inside the platforms' safe area (9:16), a strip below the bars beside the caption (1:1).
+  const clockSize = tall ? 110 : wide ? 100 : 76;
+  const clockW = clockSize * 0.66 * 4 + clockSize * 0.08 * 3;
   const top = tall ? 560 : wide ? 250 : 280;
-  const bottom = tall ? 440 : wide ? 150 : 190;
+  const bottom = tall ? 690 : wide ? 130 : 290;
   const labelW = wide ? 330 : 300;
   const area = height - top - bottom;
   const slotH = area / slots;
   const barMax = width - pad * 2 - labelW - (wide ? 260 : 200);
-  const period = t < 0.5 ? A.period : B.period;
   const outroStart = durationInFrames - OUTRO_SECONDS * RACE_FPS;
-  const keyframe = Math.round(s);
+  const keyframe = reached;
   const caption = [...race.captions].reverse().find((c) => keyframe >= c.frame && keyframe - c.frame <= Math.ceil(2.5 / stepSeconds(n)));
   const introOpacity = interpolate(frame, [0, 12, intro - 10, intro + 5], [0, 1, 1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const outroOpacity = interpolate(frame, [outroStart, outroStart + 15], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
@@ -60,7 +65,7 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
         <Audio src={staticFile(musicFile)} volume={(f) => interpolate(f, [0, 20, durationInFrames - 45, durationInFrames], [0, 0.55, 0.55, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })} />
       )}
       {/* Header */}
-      <div style={{ position: 'absolute', left: pad, right: pad, top: tall ? 200 : 60 }}>
+      <div style={{ position: 'absolute', left: pad, right: wide ? pad + clockW + 40 : pad, top: tall ? 200 : 60 }}>
         <div style={{ fontSize: tall ? 26 : 24, letterSpacing: 4, textTransform: 'uppercase', color: MUTED, fontWeight: 600 }}>The Indices</div>
         <div style={{ fontSize: titleSize, fontWeight: 700, lineHeight: 1.1, marginTop: 10 }}>{race.title}</div>
         <div style={{ fontSize: tall ? 30 : 26, color: MUTED, marginTop: 10 }}>{race.subtitle}</div>
@@ -79,16 +84,18 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
           </div>
         );
       })}
-      {/* Period counter */}
-      <div style={{ position: 'absolute', right: pad, bottom: bottom - (tall ? 10 : 30), fontSize: tall ? 150 : wide ? 140 : 110, fontWeight: 800, color: 'rgba(238,242,250,0.22)', fontVariantNumeric: 'tabular-nums' }}>{period}</div>
+      {/* Period counter: a split-flap clock */}
+      <div style={{ position: 'absolute', right: pad, ...(wide ? { top: 64 } : { bottom: tall ? 520 : 150 }) }}>
+        <FlipYear text={period} prev={prevPeriod} sinceChange={sinceChange} flipFrames={Math.min(10, Math.max(6, Math.round(perStep * 0.6)))} size={clockSize} />
+      </div>
       {/* Caption */}
       {caption && frame < outroStart && (
-        <div style={{ position: 'absolute', left: pad, right: pad, bottom: tall ? 330 : 40, display: 'flex' }}>
+        <div style={{ position: 'absolute', left: pad, right: tall || wide ? pad : pad + clockW + 30, bottom: tall ? 410 : wide ? 56 : 160, display: 'flex' }}>
           <div style={{ background: ACCENT, color: '#fff', fontSize: tall ? 34 : 30, fontWeight: 700, padding: '12px 22px', borderRadius: 8 }}>{caption.text}</div>
         </div>
       )}
       {/* Source */}
-      <div style={{ position: 'absolute', left: pad, right: pad, bottom: tall ? 250 : 18, fontSize: tall ? 22 : 20, color: MUTED }}>Source: {race.source.org}, {race.source.dataset}. Values between {race.frames.length > 1 && /^\d{4}$/.test(race.frames[0].period) ? 'years' : 'periods'} are interpolated.</div>
+      <div style={{ position: 'absolute', left: pad, right: pad, bottom: tall ? 345 : 18, fontSize: tall ? 22 : 20, color: MUTED }}>Source: {race.source.org}, {race.source.dataset}. Values between {race.frames.length > 1 && /^\d{4}$/.test(race.frames[0].period) ? 'years' : 'periods'} are interpolated.</div>
       {/* Title card */}
       <AbsoluteFill style={{ background: NAVY, opacity: introOpacity, justifyContent: 'center', padding: pad }}>
         <div style={{ fontSize: tall ? 30 : 28, letterSpacing: 5, textTransform: 'uppercase', color: ACCENT, fontWeight: 700 }}>The Indices</div>
