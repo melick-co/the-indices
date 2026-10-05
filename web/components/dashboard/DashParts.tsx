@@ -41,7 +41,17 @@ export function Value({ reading, big = false }: { reading: Reading; big?: boolea
   return <span className={big ? 'dash-value big' : 'dash-value'}>{formatReading(reading.latest.value, reading.indicator.unit)}</span>;
 }
 
-export function Change({ reading }: { reading: Reading }) {
+/** Short forms for tight columns (driver rows, ticker): "22.2/100k", "498 pts". Summaries keep the full wording. */
+export function compactReading(v: number, unit: Reading['indicator']['unit']): string {
+  if (unit === 'per_100k') return `${Math.round(v * 10) / 10}/100k`;
+  if (unit === 'points') return `${Math.round(v)} pts`;
+  return formatReading(v, unit);
+}
+const COMPACT_CHANGE: Partial<Record<NonNullable<Reading['indicator']['unit']>, (d: number) => string>> = {
+  per_100k: (d) => `${Math.round(d * 10) / 10}/100k`, points: (d) => `${Math.round(d)} pts`,
+};
+
+export function Change({ reading, compact = false }: { reading: Reading; compact?: boolean }) {
   const { latest, previous } = reading;
   if (!latest || !previous) return null;
   const d = latest.value - previous.value;
@@ -52,7 +62,7 @@ export function Change({ reading }: { reading: Reading }) {
     ? (latest.value > b.high ? d < 0 : latest.value < b.low ? d > 0 : null)
     : reading.indicator.higherIsBetter === undefined ? null : (d > 0) === reading.indicator.higherIsBetter;
   const rate = ['percent', 'percent_gdp', 'pts'].includes(reading.indicator.unit ?? '');
-  const abs = reading.indicator.unit && absoluteChange[reading.indicator.unit];
+  const abs = reading.indicator.unit && ((compact && COMPACT_CHANGE[reading.indicator.unit]) || absoluteChange[reading.indicator.unit]);
   const size = abs ? abs(Math.abs(d)) : rate ? `${Math.abs(Math.round(d * 100) / 100)} pts` : `${Math.abs(Math.round((d / Math.abs(previous.value)) * 1000) / 10)}%`;
   return <span className={`dash-change ${good === null ? '' : good ? 'good' : 'watch'}`}>{d > 0 ? '▲' : '▼'} {size}</span>;
 }

@@ -203,8 +203,9 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
   // With too little history for an average, judge against the OECD median instead.
   // Judged against the OECD median: always for well-being measures, and when there is too little history.
   const byPeers = latest && peers && (byOecd || (average == null && ind.benchmark.kind === 'average'));
-  if (byPeers && ind.higherIsBetter !== undefined && peers!.aus !== peers!.median) {
-    status = (peers!.aus > peers!.median) === ind.higherIsBetter ? 'better' : 'worse';
+  if (byPeers && ind.higherIsBetter !== undefined) {
+    // Exactly at the median is neither better nor worse (not a fall-back to the reading's own average).
+    status = peers!.aus === peers!.median ? 'neutral' : (peers!.aus > peers!.median) === ind.higherIsBetter ? 'better' : 'worse';
   }
   const b = ind.benchmark;
   const u = ind.unit;

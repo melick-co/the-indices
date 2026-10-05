@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import StoryChart from '@/components/StoryChart';
-import { Change, DeviationBar, ToneChip, Trend, Value, historyChart, isPressure, peersChart, reference, tone } from '@/components/dashboard/DashParts';
+import { Change, DeviationBar, compactReading, ToneChip, Trend, Value, historyChart, isPressure, peersChart, reference, tone } from '@/components/dashboard/DashParts';
 import { Icon, indicatorIcon, sectionIcon } from '@/components/dashboard/Icons';
 import { formatReading, periodLabel, type Reading, type SectionReading } from '@/lib/economy-dashboard';
 import { sydneyDay } from '@/lib/dates';
@@ -32,8 +32,8 @@ function Ticker({ dash, s }: { dash: DashboardRef; s: SectionReading }) {
   return (
     <Link href={`${dash.base}/${s.section.id}/${h.key}`} className={`dx-tick ${tone(h)}`}>
       <span className="dx-tick-label"><Icon name={sectionIcon(s.section.id)} size={13} />{h.indicator.short ?? h.indicator.label}</span>
-      <span className="dx-tick-value">{h.latest ? formatReading(h.latest.value, h.indicator.unit) : '—'}</span>
-      <span className="dx-tick-meta"><Change reading={h} />{h.latest && <span>{periodLabel(h.latest.period)}</span>}</span>
+      <span className="dx-tick-value">{h.latest ? compactReading(h.latest.value, h.indicator.unit) : '—'}</span>
+      <span className="dx-tick-meta"><Change reading={h} compact />{h.latest && <span>{periodLabel(h.latest.period)}</span>}</span>
     </Link>
   );
 }
@@ -49,8 +49,8 @@ export function DriverRow({ href, r }: { href?: string; r: Reading }) {
         <span className="dx-driver-ref">{ref ? `vs ${ref.label}` : r.verdict}</span>
       </span>
       <DeviationBar reading={r} />
-      <span className="dx-driver-value">{r.latest ? formatReading(r.latest.value, r.indicator.unit) : '—'}</span>
-      <span className="dx-driver-change"><Change reading={r} /></span>
+      <span className="dx-driver-value">{r.latest ? compactReading(r.latest.value, r.indicator.unit) : '—'}</span>
+      <span className="dx-driver-change"><Change reading={r} compact /></span>
     </>
   );
   return href ? <Link href={href} className={`dx-driver ${tone(r)}`}>{body}</Link> : <div className={`dx-driver ${tone(r)}`}>{body}</div>;
@@ -110,7 +110,10 @@ export function DashboardView({ dash, kicker, title, intro, sections, legendNote
   return (
     <main className="dx">
       <Hero kicker={kicker} title={title} intro={intro}>
-        <div className="dx-ticker">{sections.map((s) => <Ticker key={s.section.id} dash={dash} s={s} />)}</div>
+        {/* Up to six tiles in one row; more split into two even rows (8 → 4 + 4, 7 → 4 + 3). */}
+        <div className="dx-ticker" style={{ '--cols': sections.length <= 6 ? sections.length : Math.ceil(sections.length / 2) } as React.CSSProperties}>
+          {sections.map((s) => <Ticker key={s.section.id} dash={dash} s={s} />)}
+        </div>
       </Hero>
       <div className="dx-body">
         <div className="dx-grid">{sections.map((s) => <SectionCard key={s.section.id} dash={dash} s={s} />)}</div>
