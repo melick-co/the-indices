@@ -69,9 +69,14 @@ function squarify(values: number[], x: number, y: number, w: number, h: number) 
 
 function Treemap({ s }: { s: VisualSpec }) {
   const W = 760, H = 460;
-  const rows = [...s.rows].sort((a, b) => b.value - a.value);
+  // Largest first, with the remainder ('All others') always last, so the named parts lead.
+  const rows = [...s.rows].sort((a, b) => (a.code === 'OTHER' ? 1 : b.code === 'OTHER' ? -1 : b.value - a.value));
   const total = s.total ?? rows.reduce((t, r) => t + r.value, 0);
-  const tiles = squarify(rows.map((r) => r.value), 0, 0, W, H);
+  // The remainder gets its own column on the right, sized to its share; the named parts fill the rest.
+  const other = rows.find((r) => r.code === 'OTHER');
+  const otherW = other ? (other.value / total) * W : 0;
+  const named = rows.filter((r) => r.code !== 'OTHER');
+  const tiles = [...squarify(named.map((r) => r.value), 0, 0, W - otherW, H), ...(other ? [{ x: W - otherW, y: 0, w: otherW, h: H }] : [])];
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="vz-svg" role="img" aria-label={`${s.measure}, ${s.period}`}>
       {rows.map((r, i) => {
@@ -81,6 +86,7 @@ function Treemap({ s }: { s: VisualSpec }) {
         const dark = ['#8db8e8', '#c3cad6', '#d9a21b'].includes(fill);
         return (
           <g key={r.code} className="vz-tile">
+            <title>{`${r.label}: ${chartValue(r.value, s.unit)} (${((r.value / total) * 100).toFixed(1)}%)`}</title>
             <rect x={t.x + 1} y={t.y + 1} width={Math.max(0, t.w - 2)} height={Math.max(0, t.h - 2)} fill={fill} rx={3} />
             {mid && (
               <text x={t.x + 8} y={t.y + 18} className={`vz-tile-label${dark ? ' dark' : ''}`}>
@@ -115,7 +121,7 @@ function ChangeBars({ s }: { s: VisualSpec }) {
             <line x1={x(r.prior!)} x2={x(r.value)} y1={y} y2={y} />
             <circle cx={x(r.prior!)} cy={y} r={5} className="prior" />
             <circle cx={x(r.value)} cy={y} r={6} className="now" />
-            <text x={Math.max(x(r.value), x(r.prior!)) + 10} y={y + 4} className="vz-value">{chg >= 0 ? '+' : '−'}{Math.abs(chg).toFixed(0)}%</text>
+            <text x={Math.max(x(r.value), x(r.prior!)) + 10} y={y + 4} className="vz-value">{chg >= 0 ? '+' : '−'}{Math.abs(chg).toFixed(Math.abs(chg) < 10 ? 1 : 0)}%</text>
           </g>
         );
       })}
