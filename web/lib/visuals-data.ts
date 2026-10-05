@@ -27,7 +27,9 @@ export type VisualSpec = {
   /** Treemaps: the whole the tiles are shares of. */
   total?: number;
 };
-export type Dataset = { key: string; spec: VisualSpec; sources: { org: string; dataset: string; url?: string }[]; context: string };
+export type Dataset = { key: string; spec: VisualSpec; sources: { org: string; dataset: string; url?: string }[]; context: string;
+  /** Extra exact statements the words may rely on (e.g. how a total relates to a headline figure). */
+  notes?: string[] };
 
 type Db = ReturnType<typeof createClient>;
 
@@ -176,7 +178,10 @@ async function economyMix(): Promise<Dataset[]> {
     key: 'mix:pnl_income', spec: { template: 'treemap', unit: 'aud_m', measure: 'Australia\'s GDP by who earns it (income approach)', total: n.gdp - n.discrepancy,
       period: `year to the ${['March', 'June', 'September', 'December'][Number(q) - 1]} quarter ${y}`, rows: rows.map(([label, code, value]) => ({ label, code, value })) },
     sources: [{ org: 'ABS', dataset: 'Australian National Accounts: income from GDP (ANA_INC)', url: 'https://data.api.abs.gov.au/rest/data/ABS,ANA_INC' }],
-    context: 'GDP measured by income: what workers, businesses, home owners and government earn producing in Australia (excluding the statistical discrepancy).',
+    context: 'GDP measured by income: what workers, businesses, home owners and government earn producing in Australia.',
+    notes: [
+      `The parts shown sum to $${((n.gdp - n.discrepancy) / 1000).toLocaleString('en-AU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} billion. GDP itself is $${(n.gdp / 1000).toLocaleString('en-AU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} billion, after a statistical discrepancy of ${n.discrepancy < 0 ? '−' : ''}$${(Math.abs(n.discrepancy) / 1000).toFixed(1)} billion that is not shown. Shares are of the parts shown, not of GDP; do not call the sum of the parts GDP.`,
+    ],
   }];
 }
 

@@ -49,15 +49,17 @@ export function facts(d: Dataset): string[] {
     f.push(`All countries: ${s.rows.map((r, i) => `${i + 1}. ${r.label} ${fmtValue(r.value, s.unit)}`).join('; ')}.`);
   } else if (s.template === 'treemap') {
     const total = s.total ?? s.rows.reduce((t, r) => t + r.value, 0);
-    f.push(`Total: ${fmtValue(total, s.unit)}.`);
+    f.push(`Parts shown: ${s.rows.length}${s.rows.some((r) => r.code === 'OTHER') ? ` (the ${s.rows.length - 1} largest plus all others combined)` : ''}. Total: ${fmtValue(total, s.unit)}.`);
     for (const r of s.rows) f.push(`${r.label}: ${fmtValue(r.value, s.unit)}, ${pct((r.value / total) * 100)} of the total.`);
   } else {
     const rows = s.rows.filter((r) => r.prior != null && r.prior > 0);
+    f.push(`Items shown: ${rows.length}, the ${rows.length} largest at the later date.`);
     for (const r of rows) f.push(`${r.label}: ${fmtValue(r.value, s.unit)}, against ${fmtValue(r.prior!, s.unit)} (${r.value >= r.prior! ? 'up' : 'down'} ${pct(Math.abs((r.value / r.prior! - 1) * 100))}; ${pct((r.value / r.prior!) * 100, 0)} of the earlier level).`);
     const ranked = [...rows].sort((a, b) => b.value / b.prior! - a.value / a.prior!);
     if (ranked.length) f.push(`Largest rise: ${ranked[0].label}. Largest fall or smallest rise: ${ranked.at(-1)!.label}.`);
   }
   f.push(`Context: ${d.context}`);
+  for (const n of d.notes ?? []) f.push(n);
   return f;
 }
 
