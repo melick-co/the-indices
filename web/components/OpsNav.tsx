@@ -7,9 +7,7 @@ const PRIMARY = [
   { href: '/foundry', label: 'Foundry' },
   { href: '/foundry/desk', label: 'Desk' },
   { href: '/foundry/work', label: 'Work' },
-  { href: '/indices', label: 'Indices' },
-  { href: '/quality-of-life', label: 'Quality of life' },
-  { href: '/sentiment', label: 'Sentiment & polls' },
+  { href: '/indices', label: 'The Indices' },
   { href: '/studio', label: 'Studio' },
 ] as const;
 

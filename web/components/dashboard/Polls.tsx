@@ -9,6 +9,7 @@ import {
   pollAverage, roleTrend, rollingAverage, type Poll, type PollAverage, type Role,
 } from '@/lib/polls';
 import type { StoryChartBlock } from '@/lib/story-types';
+import { IX } from '@/lib/indices-paths';
 
 const PRIVATE_NOTE = 'Private polls: context only, never official data. Compiled from published polls via Wikipedia’s polling tables; every poll links to the release it was reported in. A poll of 1,000 people has a margin of error of about ±3 points.';
 
@@ -82,7 +83,7 @@ function CardHead({ icon, title, sub, href }: { icon: Parameters<typeof Icon>[0]
   );
 }
 
-function VotingCard({ polls }: { polls: Poll[] }) {
+export function VotingCard({ polls }: { polls: Poll[] }) {
   const tpp = pollAverage(polls, 'tpp_alp_lnp');
   const onp = pollAverage(polls, 'tpp_alp_onp');
   const prim = ['alp', 'onp', 'lnp', 'grn', 'oth'].map((p) => ({ p, a: pollAverage(polls, `primary_${p}`) })).filter((x) => x.a).sort((a, b) => b.a!.value - a.a!.value);
@@ -90,7 +91,7 @@ function VotingCard({ polls }: { polls: Poll[] }) {
   const level = tpp && Math.abs(tpp.value - 50) < 1;
   return (
     <section className="dx-card dx-private">
-      <CardHead icon="ballot" title="Voting intention" sub="Who would win an election held now?" href="/sentiment/polls" />
+      <CardHead icon="ballot" title="Voting intention" sub="Who would win an election held now?" href={IX.polls} />
       <div className="dx-headline static">
         <span className="dx-headline-label">Labor two-party preferred v Coalition</span>
         <span className="dx-headline-row">
@@ -119,14 +120,14 @@ function VotingCard({ polls }: { polls: Poll[] }) {
   );
 }
 
-function DirectionCard({ polls }: { polls: Poll[] }) {
+export function DirectionCard({ polls }: { polls: Poll[] }) {
   const net = pollAverage(polls, 'direction_net', 60);
   const right = pollAverage(polls, 'direction_right', 60);
   const wrong = pollAverage(polls, 'direction_wrong', 60);
   const age = net ? ageDays(net.to) : null;
   return (
     <section className="dx-card dx-private">
-      <CardHead icon="compass" title="Direction of the country" sub="Is Australia heading in the right direction?" href="/sentiment/polls#direction" />
+      <CardHead icon="compass" title="Direction of the country" sub="Is Australia heading in the right direction?" href={`${IX.polls}#direction`} />
       <div className="dx-headline static">
         <span className="dx-headline-label">Net: right minus wrong direction</span>
         <span className="dx-headline-row">
@@ -147,7 +148,7 @@ function DirectionCard({ polls }: { polls: Poll[] }) {
   );
 }
 
-function LeadersCard({ polls }: { polls: Poll[] }) {
+export function LeadersCard({ polls }: { polls: Poll[] }) {
   const pm = netFor(polls, 'pm');
   const opp = netFor(polls, 'opposition');
   const ppm = preferredPm(polls);
@@ -159,7 +160,7 @@ function LeadersCard({ polls }: { polls: Poll[] }) {
   const pmMeasure = currentMeasure(polls, 'approval_net', 'pm');
   return (
     <section className="dx-card dx-private">
-      <CardHead icon="user" title="Leaders" sub="How do voters rate the people who would lead?" href="/sentiment/polls#leaders" />
+      <CardHead icon="user" title="Leaders" sub="How do voters rate the people who would lead?" href={`${IX.polls}#leaders`} />
       <div className="dx-headline static">
         <span className="dx-headline-label">Net approval: approve minus disapprove</span>
         {pm?.a && <NetBar label={pm.name} sub={ROLE_LABEL.pm} value={pm.a.value} />}
@@ -200,7 +201,7 @@ function MoodStrip({ polls, consumers }: { polls: Poll[]; consumers: SectionRead
       <div className="dx-mood-cols">
         <div>
           <p className="dx-drivers-head">The mood</p>
-          <DriverRow href="/sentiment/consumers/consumer_confidence_oecd" r={cc} />
+          <DriverRow href={`${IX.sentiment}/consumers/consumer_confidence_oecd`} r={cc} />
           {wrong && (
             <div className={`dx-driver ${wrong.value > 50 ? 'bad' : 'neutral'}`}>
               <span className={`dx-driver-icon ${wrong.value > 50 ? 'bad' : 'neutral'}`}><Icon name="compass" size={15} /></span>
@@ -213,7 +214,7 @@ function MoodStrip({ polls, consumers }: { polls: Poll[]; consumers: SectionRead
         </div>
         <div>
           <p className="dx-drivers-head">The evidence: {check.worse.length} of {consumers.others.filter((r) => r.latest).length} household pressures worse than usual</p>
-          {consumers.others.filter((r) => r.latest).map((r) => <DriverRow key={r.key} href={`/sentiment/consumers/${r.key}`} r={r} />)}
+          {consumers.others.filter((r) => r.latest).map((r) => <DriverRow key={r.key} href={`${IX.sentiment}/consumers/${r.key}`} r={r} />)}
         </div>
       </div>
       <p className="dx-mood-text">{check.lines.join(' ')}</p>
@@ -239,7 +240,7 @@ export function PollsPanel({ polls, consumers }: { polls: Poll[]; consumers: Sec
         <LeadersCard polls={polls} />
       </div>
       <MoodStrip polls={polls} consumers={consumers} />
-      <p className="dx-note">{PRIVATE_NOTE} <Link href="/sentiment/polls" className="studio-link">Every poll →</Link></p>
+      <p className="dx-note">{PRIVATE_NOTE} <Link href={IX.polls} className="studio-link">Every poll →</Link></p>
     </section>
   );
 }

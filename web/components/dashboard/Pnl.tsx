@@ -3,6 +3,7 @@ import StoryChart from '@/components/StoryChart';
 import { Icon } from '@/components/dashboard/Icons';
 import { Hero, tickerStyle } from '@/components/dashboard/Views';
 import type { PnlData, Statement } from '@/lib/pnl';
+import { IX } from '@/lib/indices-paths';
 
 const bn = (m: number) => `${m < 0 ? '−' : ''}$${(Math.abs(m) / 1000).toLocaleString('en-AU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}bn`;
 const qWord = (p: string) => { const [y, q] = p.split('-Q'); return `${['March', 'June', 'September', 'December'][Number(q) - 1]} quarter ${y}`; };
@@ -58,7 +59,7 @@ export function PnlView({ d }: { d: PnlData }) {
   ];
   return (
     <main className="dx">
-      <Hero kicker={<><Link href="/indices">Economy dashboard</Link> · Australia Inc.</>} title="Australia Inc.: the country's profit and loss"
+      <Hero kicker={<><Link href={IX.economy}>Economy dashboard</Link> · Australia Inc.</>} title="Australia Inc.: the country's profit and loss"
         intro={<>The national accounts, read as if Australia were one business. {yearTo(now.end)}, the country earned {bn(now.gdp)}, paid {bn(now.paidAbroad)} to foreign owners and lenders, set aside {bn(now.depreciation)} for wear and tear, and spent {bn(now.consumptionHh + now.consumptionGov)}. It kept {bn(now.saving)}: a margin of {margin.toFixed(1)}%{marginAvg != null ? `, against ${marginAvg.toFixed(1)}% on average in the 2010s` : ''}.</>}>
         <div className="dx-ticker" style={tickerStyle(tiles.length)}>
           {tiles.map((t) => (
