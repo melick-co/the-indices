@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { compactRunwayPrompt, chartLockBlock, RUNWAY_PROMPT_MAX } from './runway-prompts';
+import { compactRunwayPrompt, chartLockBlock, madeWithoutText, RUNWAY_PROMPT_MAX } from './runway-prompts';
 import type { ReelScene, ReelStyle } from './reel-types';
 
 const style: ReelStyle = {
@@ -91,5 +91,11 @@ for (const kind of ['still', 'clip'] as const) {
 // A chart scene asked for a picture still gets no chart in it: the cut draws the chart.
 const chartPicture = compactRunwayPrompt({ scene: chartScene, storyTitle: 'Rank', style, kind: 'still' });
 assert.doesNotMatch(chartPicture, /CHART TO RENDER|8\.8/);
+
+// The guard the cut and the generator share: only a picture prompted under the rule is used or animated.
+const textFree = compactRunwayPrompt({ scene: pictureScene, storyTitle: 'RBA hikes', style: house, kind: 'still' });
+assert.equal(madeWithoutText({ prompt_text: textFree }), true);
+assert.equal(madeWithoutText({ prompt_text: 'LOCKED SCRIPT: The RBA hiked. Presenter centre frame.' }), false);
+assert.equal(madeWithoutText({ prompt_text: null }), false);
 
 console.log('runway-prompts ok', prompt.length);

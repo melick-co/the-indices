@@ -22,7 +22,7 @@ import {
   type CutProps,
   type CutVoice,
 } from '@/lib/reel-cut-types';
-import { NO_TEXT_RULE } from '@/lib/runway-prompts';
+import { madeWithoutText } from '@/lib/runway-prompts';
 import { FONT_FILES } from '@/remotion/fonts';
 
 /**
@@ -104,20 +104,13 @@ export async function renderCut(
 type MediaRow = {
   scene_id: string;
   kind: string;
+  status: string;
+  error: string | null;
   output_url: string | null;
   content_type: string | null;
   prompt_text: string;
   created_at: string;
 };
-
-/**
- * Only a picture made under the no-text rule goes behind a scene. Earlier pictures were prompted
- * with the script and came back with the model's own lettering in them; the cut then burned the
- * real text on top (the third real cut, 5 October 2026, had a whole old prompt drawn into scene 8).
- */
-function madeWithoutText(row: MediaRow): boolean {
-  return row.prompt_text.includes(NO_TEXT_RULE.slice(0, 24));
-}
 
 function mediaExtension(row: MediaRow): string {
   const type = row.content_type ?? '';
@@ -180,19 +173,23 @@ async function latestMedia(slug: string, publicDir: string, canProbe: boolean, l
   const supabase = createClient();
   const { data, error } = await supabase
     .from('story_reel_renders')
-    .select('scene_id, kind, output_url, content_type, prompt_text, created_at')
+    .select('scene_id, kind, status, error, output_url, content_type, prompt_text, created_at')
     .eq('story_slug', slug)
-    .eq('status', 'succeeded')
     .in('kind', ['clip', 'still'])
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   const out = new Map<string, CutMedia>();
   const seenStill = new Set<string>();
   const skipped = new Set<string>();
-  const rows = (data ?? []) as MediaRow[];
-  log(`  ${rows.length} finished picture${rows.length === 1 ? '' : 's'} on the ledger`);
-  for (const row of rows) {
-    log(`    ${row.scene_id} ${row.kind} ${row.created_at.slice(0, 16)} ${madeWithoutText(row) ? 'text-free prompt' : 'old prompt'}`);
+  const all = (data ?? []) as MediaRow[];
+  const rows = all.filter((r) => r.status === 'succeeded');
+  // Every picture row, not only the finished ones, so a regeneration that failed or never landed
+  // shows up here with its reason instead of looking as though it was never asked for.
+  log(`  ${all.length} picture row${all.length === 1 ? '' : 's'} on the ledger, ${rows.length} finished`);
+  for (const row of all) {
+    const prompt = madeWithoutText(row) ? 'text-free prompt' : 'old prompt';
+    const why = row.status === 'failed' && row.error ? `: ${row.error.slice(0, 120)}` : '';
+    log(`    ${row.scene_id} ${row.kind} ${row.created_at.slice(0, 16)} ${row.status} ${prompt}${why}`);
   }
   for (const row of rows) {
     if (!row.output_url) continue;
