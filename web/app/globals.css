@@ -4514,8 +4514,9 @@ html:has(.site-shell--ops) body {
 .dx-title { margin: 8px 0 6px; font-size: 1.9rem; line-height: 1.15; font-weight: 650; letter-spacing: -.01em; color: #fff; }
 .dx-intro { margin: 0; max-width: 62rem; color: var(--dx-on-navy-muted); font-size: .92rem; line-height: 1.5; }
 
-.dx-ticker { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; margin-top: 18px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.1); border-radius: 6px; overflow: hidden; }
-.dx-tick { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; background: var(--dx-navy-2); text-decoration: none !important; border-top: 3px solid var(--dx-neutral); transition: background .15s; }
+/* Flex so a wrapped last row stretches across, instead of leaving an empty block. */
+.dx-ticker { display: flex; flex-wrap: wrap; gap: 1px; margin-top: 18px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.1); border-radius: 6px; overflow: hidden; }
+.dx-tick { flex: 1 1 150px; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; background: var(--dx-navy-2); text-decoration: none !important; border-top: 3px solid var(--dx-neutral); transition: background .15s; }
 .dx-tick:hover { background: var(--dx-navy-3); }
 .dx-tick.good { border-top-color: #34c17f; } .dx-tick.bad { border-top-color: #f0675c; } .dx-tick.watch { border-top-color: #f2a93b; } .dx-tick.neutral { border-top-color: #8597bd; }
 .dx-tick-label { display: flex; align-items: center; gap: 6px; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--dx-on-navy-muted); }
