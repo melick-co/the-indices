@@ -28,6 +28,18 @@ function useInView<T extends Element>() {
   return [ref, seen] as const;
 }
 
+/**
+ * A line that draws in. The dash is sized from the path's measured length: with `pathLength={1}` Chrome mis-sizes
+ * the dash on long step paths (the cash rate's 99 steps drew only to the early 1990s).
+ */
+function DrawnPath({ d, className, drawn }: { d: string; className: string; drawn: boolean }) {
+  const ref = useRef<SVGPathElement | null>(null);
+  const [len, setLen] = useState<number | null>(null);
+  useEffect(() => { if (ref.current) setLen(ref.current.getTotalLength()); }, [d]);
+  const style = len == null ? { opacity: 0 } : { strokeDasharray: `${len} ${len}`, strokeDashoffset: drawn ? 0 : len };
+  return <path ref={ref} d={d} className={`${className}${drawn ? ' drawn' : ''}`} style={style} />;
+}
+
 function formatNum(n: number) {
   if (Number.isInteger(n)) return n.toLocaleString('en-AU');
   return n.toLocaleString('en-AU', { maximumFractionDigits: 2 });
@@ -252,8 +264,8 @@ function Line({ chart }: { chart: StoryChartBlock }) {
       )}
       <svg viewBox={`0 0 ${W} ${H}`} className="story-line" role="img" aria-label={chart.alt ?? chart.title ?? ''}>
         <line x1={padL} x2={W - padR} y1={H - padB} y2={H - padB} className="story-line-axis" />
-        {dAlt && <path d={dAlt} pathLength={1} className={`story-line-path alt${seen ? ' drawn' : ''}`} />}
-        <path d={d} pathLength={1} className={`story-line-path${seen ? ' drawn' : ''}`} />
+        {dAlt && <DrawnPath d={dAlt} className="story-line-path alt" drawn={seen} />}
+        <DrawnPath d={d} className="story-line-path" drawn={seen} />
         {low && (
           // In the empty space beside the drop to the low: left of it (under the earlier, higher line), or right of the
           // low segment when the drop is near the chart's left edge.

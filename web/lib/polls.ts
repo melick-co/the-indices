@@ -167,3 +167,22 @@ export function headToHead(polls: Poll[]): Poll[] {
     return ks.length === 2 && ks.some((k) => k.startsWith('ppm:pm:')) && ks.some((k) => k.startsWith('ppm:opposition:'));
   })());
 }
+
+/**
+ * The pollster average stepped back week by week (each point: each firm's latest poll in the `days` before that
+ * date), so a trend line matches the headline figure instead of jumping on one poll in a new month.
+ */
+export function rollingAverage(polls: Poll[], measure: string, days = 30, weeks = 52): Point[] {
+  const latest = polls.find((p) => p.values[measure] != null && !isModel(p));
+  if (!latest) return [];
+  const out: Point[] = [];
+  for (let w = weeks - 1; w >= 0; w--) {
+    const asOf = new Date(new Date(latest.end).getTime() - w * 7 * dayMs).toISOString().slice(0, 10);
+    const a = pollAverage(polls, measure, days, asOf);
+    if (a) out.push({ period: asOf, value: a.value });
+  }
+  return out;
+}
+
+/** Days since a date (YYYY-MM-DD). */
+export const ageDays = (d: string) => Math.floor((Date.now() - new Date(`${d}T00:00:00Z`).getTime()) / dayMs);
