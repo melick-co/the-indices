@@ -175,13 +175,13 @@ async function economyMix(): Promise<Dataset[]> {
     ['Government', 'gov', n.govSurplus], ['Government-owned businesses', 'gnfc', n.profitsPublic],
   ] as const;
   return [{
-    key: 'mix:pnl_income', spec: { template: 'treemap', unit: 'aud_m', measure: 'Australia\'s GDP by who earns it (income approach)', total: n.gdp - n.discrepancy,
+    key: 'mix:pnl_income', spec: { template: 'treemap', unit: 'aud_m', measure: 'Australia\'s GDP by who earns it (income approach)', total: n.gdp,
       period: `year to the ${['March', 'June', 'September', 'December'][Number(q) - 1]} quarter ${y}`, rows: rows.map(([label, code, value]) => ({ label, code, value })) },
     sources: [{ org: 'ABS', dataset: 'Australian National Accounts: income from GDP (ANA_INC)', url: 'https://data.api.abs.gov.au/rest/data/ABS,ANA_INC' }],
     context: 'GDP measured by income: what workers, businesses, home owners and government earn producing in Australia.',
-    notes: [
-      `The parts shown sum to $${((n.gdp - n.discrepancy) / 1000).toLocaleString('en-AU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} billion. GDP itself is $${(n.gdp / 1000).toLocaleString('en-AU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} billion, after a statistical discrepancy of ${n.discrepancy < 0 ? '−' : ''}$${(Math.abs(n.discrepancy) / 1000).toFixed(1)} billion that is not shown. Shares are of the parts shown, not of GDP; do not call the sum of the parts GDP.`,
-    ],
+    // Shares are of GDP itself, so the only total in the facts is GDP. The ABS's small statistical discrepancy isn't
+    // a slice, so the parts' shares sum to a touch over 100%; the note says so without giving the parts' sum.
+    notes: [`Shares are of GDP. A statistical discrepancy of ${n.discrepancy < 0 ? '−' : ''}$${(Math.abs(n.discrepancy) / 1000).toFixed(1)} billion is not shown, so the shares add to slightly more than 100%.`],
   }];
 }
 
