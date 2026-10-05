@@ -20,7 +20,8 @@ for (const p of polls) {
     rows.push({
       poll_key, measure, value, field_start: p.field_start, field_end: p.field_end, pollster: p.pollster,
       client: p.client, mode: p.mode, sample_size: p.sample_size, source_url: p.source_url, wiki_revision: p.revid ?? revid,
-      ...(p.compiled_from ? { compiled_from: p.compiled_from } : {}),
+      // Always set: in a bulk upsert a missing column is sent as null, not left to its default.
+      compiled_from: p.compiled_from ?? `Wikipedia: ${POLL_PAGE.replace(/_/g, ' ')}`,
     });
   }
 }
