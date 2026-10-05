@@ -19,7 +19,9 @@ const DAILY_CAP = Number(process.env.VISUALS_DAILY_CAP ?? 1);
 const args = process.argv.slice(2);
 const dry = args.includes('--dry-run');
 const list = args.includes('--list');
-const forced = (args.includes('--key') ? args[args.indexOf('--key') + 1] : process.env.VISUAL_KEY?.trim()) || null;
+// One or more dataset keys to force (space separated), from --key or the workflow's pitch input.
+const forcedKeys = ((args.includes('--key') ? args[args.indexOf('--key') + 1] : process.env.VISUAL_KEY) ?? '').split(/\s+/).filter(Boolean);
+const forced = forcedKeys.length ? forcedKeys : null;
 
 // ------------------------------------------------------------------------------------------------ facts
 
@@ -162,11 +164,11 @@ async function main() {
 
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' });
   const publishedToday = (past ?? []).filter((v) => new Date(v.published_at).toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' }) === today).length;
-  let room = forced ? 1 : Math.max(0, DAILY_CAP - publishedToday);
+  let room = forced ? forced.length : Math.max(0, DAILY_CAP - publishedToday);
   if (!room) { console.log(`Daily cap reached (${DAILY_CAP}); nothing to do.`); return; }
 
-  const queue = forced ? all.filter((d) => d.key === forced) : ranked.filter((x) => x.s > 0).map((x) => x.d);
-  if (forced && !queue.length) throw new Error(`No dataset ${forced}`);
+  const queue = forced ? forced.map((k) => all.find((d) => d.key === k)).filter((d): d is Dataset => !!d) : ranked.filter((x) => x.s > 0).map((x) => x.d);
+  if (forced && queue.length !== forced.length) throw new Error(`Unknown dataset key in: ${forced.join(' ')}`);
   for (const d of queue) {
     if (!room) break;
     const factLines = facts(d);
