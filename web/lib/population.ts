@@ -81,6 +81,20 @@ export function shortName(name: string): string {
 
 // ---------------------------------------------------------------------------------------------------- shapes
 
+export type Travel = {
+  end: string; total: number; prior: number | null; base2019: number | null;
+  reasons: Ranked[]; countries: Ranked[]; annual: Pt[]; annualByReason: Map<string, Pt[]>;
+};
+
+/** Who leaves: Australian citizens' departures and returns over time, and all departures by group. */
+export type Leaving = {
+  end: string;
+  /** Calendar years (December quarter) plus the latest twelve months: citizens leaving and returning. */
+  citizens: { period: string; left: number; returned: number; share: number | null }[];
+  groups: { group: string; value: number; prior: number | null; base: number | null; share: number }[];
+  total: number;
+};
+
 export type Flow = { key: string; label: string; value: number; prior: number | null; sign: 1 | -1 };
 export type Ranked = { code: string; name: string; value: number; prior: number | null; base: number | null; share: number };
 
@@ -92,10 +106,10 @@ export type PopulationData = {
   annual: { period: string; natural: number; nom: number }[];
   visa: { end: string; rows: { code: string; name: string; group: string; arrivals: number; departures: number; priorNet: number | null }[] } | null;
   born: { year: string; total: number; overseas: number; overseasPrior5: number | null; totalPrior5: number | null; top: Ranked[] } | null;
-  visitors: {
-    end: string; total: number; prior: number | null; base2019: number | null;
-    reasons: Ranked[]; countries: Ranked[]; annual: Pt[]; annualByReason: Map<string, Pt[]>;
-  } | null;
+  visitors: Travel | null;
+  /** Australian residents' short trips abroad (returning from), by reason and destination. */
+  outbound: Travel | null;
+  leaving: Leaving | null;
 };
 
 /** Which part of the visa system a group belongs to, in the order the page lists them. */
@@ -131,10 +145,11 @@ export async function loadPopulation(): Promise<PopulationData> {
 
   // Visa groups: the latest four quarters, arrivals and departures, and last year's net.
   let visa: PopulationData['visa'] = null;
+  let leaving: Leaving | null = null;
   const vEnd = await latestPeriod(db, 'migrant_arrivals_visa');
   if (vEnd) {
-    const since = qLabel(qIndex(vEnd) - 7);
-    const [a, d] = await Promise.all([rows(db, 'migrant_arrivals_visa', since), rows(db, 'migrant_departures_visa', since)]);
+    const [a, d] = await Promise.all([rows(db, 'migrant_arrivals_visa'), rows(db, 'migrant_departures_visa')]);
+    leaving = leavingFrom(a, d, vEnd);
     const [aw, dw, ap, dp] = [window(a, vEnd), window(d, vEnd), window(a, vEnd, 1), window(d, vEnd, 1)];
     if (aw && dw) {
       const names = new Map(a.map((r) => [r.category, r.category_name]));
@@ -167,34 +182,60 @@ export async function loadPopulation(): Promise<PopulationData> {
     };
   }
 
-  // Visitors: the latest twelve months by reason and by country, against a year earlier and the same months of 2019.
-  let visitors: PopulationData['visitors'] = null;
-  const tEnd = await latestPeriod(db, 'visitors_reason');
-  if (tEnd) {
-    const [reason, country] = await Promise.all([rows(db, 'visitors_reason', '1990-01'), rows(db, 'visitors_country', '2018-01')]);
-    const base = sameMonths2019(tEnd);
-    const rw = window(reason, tEnd), rp = window(reason, tEnd, 1), rb = window(reason, base);
-    const cw = window(country, tEnd), cp = window(country, tEnd, 1), cb = window(country, base);
-    const rNames = new Map(reason.map((r) => [r.category, r.category_name]));
-    const cNames = new Map(country.map((r) => [r.category, { name: r.category_name, level: r.category_level }]));
-    const total = rw?.get('TOT') ?? 0;
-    const rank = (w: Map<string, number> | null, p: Map<string, number> | null, b: Map<string, number> | null, keep: (c: string) => boolean, name: (c: string) => string) =>
-      w ? [...w.entries()].filter(([c]) => keep(c)).sort((x, y) => y[1] - x[1]).map(([c, value]) => ({ code: c, name: name(c), value, prior: p?.get(c) ?? null, base: b?.get(c) ?? null, share: total ? value / total : 0 })) : [];
-    // Calendar-year totals (complete years only), for the long-run trend.
-    const years = (cat: string) => {
-      const by = new Map<string, { n: number; v: number }>();
-      for (const r of reason) if (r.category === cat) { const y = r.period.slice(0, 4); const e = by.get(y) ?? { n: 0, v: 0 }; e.n++; e.v += r.value; by.set(y, e); }
-      return [...by.entries()].filter(([, e]) => e.n === 12).map(([period, e]) => ({ period, value: e.v }));
-    };
-    const reasonCodes = [...new Set(reason.map((r) => r.category))].filter((c) => c !== 'TOT');
-    visitors = {
-      end: tEnd, total, prior: rp?.get('TOT') ?? null, base2019: rb?.get('TOT') ?? null,
-      reasons: rank(rw, rp, rb, (c) => c !== 'TOT', (c) => rNames.get(c) ?? c),
-      countries: rank(cw, cp, cb, (c) => cNames.get(c)?.level === 'item', (c) => shortName(cNames.get(c)?.name ?? c)).slice(0, 15),
-      annual: years('TOT'),
-      annualByReason: new Map(reasonCodes.map((c) => [c, years(c)])),
-    };
-  }
+  // Visitors arriving, and Australians' trips abroad: the latest twelve months by reason and by country.
+  const [visitors, outbound] = await Promise.all([travel(db, 'visitors'), travel(db, 'residents_trips')]);
 
-  return { erp, change12, rate12, births12, deaths12, ni12, nom12, latestQ, flows, annual, visa, born, visitors };
+  return { erp, change12, rate12, births12, deaths12, ni12, nom12, latestQ, flows, annual, visa, born, visitors, outbound, leaving };
+}
+
+/** Short-term travel (visitors arriving, or residents returning from trips), against a year earlier and 2019. */
+async function travel(db: Db, prefix: 'visitors' | 'residents_trips'): Promise<Travel | null> {
+  const end = await latestPeriod(db, `${prefix}_reason`);
+  if (!end) return null;
+  const [reason, country] = await Promise.all([rows(db, `${prefix}_reason`, '1990-01'), rows(db, `${prefix}_country`, '2018-01')]);
+  const base = sameMonths2019(end);
+  const rw = window(reason, end), rp = window(reason, end, 1), rb = window(reason, base);
+  const cw = window(country, end), cp = window(country, end, 1), cb = window(country, base);
+  const rNames = new Map(reason.map((r) => [r.category, r.category_name]));
+  const cNames = new Map(country.map((r) => [r.category, { name: r.category_name, level: r.category_level }]));
+  const total = rw?.get('TOT') ?? 0;
+  const rank = (w: Map<string, number> | null, p: Map<string, number> | null, b: Map<string, number> | null, keep: (c: string) => boolean, name: (c: string) => string) =>
+    w ? [...w.entries()].filter(([c]) => keep(c)).sort((x, y) => y[1] - x[1]).map(([c, value]) => ({ code: c, name: name(c), value, prior: p?.get(c) ?? null, base: b?.get(c) ?? null, share: total ? value / total : 0 })) : [];
+  // Calendar-year totals (complete years only), for the long-run trend.
+  const years = (cat: string) => {
+    const by = new Map<string, { n: number; v: number }>();
+    for (const r of reason) if (r.category === cat) { const y = r.period.slice(0, 4); const e = by.get(y) ?? { n: 0, v: 0 }; e.n++; e.v += r.value; by.set(y, e); }
+    return [...by.entries()].filter(([, e]) => e.n === 12).map(([period, e]) => ({ period, value: e.v }));
+  };
+  const reasonCodes = [...new Set(reason.map((r) => r.category))].filter((c) => c !== 'TOT');
+  return {
+    end, total, prior: rp?.get('TOT') ?? null, base2019: rb?.get('TOT') ?? null,
+    reasons: rank(rw, rp, rb, (c) => c !== 'TOT', (c) => rNames.get(c) ?? c),
+    countries: rank(cw, cp, cb, (c) => cNames.get(c)?.level === 'item', (c) => shortName(cNames.get(c)?.name ?? c)).slice(0, 15),
+    annual: years('TOT'),
+    annualByReason: new Map(reasonCodes.map((c) => [c, years(c)])),
+  };
+}
+
+/** Australian citizens leaving and returning by year, and the latest twelve months' departures by group. */
+function leavingFrom(arrivals: Row[], departures: Row[], end: string): Leaving | null {
+  const quarters = [...new Set(departures.map((r) => r.period))].sort();
+  const ends = quarters.filter((q) => q.endsWith('-Q4') || q === end);
+  const citizens = ends.map((q) => {
+    const d = window(departures, q), a = window(arrivals, q);
+    if (!d || !a) return null;
+    const left = d.get('02') ?? 0, total = d.get('1041') ?? null;
+    return { period: q.endsWith('-Q4') && q !== end ? q.slice(0, 4) : `12 mths to ${q}`, left, returned: a.get('02') ?? 0, share: total ? left / total : null };
+  }).filter((x): x is NonNullable<typeof x> => x != null);
+  const now = window(departures, end), prior = window(departures, end, 1);
+  // 2019: the same four quarters of 2019 (the last full year before the border closures).
+  const base = window(departures, `2019-Q${end.slice(-1)}`);
+  if (!now) return null;
+  const sumGroup = (w: Map<string, number> | null, g: string) => (w ? [...w.entries()].filter(([c]) => visaGroup(c) === g && /^(2203|2208|1009|23|24|25|1010|11|12|15|1030|01|02)$/.test(c)).reduce((s, [, v]) => s + v, 0) : null);
+  const total = now.get('1041') ?? 0;
+  const groups = GROUP_ORDER.filter((g) => g !== 'Other').map((group) => {
+    const value = sumGroup(now, group) ?? 0;
+    return { group, value, prior: sumGroup(prior, group), base: sumGroup(base, group), share: total ? value / total : 0 };
+  }).sort((x, y) => y.value - x.value);
+  return { end, citizens, groups, total };
 }

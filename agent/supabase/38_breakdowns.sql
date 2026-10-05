@@ -8,6 +8,8 @@
 --   migrant_departures_visa  OMAD_VISA    overseas migrant departures by visa group, quarterly (persons)
 --   visitors_reason      OAD_REASON       short-term visitor arrivals by main reason for the trip, monthly (persons)
 --   visitors_country     OAD_COUNTRY      short-term visitor arrivals by country of residence, monthly (persons)
+--   residents_trips_reason   OAD_REASON   Australian residents returning from short trips abroad, by main reason (persons)
+--   residents_trips_country  OAD_COUNTRY  the same by main destination country (persons)
 
 create table if not exists breakdowns (
   dataset        text not null,

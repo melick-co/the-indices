@@ -4,7 +4,7 @@ import { Trend } from '@/components/dashboard/DashParts';
 import { Icon } from '@/components/dashboard/Icons';
 import { DriverRow, Hero, Legend, tickerStyle, type DashboardRef } from '@/components/dashboard/Views';
 import type { SectionReading } from '@/lib/economy-dashboard';
-import { windowLabel, type PopulationData, type Ranked } from '@/lib/population';
+import { windowLabel, type Leaving, type PopulationData, type Ranked, type Travel } from '@/lib/population';
 
 const n = (v: number) => Math.round(v).toLocaleString('en-AU');
 const signed = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${n(Math.abs(v))}`;
@@ -141,6 +141,122 @@ function Bars({ rows, max, total }: { rows: Ranked[]; max: number; total?: strin
   );
 }
 
+/** Short-term travel: visitors arriving, or Australians' trips abroad. Same layout, different words. */
+function TravelSection({ t, kind }: { t: Travel; kind: 'visitors' | 'outbound' }) {
+  const out = kind === 'outbound';
+  const who = out ? 'trips' : 'visitors';
+  return (
+    <>
+      <div className="dx-band">
+        <span className="dx-band-icon"><Icon name={out ? 'trend' : 'compass'} size={18} /></span>
+        <div>
+          <h2>{out ? 'Australians travelling abroad' : 'Visitors'}</h2>
+          <p>{out ? 'Short-term trips by Australian residents (away less than a year), counted on their return' : 'Short-term visitor arrivals (staying less than a year)'}, {windowLabel(t.end)}, against a year earlier and the same months of 2019, before the border closures</p>
+        </div>
+      </div>
+      <div className="dx-grid two">
+        <Card icon={out ? 'trend' : 'compass'} title={out ? 'Why they go' : 'Why they come'} sub={out ? 'Trips by main reason' : 'Arrivals by main reason for the trip'}>
+          <div className="dx-kpis">
+            <span><b>{n(t.total)}</b> {out ? 'trips abroad' : 'visitor arrivals'}</span>
+            {t.prior != null && <ChangeTag now={t.total} then={t.prior} label="on a year earlier" />}
+            {t.base2019 != null && <span className="dx-pchange">{Math.round((t.total / t.base2019) * 100)}% of 2019</span>}
+          </div>
+          <div className="dx-reasons">
+            {t.reasons.map((r) => (
+              <div key={r.code} className="dx-reason">
+                <span className="dx-reason-name">{r.name}<small>{Math.round(r.share * 1000) / 10}% of {who}</small></span>
+                <span className="dx-reason-trend"><Trend points={(t.annualByReason.get(r.code) ?? []).slice(-20)} height={30} /></span>
+                <span className="dx-reason-value">{n(r.value)}</span>
+                <span className="dx-reason-meta">
+                  <ChangeTag now={r.value} then={r.prior} label="1 yr" />
+                  {r.base != null && <span className={`dx-recovery ${r.value >= r.base ? 'up' : 'down'}`}>{Math.round((r.value / r.base) * 100)}% of 2019</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="dx-small">Trend lines: calendar-year {out ? 'trips' : 'arrivals'} for each reason{out ? ' (reasons are published from July 2007)' : ', last 20 years'}.</p>
+          {t.annual.length >= 2 && (
+            <div className="dx-inset">
+              <StoryChart chart={{
+                type: 'chart', kind: 'line',
+                title: `${(t.annual.at(-1)!.value / 1e6).toFixed(2)} million ${out ? 'trips abroad by Australians' : 'visitor arrivals'} in ${t.annual.at(-1)!.period}`,
+                subtitle: out ? 'Short-term resident returns, calendar years' : 'Short-term visitor arrivals, calendar years',
+                series: t.annual.filter((p) => Number(p.period) >= 1990).map((p) => ({ label: p.period, value: p.value })),
+                caption: 'Source: ABS, Overseas arrivals and departures (OAD_REASON).',
+              }} />
+            </div>
+          )}
+        </Card>
+        <Card icon="users" title={out ? 'Where they go' : 'Where they come from'} sub={out ? 'Top destinations' : 'Top countries of residence'}>
+          <Bars rows={t.countries} max={t.countries[0]?.value ?? 1} total="vs 2019" />
+        </Card>
+      </div>
+    </>
+  );
+}
+
+/** Who leaves: Australian citizens' departures against returns over time, and every group's departures. */
+function LeavingCard({ l }: { l: Leaving }) {
+  const last = l.citizens.at(-1);
+  const years = l.citizens.filter((c) => /^\d{4}$/.test(c.period));
+  const max = Math.max(...l.groups.map((g) => g.value), 1);
+  const share2019 = l.citizens.find((c) => c.period === '2019')?.share;
+  return (
+    <section className="dx-card dx-span">
+      <div className="dx-card-head static">
+        <span className="dx-card-icon"><Icon name="trend" size={18} /></span>
+        <span className="dx-card-titles"><h2>Who is leaving</h2><span>Overseas migrant departures (leaving for 12 of the next 16 months), {windowLabel(l.end)}</span></span>
+      </div>
+      <div className="dx-card-body">
+        <div className="dx-grid two flush">
+          <div>
+            <p className="dx-drivers-head">Australian citizens leaving and returning</p>
+            {last && (
+              <p className="dx-small dx-lead">
+                <b>{n(last.left)}</b> citizens left and <b>{n(last.returned)}</b> came back: a net {last.returned - last.left < 0 ? 'loss' : 'gain'} of <b>{n(Math.abs(last.returned - last.left))}</b>.
+                {last.share != null && <> Citizens were {Math.round(last.share * 100)}% of all departures{share2019 != null ? `, against ${Math.round(share2019 * 100)}% in 2019` : ''}.</>}
+              </p>
+            )}
+            {years.length >= 2 && (
+              <StoryChart chart={{
+                type: 'chart', kind: 'line',
+                title: (() => {
+                  const net = years.map((y) => ({ y: y.period, v: y.returned - y.left }));
+                  const gains = net.filter((x) => x.v > 0).map((x) => x.y);
+                  const list = gains.length > 1 ? `${gains.slice(0, -1).join(', ')} and ${gains.at(-1)}` : gains[0];
+                  return gains.length ? `More citizens returned than left only in ${list}` : 'More citizens left than returned in every year shown';
+                })(),
+                subtitle: 'Australian citizens leaving and returning long-term, calendar years',
+                series: years.map((y) => ({ label: y.period, value: y.left })),
+                alt_series: years.map((y) => ({ label: y.period, value: y.returned })),
+                primary_label: 'Left', alt_label: 'Returned',
+                caption: 'Source: ABS, Overseas migrant arrivals and departures by visa (OMAD_VISA).',
+              }} />
+            )}
+          </div>
+          <div>
+            <p className="dx-drivers-head">All departures by group: {n(l.total)} people</p>
+            <div className="dx-rank">
+              {l.groups.map((g) => (
+                <div key={g.group} className="dx-rank-row">
+                  <span className="dx-rank-name">{g.group}</span>
+                  <span className="dx-rank-track"><span className="out" style={{ width: `${(g.value / max) * 100}%` }} /></span>
+                  <span className="dx-rank-value">{n(g.value)}</span>
+                  <span className="dx-rank-meta">
+                    <ChangeTag now={g.value} then={g.prior} label="1 yr" />
+                    {g.base != null && <ChangeTag now={g.value} then={g.base} label="vs 2019" />}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="dx-small">Temporary visa holders leaving at the end of a course or job are counted here, as are permanent residents and New Zealand citizens. Where emigrating Australians go is not published in the ABS data API.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function PopulationView({ dash, reading, d }: { dash: DashboardRef; reading: SectionReading; d: PopulationData }) {
   const { section, others } = reading;
   const pop = d.erp.at(-1);
@@ -207,6 +323,8 @@ export function PopulationView({ dash, reading, d }: { dash: DashboardRef; readi
           </Card>
         )}
 
+        {d.leaving && <LeavingCard l={d.leaving} />}
+
         <div className="dx-grid two">
           {d.born && (
             <Card icon="users" title="Where residents were born" sub={`Top overseas countries of birth, 30 June ${d.born.year}`}>
@@ -231,57 +349,8 @@ export function PopulationView({ dash, reading, d }: { dash: DashboardRef; readi
           </Card>
         </div>
 
-        {v && (
-          <>
-            <div className="dx-band">
-              <span className="dx-band-icon"><Icon name="compass" size={18} /></span>
-              <div>
-                <h2>Visitors</h2>
-                <p>Short-term visitor arrivals (staying less than a year), {windowLabel(v.end)}, against a year earlier and the same months of 2019, before the border closures</p>
-              </div>
-            </div>
-            <div className="dx-grid two">
-              <Card icon="compass" title="Why they come" sub="Arrivals by main reason for the trip">
-                <div className="dx-kpis">
-                  <span><b>{n(v.total)}</b> visitor arrivals</span>
-                  {v.prior != null && <ChangeTag now={v.total} then={v.prior} label="on a year earlier" />}
-                  {v.base2019 != null && <span className="dx-pchange">{Math.round((v.total / v.base2019) * 100)}% of 2019</span>}
-                </div>
-                <div className="dx-reasons">
-                  {v.reasons.map((r) => {
-                    const yrs = (v.annualByReason.get(r.code) ?? []).slice(-20);
-                    return (
-                      <div key={r.code} className="dx-reason">
-                        <span className="dx-reason-name">{r.name}<small>{Math.round(r.share * 1000) / 10}% of visitors</small></span>
-                        <span className="dx-reason-trend"><Trend points={yrs} height={30} /></span>
-                        <span className="dx-reason-value">{n(r.value)}</span>
-                        <span className="dx-reason-meta">
-                          <ChangeTag now={r.value} then={r.prior} label="1 yr" />
-                          {r.base != null && <span className={`dx-recovery ${r.value >= r.base ? 'up' : 'down'}`}>{Math.round((r.value / r.base) * 100)}% of 2019</span>}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="dx-small">Trend lines: calendar-year arrivals for each reason, last 20 years.</p>
-                {v.annual.length >= 2 && (
-                  <div className="dx-inset">
-                    <StoryChart chart={{
-                    type: 'chart', kind: 'line',
-                    title: `${(v.annual.at(-1)!.value / 1e6).toFixed(2)} million visitor arrivals in ${v.annual.at(-1)!.period}`,
-                    subtitle: 'Short-term visitor arrivals, calendar years',
-                    series: v.annual.filter((p) => Number(p.period) >= 1990).map((p) => ({ label: p.period, value: p.value })),
-                    caption: 'Source: ABS, Overseas arrivals and departures (OAD_REASON).',
-                  }} />
-                  </div>
-                )}
-              </Card>
-              <Card icon="users" title="Where they come from" sub="Top countries of residence">
-                <Bars rows={v.countries} max={v.countries[0]?.value ?? 1} total="vs 2019" />
-              </Card>
-            </div>
-          </>
-        )}
+        {v && <TravelSection t={v} kind="visitors" />}
+        {d.outbound && <TravelSection t={d.outbound} kind="outbound" />}
 
         <section className="dx-card dx-span">
           <div className="dx-card-head static">
