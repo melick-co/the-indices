@@ -61,24 +61,41 @@ function GrowthBridge({ d }: { d: PopulationData }) {
   );
 }
 
+/** Calendar years in which Australia's international border was closed to most arrivals (March 2020 to February 2022). */
+const CLOSED = ['2020', '2021'];
+
 /** Natural increase and net overseas migration by calendar year, stacked (migration below the line when negative). */
 function ComponentsChart({ data }: { data: PopulationData['annual'] }) {
   const rows = data.slice(-26);
   if (rows.length < 2) return null;
   const W = 720, H = 240, padL = 44, padB = 26, padT = 10;
   const hi = Math.max(...rows.map((r) => Math.max(0, r.natural) + Math.max(0, r.nom)));
-  const lo = Math.min(0, ...rows.map((r) => Math.min(0, r.nom) + Math.min(0, r.natural)));
+  const closed = rows.map((r, i) => ({ r, i })).filter(({ r }) => CLOSED.includes(r.period));
+  // Room below the line for the closure years' labels.
+  const lo0 = Math.min(0, ...rows.map((r) => Math.min(0, r.nom) + Math.min(0, r.natural)));
+  const lo = closed.length ? lo0 - hi * 0.1 : lo0;
   const y = (v: number) => padT + ((hi - v) / (hi - lo)) * (H - padT - padB);
   const bw = (W - padL) / rows.length;
-  const ticks = [lo < 0 ? lo : null, 0, hi / 2, hi].filter((t): t is number => t != null);
+  const ticks = [0, hi / 2, hi];
+  const k = (v: number) => `${v < 0 ? '−' : ''}${Math.round(Math.abs(v) / 1000)}k`;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="dx-stack" role="img" aria-label="Natural increase and net overseas migration by year">
       {ticks.map((t) => (
         <g key={t}>
           <line x1={padL} x2={W} y1={y(t)} y2={y(t)} className={t === 0 ? 'zero' : 'grid'} />
-          <text x={padL - 6} y={y(t) + 4} textAnchor="end">{t === 0 ? '0' : `${Math.round(t / 1000)}k`}</text>
+          <text x={padL - 6} y={y(t) + 4} textAnchor="end">{t === 0 ? '0' : k(t)}</text>
         </g>
       ))}
+      {closed.length > 0 && (() => {
+        // A shaded band behind the closure years, labelled at the top of the chart where no bar reaches.
+        const x0 = padL + closed[0].i * bw, x1 = padL + (closed.at(-1)!.i + 1) * bw;
+        return (
+          <g className="dx-stack-bracket">
+            <rect x={x0} width={x1 - x0} y={padT} height={y(lo) - padT} />
+            <text x={(x0 + x1) / 2} y={padT + 10} textAnchor="middle">Borders closed</text>
+          </g>
+        );
+      })()}
       {rows.map((r, i) => {
         const x = padL + i * bw + bw * 0.15, w = bw * 0.7;
         const natTop = y(Math.max(0, r.natural)), natBottom = y(Math.min(0, r.natural));
@@ -92,6 +109,10 @@ function ComponentsChart({ data }: { data: PopulationData['annual'] }) {
             <rect x={x} width={w} y={natTop} height={Math.max(0.5, natBottom - natTop)} className="nat" />
             <rect x={x} width={w} y={nomTop} height={Math.max(0.5, nomBottom - nomTop)} className={`nom${nomPos ? '' : ' neg'}`} />
             {(i % 5 === 0 || i === rows.length - 1) && <text x={x + w / 2} y={H - 8} textAnchor="middle">{label}</text>}
+            {CLOSED.includes(r.period) && (
+              // The border-closure years: each one's net overseas migration, under its bar.
+              <text className="dx-stack-value" x={x + w / 2} y={(r.nom < 0 ? nomBottom : y(0)) + 12} textAnchor="middle">{k(r.nom)}</text>
+            )}
           </g>
         );
       })}
@@ -147,7 +168,11 @@ export function PopulationView({ dash, reading, d }: { dash: DashboardRef; readi
           </Card>
           <Card icon="trend" title="Growth by year" sub="Natural increase and net overseas migration, calendar years">
             <ComponentsChart data={d.annual} />
-            <p className="dx-reflabel"><span className="dx-swatch nat" />Natural increase <span className="dx-swatch nom" />Net overseas migration (below the line when more left than arrived)</p>
+            <p className="dx-legend-inline"><span className="dx-swatch nat" />Natural increase <span className="dx-swatch nom" />Net overseas migration <span className="dx-swatch neg" />Net outflow (more left than arrived)</p>
+            {(() => {
+              const yrs = d.annual.filter((r) => CLOSED.includes(r.period));
+              return yrs.length ? <p className="dx-small">While the border was closed (March 2020 to February 2022), net overseas migration was {yrs.map((r) => `${signed(r.nom)} in ${r.period}`).join(' and ')}, against {signed(Math.round(d.annual.filter((r) => /^201[5-9]$/.test(r.period)).reduce((s, r) => s + r.nom, 0) / 5))} a year on average in 2015–19.</p> : null;
+            })()}
           </Card>
         </div>
 
