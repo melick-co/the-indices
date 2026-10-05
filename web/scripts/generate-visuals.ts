@@ -130,7 +130,7 @@ async function write(d: Dataset, factLines: string[], feedback?: string): Promis
 Rules:
 - Use ONLY the numbers in the facts. Do not round to a different precision than shown unless you write fewer digits of the same number (e.g. $2,927.1 billion may become $2.9 trillion). Never invent, add or subtract numbers yourself.
 - Title: punchy, under 80 characters, sentence case, optionally starting "Ranked:", "Visualised:" or "Charted:". Australian spelling.
-- Subtitle: one sentence saying what is measured, where and when.
+- Subtitle: one sentence saying what is measured, where and when, using the source's own definition from the facts (e.g. "registered voters", not "eligible voters").
 - Takeaways: 3 to 5 short sentences, each one specific fact from the data. No causes, forecasts or opinions; no exclamation marks.
 - Do not state comparisons, ratios ("half", "twice", "double"), counts or ranking positions ("second-lowest", "top five") unless the facts state them outright. Quote values and the ranks given; do not work anything out yourself.
 - alt: one sentence describing the graphic for screen readers.

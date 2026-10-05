@@ -52,7 +52,7 @@ async function rankings(db: Db): Promise<Dataset[]> {
     const all = await loadObservations(db, m.metric_id).catch(() => []);
     const peers = peerTable(all, m.metric_id, m.label, m.unit, m.higherIsBetter);
     if (!peers || peers.of < 15) continue;
-    const { data: meta } = await db.from('metrics').select('source_org, source_dataset, source_url').eq('metric_id', m.metric_id).maybeSingle();
+    const { data: meta } = await db.from('metrics').select('source_org, source_dataset, source_url, unit, basis').eq('metric_id', m.metric_id).maybeSingle();
     out.push({
       key: `rank:${m.metric_id}`,
       spec: {
@@ -61,7 +61,8 @@ async function rankings(db: Db): Promise<Dataset[]> {
         median: peers.median, rank: peers.rank, of: peers.of, bestFirst: peers.bestFirst, higherIsBetter: m.higherIsBetter,
       },
       sources: [{ org: meta?.source_org ?? 'OECD', dataset: meta?.source_dataset ?? m.metric_id, url: meta?.source_url ?? undefined }],
-      context: m.why,
+      // The source's own definition, so the words can't drift ("eligible" where the source says "registered").
+      context: `${m.why}${meta?.unit ? ` Unit, as the source defines it: ${meta.unit}.` : ''}${meta?.basis ? ` Definition: ${meta.basis}.` : ''}`,
     });
   }
   return out;
