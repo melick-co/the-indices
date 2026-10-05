@@ -88,7 +88,7 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
         </div>
       )}
       {/* Source */}
-      <div style={{ position: 'absolute', left: pad, right: pad, bottom: tall ? 250 : 18, fontSize: tall ? 22 : 20, color: MUTED }}>Source: {race.source.org}, {race.source.dataset}</div>
+      <div style={{ position: 'absolute', left: pad, right: pad, bottom: tall ? 250 : 18, fontSize: tall ? 22 : 20, color: MUTED }}>Source: {race.source.org}, {race.source.dataset}. Values between {race.frames.length > 1 && /^\d{4}$/.test(race.frames[0].period) ? 'years' : 'periods'} are interpolated.</div>
       {/* Title card */}
       <AbsoluteFill style={{ background: NAVY, opacity: introOpacity, justifyContent: 'center', padding: pad }}>
         <div style={{ fontSize: tall ? 30 : 28, letterSpacing: 5, textTransform: 'uppercase', color: ACCENT, fontWeight: 700 }}>The Indices</div>
