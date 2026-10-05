@@ -90,7 +90,10 @@ function picturePrompt(
   const motion = opts.kind === 'clip'
     ? 'Animate this first frame. Subtle motion only: the presenter holds, the camera holds, nothing is added to the frame.'
     : 'STILL FRAME, photographic, raw off-white paper tones.';
-  const presenter = `PRESENTER: Single presenter, piece to camera, framed centre. ${pictureNotes(opts.style.presenter)}`;
+  const presenterNotes = pictureNotes(opts.style.presenter);
+  const presenter = /^single presenter/i.test(presenterNotes)
+    ? `PRESENTER: ${presenterNotes}`
+    : `PRESENTER: Single presenter, piece to camera, framed centre. ${presenterNotes}`;
   const keep = pack(header, [NO_TEXT_RULE, `SCENE: ${scene.visual_prompt}`], max);
   return clipUtf16(
     pack(keep, [motion, presenter, `LOOK: ${pictureNotes(opts.style.look)}`], max),
