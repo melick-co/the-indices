@@ -4507,7 +4507,7 @@ html:has(.site-shell--ops) body {
 .dx-icon { flex: none; display: inline-block; vertical-align: -2px; }
 
 /* Hero */
-.dx-hero { background: var(--dx-navy); color: var(--dx-on-navy); padding: 22px 32px 20px; border-bottom: 3px solid #0f1830; }
+.dx-hero { container-type: inline-size; background: var(--dx-navy); color: var(--dx-on-navy); padding: 22px 32px 20px; border-bottom: 3px solid #0f1830; }
 .dx-hero a { color: var(--dx-on-navy); text-decoration: underline; text-decoration-color: rgba(255,255,255,.35); text-underline-offset: 3px; }
 .dx-hero-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; }
 .dx-kicker, .dx-asof { margin: 0; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: var(--dx-on-navy-muted); }
@@ -4516,7 +4516,7 @@ html:has(.site-shell--ops) body {
 
 /* Flex so a wrapped last row stretches across, instead of leaving an empty block. */
 .dx-ticker { display: flex; flex-wrap: wrap; gap: 1px; margin-top: 18px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.1); border-radius: 6px; overflow: hidden; }
-.dx-tick { flex: 1 1 max(140px, calc(100% / var(--cols, 5) - 1px)); display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; background: var(--dx-navy-2); text-decoration: none !important; border-top: 3px solid var(--dx-neutral); transition: background .15s; }
+.dx-tick { flex: 1 1 calc(100% / var(--cols, 5) - 1px); min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; background: var(--dx-navy-2); text-decoration: none !important; border-top: 3px solid var(--dx-neutral); transition: background .15s; }
 .dx-tick:hover { background: var(--dx-navy-3); }
 .dx-tick.good { border-top-color: #34c17f; } .dx-tick.bad { border-top-color: #f0675c; } .dx-tick.watch { border-top-color: #f2a93b; } .dx-tick.neutral { border-top-color: #8597bd; }
 .dx-tick-label { display: flex; align-items: center; gap: 6px; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--dx-on-navy-muted); }
@@ -4749,3 +4749,7 @@ a.dx-driver:hover { background: #f5f7fb; }
 }
 
 .dx-inset { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--dx-line); }
+
+/* The strip balances by its own width (see tickerStyle): medium splits five or six tiles into two even rows. */
+@container (max-width: 860px) { .dx-tick { flex-basis: calc(100% / var(--cols-md, var(--cols, 5)) - 1px); } }
+@container (max-width: 480px) { .dx-tick { flex-basis: calc(100% / var(--cols-sm, 2) - 1px); } }

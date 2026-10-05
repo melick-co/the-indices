@@ -26,6 +26,16 @@ export function Hero({ kicker, title, intro, children }: { kicker: React.ReactNo
   );
 }
 
+/**
+ * Tiles per row in the hero strip at each width, so rows stay even: wide, up to six in a row (more split into two
+ * rows: 8 → 4 + 4, 7 → 4 + 3); medium, five or six split in two (5 → 3 + 2); narrow, two a row.
+ */
+export function tickerStyle(n: number): React.CSSProperties {
+  const wide = n <= 6 ? n : Math.ceil(n / 2);
+  const md = wide > 4 ? Math.ceil(wide / 2) : wide;
+  return { '--cols': wide, '--cols-md': md, '--cols-sm': Math.min(wide, 2) } as React.CSSProperties;
+}
+
 /** A section's headline number in the hero strip. */
 function Ticker({ dash, s }: { dash: DashboardRef; s: SectionReading }) {
   const h = s.headline;
@@ -111,7 +121,7 @@ export function DashboardView({ dash, kicker, title, intro, sections, legendNote
     <main className="dx">
       <Hero kicker={kicker} title={title} intro={intro}>
         {/* Up to six tiles in one row; more split into two even rows (8 → 4 + 4, 7 → 4 + 3). */}
-        <div className="dx-ticker" style={{ '--cols': sections.length <= 6 ? sections.length : Math.ceil(sections.length / 2) } as React.CSSProperties}>
+        <div className="dx-ticker" style={tickerStyle(sections.length)}>
           {sections.map((s) => <Ticker key={s.section.id} dash={dash} s={s} />)}
         </div>
       </Hero>
