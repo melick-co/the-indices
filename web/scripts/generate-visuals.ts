@@ -42,26 +42,39 @@ export function facts(d: Dataset): string[] {
     const dir = s.bestFirst ? (s.higherIsBetter ? 'highest is best' : 'lowest is best') : 'ranked highest first';
     f.push(`${s.of} OECD countries are ranked (${dir}). The OECD median is ${fmtValue(s.median!, s.unit)}.`);
     if (aus) f.push(`Australia: ${fmtValue(aus.value, s.unit)}, ranked ${ord(s.rank!)} of ${s.of}, ${aus.value > s.median! ? 'above' : aus.value < s.median! ? 'below' : 'at'} the median.`);
+    const above = s.rows.filter((r) => r.value > s.median!).length, below = s.rows.filter((r) => r.value < s.median!).length;
+    f.push(`Countries above the median: ${above}. Below the median: ${below}. At the median: ${s.of! - above - below}.`);
     f.push(`Top three: ${s.rows.slice(0, 3).map((r) => `${r.label} ${fmtValue(r.value, s.unit)}`).join('; ')}.`);
     f.push(`Bottom three: ${s.rows.slice(-3).map((r) => `${r.label} ${fmtValue(r.value, s.unit)}`).join('; ')}.`);
     f.push(`All countries: ${s.rows.map((r, i) => `${i + 1}. ${r.label} ${fmtValue(r.value, s.unit)}`).join('; ')}.`);
   } else if (s.template === 'treemap') {
     const total = s.total ?? s.rows.reduce((t, r) => t + r.value, 0);
-    f.push(`Total: ${fmtValue(total, s.unit)}.`);
+    f.push(`Parts shown: ${s.rows.length}${s.rows.some((r) => r.code === 'OTHER') ? ` (the ${s.rows.length - 1} largest plus all others combined)` : ''}. Total: ${fmtValue(total, s.unit)}.`);
     for (const r of s.rows) f.push(`${r.label}: ${fmtValue(r.value, s.unit)}, ${pct((r.value / total) * 100)} of the total.`);
   } else {
     const rows = s.rows.filter((r) => r.prior != null && r.prior > 0);
+    f.push(`Items shown: ${rows.length}, the ${rows.length} largest at the later date.`);
     for (const r of rows) f.push(`${r.label}: ${fmtValue(r.value, s.unit)}, against ${fmtValue(r.prior!, s.unit)} (${r.value >= r.prior! ? 'up' : 'down'} ${pct(Math.abs((r.value / r.prior! - 1) * 100))}; ${pct((r.value / r.prior!) * 100, 0)} of the earlier level).`);
     const ranked = [...rows].sort((a, b) => b.value / b.prior! - a.value / a.prior!);
     if (ranked.length) f.push(`Largest rise: ${ranked[0].label}. Largest fall or smallest rise: ${ranked.at(-1)!.label}.`);
   }
   f.push(`Context: ${d.context}`);
+  for (const n of d.notes ?? []) f.push(n);
   return f;
 }
 
 // ------------------------------------------------------------------------------------------------ number check
 
 type Num = { value: number; pct: boolean; tol: number; text: string };
+
+const WORDS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
+  thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50 };
+
+/** Counts written as words ("Twenty of the 38") as digits, so the number check sees them. Ordinal words and
+ *  fractions ("second-lowest", "half") are left to the claim audit. */
+export function wordsToDigits(text: string): string {
+  return text.replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty)\b(?=\s+(?:of|countries|nations|members|groups|economies|places|per cent|percent))/gi, (w) => String(WORDS[w.toLowerCase()]));
+}
 
 /** Numbers in text as values in base units ("$2.9 trillion" → 2.9e12, "1.4 million" → 1.4e6, "12.5%" → 12.5 pct). */
 export function numbers(text: string): Num[] {
@@ -86,7 +99,7 @@ export function numbers(text: string): Num[] {
 export function checkNumbers(text: string, factText: string, years: Set<number>): string[] {
   const allowed = numbers(factText);
   const problems: string[] = [];
-  for (const n of numbers(text)) {
+  for (const n of numbers(wordsToDigits(text))) {
     if (!n.pct && Number.isInteger(n.value) && n.value >= 1900 && n.value <= 2100 && years.has(n.value)) continue;
     // Small counts and ranks ("top three", "12 countries", "7th") are allowed when they appear in the facts too.
     const ok = allowed.some((a) => a.pct === n.pct && Math.abs(a.value - n.value) <= Math.max(n.tol, a.tol));
@@ -99,6 +112,17 @@ export function checkNumbers(text: string, factText: string, years: Set<number>)
 
 type Copy = { title: string; subtitle: string; takeaways: string[]; alt: string };
 
+/** The last JSON object in a model reply, even if the model wrote reasoning around it; null if there is none. */
+export function extractJson<T>(raw: string): T | null {
+  const text = raw.replace(/```json|```/g, '');
+  for (let end = text.lastIndexOf('}'); end >= 0; end = text.lastIndexOf('}', end - 1)) {
+    for (let start = text.lastIndexOf('{', end); start >= 0; start = text.lastIndexOf('{', start - 1)) {
+      try { return JSON.parse(text.slice(start, end + 1)) as T; } catch { /* keep widening */ }
+    }
+  }
+  return null;
+}
+
 async function write(d: Dataset, factLines: string[], feedback?: string): Promise<Copy> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY is not set');
@@ -108,6 +132,7 @@ Rules:
 - Title: punchy, under 80 characters, sentence case, optionally starting "Ranked:", "Visualised:" or "Charted:". Australian spelling.
 - Subtitle: one sentence saying what is measured, where and when.
 - Takeaways: 3 to 5 short sentences, each one specific fact from the data. No causes, forecasts or opinions; no exclamation marks.
+- Do not state comparisons, ratios ("half", "twice", "double"), counts or ranking positions ("second-lowest", "top five") unless the facts state them outright. Quote values and the ranks given; do not work anything out yourself.
 - alt: one sentence describing the graphic for screen readers.
 Return JSON only: {"title": "...", "subtitle": "...", "takeaways": ["..."], "alt": "..."}`;
   const user = `Graphic type: ${d.spec.template === 'ranked' ? 'a ranked bar chart of countries' : d.spec.template === 'treemap' ? 'a treemap of shares of a total' : 'bars comparing two periods'}.
@@ -121,7 +146,35 @@ ${factLines.map((l) => `- ${l}`).join('\n')}${feedback ? `\n\nYour last draft fa
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const body = await res.json();
   const raw = (body.content ?? []).filter((c: { type: string }) => c.type === 'text').map((c: { text: string }) => c.text).join('\n');
-  return JSON.parse(raw.replace(/```json|```/g, '').trim()) as Copy;
+  const copy = extractJson<Copy>(raw);
+  if (!copy) throw new Error('the writer returned no JSON');
+  return copy;
+}
+
+/**
+ * A second, independent pass: does every claim follow directly from the facts? Catches true numbers used in false
+ * statements: comparisons, ratios, counts and ranking positions the number check can't see.
+ */
+async function auditClaims(c: Copy, factLines: string[]): Promise<string[]> {
+  const key = process.env.ANTHROPIC_API_KEY!;
+  const system = `You audit the words of a data graphic against its facts. Be strict.
+For every sentence, check each claim (values, comparisons such as "less than half", counts such as "20 countries", ranking positions such as "second-lowest", superlatives, "only", "all") against the facts. A claim passes only if the facts state it or it follows by simple exact reading of the listed values and ranks. Check arithmetic yourself where a claim implies it (e.g. half of 90.7 is 45.35).
+Reply with the JSON object only, no reasoning before or after: {"problems": ["<quote the wrong words> — <why>"]}, with an empty list if everything is supported.`;
+  const user = `Facts:\n${factLines.map((l) => `- ${l}`).join('\n')}\n\nWords to audit:\nTitle: ${c.title}\nSubtitle: ${c.subtitle}\n${c.takeaways.map((t, i) => `Takeaway ${i + 1}: ${t}`).join('\n')}\nAlt: ${c.alt}`;
+  // Two tries at a parseable verdict; no verdict is a failure, never a pass.
+  for (let tryNo = 0; tryNo < 2; tryNo++) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: MODEL, max_tokens: 1200, system, messages: [{ role: 'user', content: user }] }),
+    });
+    if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    const body = await res.json();
+    const raw = (body.content ?? []).filter((x: { type: string }) => x.type === 'text').map((x: { text: string }) => x.text).join('\n');
+    const parsed = extractJson<{ problems?: string[] }>(raw);
+    if (parsed && Array.isArray(parsed.problems)) return parsed.problems.map((p) => `claim: ${p}`);
+  }
+  return ['claim audit returned no verdict'];
 }
 
 function styleProblems(c: Copy): string[] {
@@ -175,11 +228,14 @@ async function main() {
     const factText = factLines.join('\n');
     const years = new Set([...factText.matchAll(/\b(19|20)\d{2}\b/g)].map((m) => Number(m[0])));
     let copy: Copy | null = null, problems: string[] = [];
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       copy = await write(d, factLines, attempt ? problems.join('\n') : undefined);
       const text = [copy.title, copy.subtitle, ...copy.takeaways, copy.alt].join('\n');
       problems = [...styleProblems(copy), ...checkNumbers(text, factText, years)];
+      // The claim audit runs only on drafts whose numbers already check out.
+      if (!problems.length) problems = await auditClaims(copy, factLines);
       if (!problems.length) break;
+      console.log(`  draft ${attempt + 1} failed: ${problems.join('; ')}`);
     }
     console.log(`\n${d.key}: ${copy?.title}\n  ${copy?.subtitle}\n${copy?.takeaways.map((t) => `  • ${t}`).join('\n')}`);
     if (problems.length) { console.log(`  REJECTED: ${problems.join('; ')}`); continue; }
@@ -188,7 +244,7 @@ async function main() {
     const slug = `${slugify(copy!.title)}-${today}`;
     const { error } = await db.from('visuals').insert({
       slug, dataset_key: d.key, template: d.spec.template, title: copy!.title, subtitle: copy!.subtitle, takeaways: copy!.takeaways, alt: copy!.alt,
-      spec: d.spec, sources: d.sources, checks: { numbers: 'all matched', facts: factLines.length }, status: 'published', published_at: new Date().toISOString(),
+      spec: d.spec, sources: d.sources, checks: { numbers: 'all matched', claims: 'audited, none unsupported', facts: factLines.length }, status: 'published', published_at: new Date().toISOString(),
     });
     if (error) throw new Error(`visuals insert: ${error.message}`);
     console.log(`  published /indices/visuals/${slug}`);

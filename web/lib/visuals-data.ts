@@ -27,7 +27,9 @@ export type VisualSpec = {
   /** Treemaps: the whole the tiles are shares of. */
   total?: number;
 };
-export type Dataset = { key: string; spec: VisualSpec; sources: { org: string; dataset: string; url?: string }[]; context: string };
+export type Dataset = { key: string; spec: VisualSpec; sources: { org: string; dataset: string; url?: string }[]; context: string;
+  /** Extra exact statements the words may rely on (e.g. how a total relates to a headline figure). */
+  notes?: string[] };
 
 type Db = ReturnType<typeof createClient>;
 
@@ -173,10 +175,13 @@ async function economyMix(): Promise<Dataset[]> {
     ['Government', 'gov', n.govSurplus], ['Government-owned businesses', 'gnfc', n.profitsPublic],
   ] as const;
   return [{
-    key: 'mix:pnl_income', spec: { template: 'treemap', unit: 'aud_m', measure: 'Australia\'s GDP by who earns it (income approach)', total: n.gdp - n.discrepancy,
+    key: 'mix:pnl_income', spec: { template: 'treemap', unit: 'aud_m', measure: 'Australia\'s GDP by who earns it (income approach)', total: n.gdp,
       period: `year to the ${['March', 'June', 'September', 'December'][Number(q) - 1]} quarter ${y}`, rows: rows.map(([label, code, value]) => ({ label, code, value })) },
     sources: [{ org: 'ABS', dataset: 'Australian National Accounts: income from GDP (ANA_INC)', url: 'https://data.api.abs.gov.au/rest/data/ABS,ANA_INC' }],
-    context: 'GDP measured by income: what workers, businesses, home owners and government earn producing in Australia (excluding the statistical discrepancy).',
+    context: 'GDP measured by income: what workers, businesses, home owners and government earn producing in Australia.',
+    // Shares are of GDP itself, so the only total in the facts is GDP. The ABS's small statistical discrepancy isn't
+    // a slice, so the parts' shares sum to a touch over 100%; the note says so without giving the parts' sum.
+    notes: [`Shares are of GDP. A statistical discrepancy of ${n.discrepancy < 0 ? '−' : ''}$${(Math.abs(n.discrepancy) / 1000).toFixed(1)} billion is not shown, so the shares add to slightly more than 100%.`],
   }];
 }
 
