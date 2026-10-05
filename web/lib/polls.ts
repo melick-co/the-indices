@@ -106,7 +106,12 @@ export function moodCheck(consumers: SectionReading, direction: PollAverage | nu
 
   const mood: string[] = [];
   if (cc.latest) mood.push(`Consumer confidence is ${formatReading(cc.latest.value, cc.indicator.unit)}, ${cc.latest.value < 100 ? 'below' : 'above'} its long-run average of 100`);
-  if (direction && wrong) mood.push(`in published polls an average of ${wrong.value}% say the country is heading in the wrong direction (net ${direction.value > 0 ? '+' : ''}${direction.value})`);
+  if (direction && wrong) {
+    // Direction polls are irregular: date them, and use the past tense once they are more than a month old.
+    const stale = Date.now() - new Date(wrong.to).getTime() > 31 * dayMs;
+    const month = new Date(`${wrong.to}T00:00:00Z`).toLocaleDateString('en-AU', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    mood.push(`in the latest direction polls (to ${month}) an average of ${wrong.value}% ${stale ? 'said' : 'say'} the country ${stale ? 'was' : 'is'} heading in the wrong direction (net ${direction.value > 0 ? '+' : ''}${direction.value})`);
+  }
   const verdict = !known ? 'unknown' : !tests.length ? 'mixed'
     : gloomy ? (worse.length * 2 > tests.length ? 'backs' : worse.length <= 1 ? 'runs-ahead' : 'mixed')
       : (ok.length * 2 > tests.length ? 'backs' : 'mixed');
