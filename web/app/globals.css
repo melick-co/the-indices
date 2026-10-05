@@ -4669,12 +4669,14 @@ a.dx-driver:hover { background: #f5f7fb; }
 .dx-card-body { padding: 12px 14px 14px; }
 .dx-card-body .story-chart, .dx-card-body figure { margin: 0; }
 .dx-pchange { font-size: .7rem; font-weight: 650; color: var(--dx-muted); white-space: nowrap; }
-.dx-pchange.up { color: var(--dx-navy-3); } .dx-pchange.down { color: var(--dx-bad); }
+/* Neither direction is good or bad for a count of people: arrows only, no red. */
+.dx-pchange.up, .dx-pchange.down { color: var(--dx-navy-3); }
 .dx-lead { margin: 0 0 10px; font-size: .86rem; }
 
 .dx-bridge { display: flex; flex-direction: column; gap: 4px; }
-.dx-bridge-row { display: grid; grid-template-columns: 190px 1fr 92px 150px; align-items: center; gap: 10px; padding: 6px 4px; border-radius: 4px; }
-.dx-bridge-label { display: flex; align-items: center; gap: 7px; font-size: .86rem; font-weight: 600; }
+.dx-bridge-row { display: grid; grid-template-columns: minmax(150px, 190px) 1fr 92px; align-items: center; gap: 12px; padding: 6px 4px; border-radius: 4px; }
+.dx-bridge-label { display: flex; flex-direction: column; gap: 1px; font-size: .86rem; font-weight: 600; }
+.dx-bridge-label > span:first-child { display: flex; align-items: center; gap: 7px; }
 .dx-bridge-track { height: 14px; background: #eef1f6; border-radius: 3px; overflow: hidden; }
 .dx-bridge-track span { display: block; height: 100%; border-radius: 3px; }
 .dx-bridge-row.add .dx-bridge-track span { background: var(--dx-navy-3); }
@@ -4706,7 +4708,7 @@ a.dx-driver:hover { background: #f5f7fb; }
 .dx-visa .dx-drivers-head { margin-top: 10px; }
 
 .dx-rank { display: flex; flex-direction: column; gap: 2px; }
-.dx-rank-row { display: grid; grid-template-columns: 150px 1fr 84px 150px; gap: 10px; align-items: center; padding: 4px; font-size: .84rem; border-bottom: 1px solid #f0f2f6; }
+.dx-rank-row { display: grid; grid-template-columns: 140px 1fr 84px 130px; gap: 10px; align-items: center; padding: 4px; font-size: .84rem; border-bottom: 1px solid #f0f2f6; }
 .dx-rank-name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dx-rank-track { height: 10px; background: #eef1f6; border-radius: 3px; overflow: hidden; }
 .dx-rank-track span { display: block; height: 100%; background: var(--dx-navy-3); border-radius: 3px; }
@@ -4728,7 +4730,7 @@ a.dx-driver:hover { background: #f5f7fb; }
 @media (max-width: 760px) {
   .dx-grid.two { grid-template-columns: 1fr; }
   .dx-bridge-row { grid-template-columns: 1fr 80px; }
-  .dx-bridge-track, .dx-bridge-row .dx-pchange { grid-column: 1 / -1; }
+  .dx-bridge-track { grid-column: 1 / -1; }
   .dx-visa-head { display: none; }
   .dx-visa-row { grid-template-columns: 1fr 1fr; }
   .dx-visa-name { grid-column: 1 / -1; }
@@ -4737,3 +4739,5 @@ a.dx-driver:hover { background: #f5f7fb; }
   .dx-reason { grid-template-columns: 1fr 80px; }
   .dx-reason-trend { grid-column: 1 / -1; }
 }
+
+.dx-inset { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--dx-line); }

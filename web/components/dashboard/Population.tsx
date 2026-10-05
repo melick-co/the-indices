@@ -40,17 +40,21 @@ function GrowthBridge({ d }: { d: PopulationData }) {
     <div className="dx-bridge">
       {d.flows.map((f) => (
         <div key={f.key} className={`dx-bridge-row ${f.sign > 0 ? 'add' : 'sub'}`}>
-          <span className="dx-bridge-label"><Icon name={f.key === 'births' ? 'heart' : f.key === 'deaths' ? 'alert' : f.key === 'arrivals' ? 'users' : 'trend'} size={14} />{f.label}</span>
+          <span className="dx-bridge-label">
+            <span><Icon name={f.key === 'births' ? 'heart' : f.key === 'deaths' ? 'alert' : f.key === 'arrivals' ? 'users' : 'trend'} size={14} />{f.label}</span>
+            <ChangeTag now={f.value} then={f.prior} label="on a year earlier" />
+          </span>
           <span className="dx-bridge-track"><span style={{ width: `${(f.value / max) * 100}%` }} /></span>
           <span className="dx-bridge-value">{f.sign > 0 ? '+' : '−'}{n(f.value)}</span>
-          <ChangeTag now={f.value} then={f.prior} label="on a year earlier" />
         </div>
       ))}
       <div className="dx-bridge-row total">
-        <span className="dx-bridge-label"><Icon name="chart" size={14} />Population growth</span>
+        <span className="dx-bridge-label">
+          <span><Icon name="chart" size={14} />Population growth</span>
+          <span className="dx-pchange">{d.rate12.at(-1) ? `${d.rate12.at(-1)!.value}% a year` : ''}</span>
+        </span>
         <span className="dx-bridge-track"><span style={{ width: `${(Math.abs(official) / max) * 100}%` }} /></span>
         <span className="dx-bridge-value">{signed(official)}</span>
-        <span className="dx-pchange">{d.rate12.at(-1) ? `${d.rate12.at(-1)!.value}% a year` : ''}</span>
       </div>
       {Math.abs(official - net) > 500 && <p className="dx-small">Growth differs from the sum of the flows by {n(Math.abs(official - net))}: the ABS revises components and population separately.</p>}
     </div>
@@ -232,24 +236,22 @@ export function PopulationView({ dash, reading, d }: { dash: DashboardRef; readi
                   })}
                 </div>
                 <p className="dx-small">Trend lines: calendar-year arrivals for each reason, last 20 years.</p>
-              </Card>
-              <Card icon="users" title="Where they come from" sub="Top countries of residence">
-                <Bars rows={v.countries} max={v.countries[0]?.value ?? 1} total="vs 2019" />
-              </Card>
-            </div>
-            {v.annual.length >= 2 && (
-              <section className="dx-card dx-span">
-                <div className="dx-card-body">
-                  <StoryChart chart={{
+                {v.annual.length >= 2 && (
+                  <div className="dx-inset">
+                    <StoryChart chart={{
                     type: 'chart', kind: 'line',
                     title: `${(v.annual.at(-1)!.value / 1e6).toFixed(2)} million visitor arrivals in ${v.annual.at(-1)!.period}`,
                     subtitle: 'Short-term visitor arrivals, calendar years',
                     series: v.annual.filter((p) => Number(p.period) >= 1990).map((p) => ({ label: p.period, value: p.value })),
                     caption: 'Source: ABS, Overseas arrivals and departures (OAD_REASON).',
                   }} />
-                </div>
-              </section>
-            )}
+                  </div>
+                )}
+              </Card>
+              <Card icon="users" title="Where they come from" sub="Top countries of residence">
+                <Bars rows={v.countries} max={v.countries[0]?.value ?? 1} total="vs 2019" />
+              </Card>
+            </div>
           </>
         )}
 

@@ -69,6 +69,16 @@ function sameMonths2019(end: string) {
   return `2019-${end.split('-')[1]}`;
 }
 
+/** Display names: the ABS's official names, shortened where they are long. */
+export function shortName(name: string): string {
+  return name
+    .replace(/ \(excludes SARs and Taiwan\)/, '')
+    .replace(/^Hong Kong \(SAR of China\)$/, 'Hong Kong')
+    .replace(/^United States of America$/, 'United States')
+    .replace(/^UK, CIs & IOM$/, 'United Kingdom')
+    .replace(/^Korea, South$/, 'South Korea');
+}
+
 // ---------------------------------------------------------------------------------------------------- shapes
 
 export type Flow = { key: string; label: string; value: number; prior: number | null; sign: 1 | -1 };
@@ -135,7 +145,7 @@ export async function loadPopulation(): Promise<PopulationData> {
           code, name: names.get(code)!.replace(/^Temporary visa ?- ?/i, '').replace(/^Permanent visa - /i, '').replace(/^Student ?- ?/i, 'Student: ').replace(/^student - /i, 'Student: ').replace(/ \(subclass 444\)/, ''),
           group: visaGroup(code), arrivals: aw.get(code) ?? 0, departures: dw.get(code) ?? 0,
           priorNet: ap && dp ? (ap.get(code) ?? 0) - (dp.get(code) ?? 0) : null,
-        })).sort((x, y) => GROUP_ORDER.indexOf(x.group) - GROUP_ORDER.indexOf(y.group) || (y.arrivals - y.departures) - (x.arrivals - x.departures)),
+        })).filter((r) => r.arrivals + r.departures > 0).sort((x, y) => GROUP_ORDER.indexOf(x.group) - GROUP_ORDER.indexOf(y.group) || (y.arrivals - y.departures) - (x.arrivals - x.departures)),
       };
     }
   }
@@ -153,7 +163,7 @@ export async function loadPopulation(): Promise<PopulationData> {
     born = {
       year: cEnd, total, overseas: total - aus,
       totalPrior5: v('TOT', p5), overseasPrior5: v('TOT', p5) != null && v('1101', p5) != null ? v('TOT', p5)! - v('1101', p5)! : null,
-      top: items.map((r) => ({ code: r.category, name: r.category_name.replace(/ \(excludes SARs and Taiwan\)/, ''), value: r.value, prior: v(r.category, p1), base: v(r.category, p5), share: total ? r.value / total : 0 })),
+      top: items.map((r) => ({ code: r.category, name: shortName(r.category_name), value: r.value, prior: v(r.category, p1), base: v(r.category, p5), share: total ? r.value / total : 0 })),
     };
   }
 
@@ -161,7 +171,7 @@ export async function loadPopulation(): Promise<PopulationData> {
   let visitors: PopulationData['visitors'] = null;
   const tEnd = await latestPeriod(db, 'visitors_reason');
   if (tEnd) {
-    const [reason, country] = await Promise.all([rows(db, 'visitors_reason', '2004-01'), rows(db, 'visitors_country', '2018-01')]);
+    const [reason, country] = await Promise.all([rows(db, 'visitors_reason', '1990-01'), rows(db, 'visitors_country', '2018-01')]);
     const base = sameMonths2019(tEnd);
     const rw = window(reason, tEnd), rp = window(reason, tEnd, 1), rb = window(reason, base);
     const cw = window(country, tEnd), cp = window(country, tEnd, 1), cb = window(country, base);
@@ -180,7 +190,7 @@ export async function loadPopulation(): Promise<PopulationData> {
     visitors = {
       end: tEnd, total, prior: rp?.get('TOT') ?? null, base2019: rb?.get('TOT') ?? null,
       reasons: rank(rw, rp, rb, (c) => c !== 'TOT', (c) => rNames.get(c) ?? c),
-      countries: rank(cw, cp, cb, (c) => cNames.get(c)?.level === 'item', (c) => cNames.get(c)?.name ?? c).slice(0, 15),
+      countries: rank(cw, cp, cb, (c) => cNames.get(c)?.level === 'item', (c) => shortName(cNames.get(c)?.name ?? c)).slice(0, 15),
       annual: years('TOT'),
       annualByReason: new Map(reasonCodes.map((c) => [c, years(c)])),
     };
