@@ -9,6 +9,7 @@ const LINKS = [
   { href: '/the-rub', label: 'The Rub' },
   { href: '/indices', label: 'Indices' },
   { href: '/quality-of-life', label: 'Quality of life' },
+  { href: '/sentiment', label: 'Sentiment & polls' },
   { href: '/instruments', label: 'Instruments' },
   { href: '/markets', label: 'Markets' },
   { href: '/trending', label: 'Trending' },

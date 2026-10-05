@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { QOL_SECTIONS } from '@/content/dashboard/quality-of-life';
 import { loadDashboard } from '@/lib/economy-dashboard';
 import { DashboardView } from '@/components/dashboard/Views';
@@ -24,7 +25,7 @@ export default async function QualityOfLifeDashboard() {
         comparison.
       </>}
       sections={sections}
-      legendNote="Dates differ by measure: each tile shows the latest year available."
+      legendNote={<>Dates differ by measure: each tile shows the latest year available. See also the <Link href="/sentiment" className="studio-link">sentiment &amp; polls</Link> dashboard.</>}
     />
   );
 }

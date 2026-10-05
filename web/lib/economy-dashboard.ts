@@ -51,6 +51,7 @@ function fmt(n: number, unit: Indicator['unit']): string {
     case 'score': return `${round(n, 1)} / 10`;
     case 'per_100k': return `${round(n, 1)} per 100,000`;
     case 'ratio': return `${round(n, 2)}×`;
+    case 'index': return `${round(n, 1)}`;
     default: return round(n, 2).toLocaleString('en-AU');
   }
 }
@@ -59,7 +60,7 @@ export { fmt as formatReading };
 /** Units whose changes read as an absolute amount ("up 0.2 years"), not a percentage. */
 const ABSOLUTE: Partial<Record<NonNullable<Indicator['unit']>, (d: number) => string>> = {
   years: (d) => `${round(d, 1)} years`, points: (d) => `${Math.round(d)} points`, score: (d) => `${round(d, 1)} points`,
-  per_100k: (d) => `${round(d, 1)} per 100,000`, ratio: (d) => `${round(d, 2)}`,
+  per_100k: (d) => `${round(d, 1)} per 100,000`, ratio: (d) => `${round(d, 2)}`, index: (d) => `${round(d, 1)} points`,
 };
 export { ABSOLUTE as absoluteChange };
 
@@ -224,7 +225,7 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
     } else if (b.kind === 'floor') {
       const gap = round(latest.value - b.value, 2);
       const unitWord = u === 'percent' || u === 'pts' ? ' pts' : '';
-      verdict = gap >= 0 ? 'Above benchmark' : 'Below benchmark';
+      verdict = `${gap >= 0 ? 'Above' : 'Below'} ${b.short ?? 'benchmark'}`;
       summary.push(`The benchmark is ${b.label}. The latest reading is ${Math.abs(gap)}${unitWord} ${gap >= 0 ? 'above' : 'below'} it.`);
     }
     if (average != null && averageLabel) {

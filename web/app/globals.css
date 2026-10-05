@@ -4463,3 +4463,17 @@ html:has(.site-shell--ops) body {
   .econ-row { grid-template-columns: 1fr auto; }
   .econ-row .dash-spark, .econ-row .dash-status { display: none; }
 }
+
+/* Sentiment dashboard: the polls block (private context, labelled) */
+.polls-block { margin-top: 28px; }
+.polls-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.polls-head .dashboard-section-title { margin: 0; }
+.polls-private { font-family: var(--font-mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; border: 1px dashed var(--ink-soft); color: var(--ink-soft); padding: 2px 8px; }
+.polls-card { border-style: dashed; }
+.polls-card .econ-tile { cursor: default; }
+.polls-check .dash-status { align-self: flex-start; }
+.polls-check .econ-summary p { font-size: .86rem; }
+.polls-table-wrap { overflow-x: auto; margin: 6px 0 22px; }
+.polls-table { width: 100%; border-collapse: collapse; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.polls-table th, .polls-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.polls-table th { font-family: var(--font-mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); }

@@ -9,7 +9,7 @@
 
 export type Benchmark =
   | { kind: 'target'; low: number; high: number; label: string; source: { text: string; url: string } }
-  | { kind: 'floor'; value: number; label: string; source: { text: string; url: string } }
+  | { kind: 'floor'; value: number; label: string; source: { text: string; url: string }; /** Tile wording, e.g. "its long-run average" (default "benchmark"). */ short?: string }
   | { kind: 'average'; years: number }
   /** Judged against the OECD median (well-being measures with no target and sparse history). */
   | { kind: 'oecd' };
