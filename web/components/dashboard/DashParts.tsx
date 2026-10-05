@@ -63,7 +63,9 @@ export function Change({ reading, compact = false }: { reading: Reading; compact
     : reading.indicator.higherIsBetter === undefined ? null : (d > 0) === reading.indicator.higherIsBetter;
   const rate = ['percent', 'percent_gdp', 'pts'].includes(reading.indicator.unit ?? '');
   const abs = reading.indicator.unit && ((compact && COMPACT_CHANGE[reading.indicator.unit]) || absoluteChange[reading.indicator.unit]);
-  const size = abs ? abs(Math.abs(d)) : rate ? `${Math.abs(Math.round(d * 100) / 100)} pts` : `${Math.abs(Math.round((d / Math.abs(previous.value)) * 1000) / 10)}%`;
+  // Percentage changes to one decimal, or two when the change is under 0.1% (so a small rise is not shown as "0%").
+  const p = Math.abs((d / Math.abs(previous.value)) * 100);
+  const size = abs ? abs(Math.abs(d)) : rate ? `${Math.abs(Math.round(d * 100) / 100)} pts` : (p < 0.005 ? '<0.01%' : `${p < 0.1 ? Math.round(p * 100) / 100 : Math.round(p * 10) / 10}%`);
   return <span className={`dash-change ${good === null ? '' : good ? 'good' : 'watch'}`}>{d > 0 ? '▲' : '▼'} {size}</span>;
 }
 
