@@ -1,12 +1,14 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { isOpsPath } from '@/lib/ops-paths';
+import { isIndicesPath, isOpsPath } from '@/lib/ops-paths';
+import IndicesShell from './indices/IndicesShell';
 import OpsNav from './OpsNav';
 import Sidebar from './Sidebar';
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? '';
+  if (isIndicesPath(pathname)) return <IndicesShell>{children}</IndicesShell>;
   const ops = isOpsPath(pathname);
 
   return (

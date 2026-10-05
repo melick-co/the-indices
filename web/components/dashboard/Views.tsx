@@ -134,44 +134,54 @@ export function DashboardView({ dash, kicker, title, intro, sections, legendNote
   );
 }
 
-/** A section: its headline reading in full, then every indicator in it. */
-export function SectionView({ dash, reading }: { dash: DashboardRef; reading: SectionReading }) {
+/** A section's headline reading in full and its drivers: the body of a section page, and a tile's detail on the home page. */
+export function SectionPanel({ dash, reading, more }: { dash: DashboardRef; reading: SectionReading; more?: React.ReactNode }) {
   const { section, headline: h, others } = reading;
   const ref = reference(h);
   const b = h.indicator.benchmark;
   return (
-    <main className="dx">
-      <Hero kicker={<><Link href={dash.base}>{dash.name}</Link> · {section.title}</>} title={section.question} />
-      <div className="dx-body">
+    <>
+      <section className="dx-card dx-card-wide">
+        <Link href={`${dash.base}/${section.id}/${h.key}`} className="dx-card-head">
+          <span className="dx-card-icon"><Icon name={sectionIcon(section.id)} size={18} /></span>
+          <span className="dx-card-titles"><h2>{h.indicator.label}</h2><span>{h.latest ? periodLabel(h.latest.period) : ''}</span></span>
+        </Link>
+        <div className="dx-headline static">
+          <span className="dx-headline-row">
+            <span className="dx-big">{h.latest ? formatReading(h.latest.value, h.indicator.unit, h.indicator.decimals) : '—'}</span>
+            <span className="dx-headline-side"><ToneChip reading={h} /><Change reading={h} /></span>
+          </span>
+          <Trend points={h.history} step={h.indicator.step} height={110} refValue={b.kind === 'target' ? null : ref?.value} tone={tone(h)}
+            band={b.kind === 'target' ? [b.low, b.high] : undefined} />
+          {ref && <span className="dx-reflabel"><span className={`dx-refkey ${b.kind === 'target' ? 'band' : ''}`} />{ref.label}</span>}
+        </div>
+        <div className="dx-summary">{h.summary.map((t, i) => <p key={i}>{t}</p>)}</div>
+        <p className="dx-why"><strong>Why it matters.</strong> {h.indicator.why}</p>
+      </section>
+      {others.length > 0 && (
         <section className="dx-card dx-card-wide">
-          <Link href={`${dash.base}/${section.id}/${h.key}`} className="dx-card-head">
-            <span className="dx-card-icon"><Icon name={sectionIcon(section.id)} size={18} /></span>
-            <span className="dx-card-titles"><h2>{h.indicator.label}</h2><span>{h.latest ? periodLabel(h.latest.period) : ''}</span></span>
-          </Link>
-          <div className="dx-headline static">
-            <span className="dx-headline-row">
-              <span className="dx-big">{h.latest ? formatReading(h.latest.value, h.indicator.unit, h.indicator.decimals) : '—'}</span>
-              <span className="dx-headline-side"><ToneChip reading={h} /><Change reading={h} /></span>
-            </span>
-            <Trend points={h.history} step={h.indicator.step} height={110} refValue={b.kind === 'target' ? null : ref?.value} tone={tone(h)}
-              band={b.kind === 'target' ? [b.low, b.high] : undefined} />
-            {ref && <span className="dx-reflabel"><span className={`dx-refkey ${b.kind === 'target' ? 'band' : ''}`} />{ref.label}</span>}
+          <div className="dx-card-head static">
+            <span className="dx-card-icon"><Icon name="chart" size={18} /></span>
+            <span className="dx-card-titles"><h2>What&apos;s driving it</h2><span>{others.filter(isPressure).length} of {others.length} under pressure</span></span>
           </div>
-          <div className="dx-summary">{h.summary.map((t, i) => <p key={i}>{t}</p>)}</div>
-          <p className="dx-why"><strong>Why it matters.</strong> {h.indicator.why}</p>
+          <div className="dx-drivers">{others.map((r) => <DriverRow key={r.key} href={`${dash.base}/${section.id}/${r.key}`} r={r} />)}</div>
         </section>
-        {others.length > 0 && (
-          <section className="dx-card dx-card-wide">
-            <div className="dx-card-head static">
-              <span className="dx-card-icon"><Icon name="chart" size={18} /></span>
-              <span className="dx-card-titles"><h2>What&apos;s driving it</h2><span>{others.filter(isPressure).length} of {others.length} under pressure</span></span>
-            </div>
-            <div className="dx-drivers">{others.map((r) => <DriverRow key={r.key} href={`${dash.base}/${section.id}/${r.key}`} r={r} />)}</div>
-          </section>
-        )}
-        {(section.composites ?? []).map((c) => (
-          <p key={c.id} className="dx-note">Caveat composite: <Link href={`/indices/${c.id}`} className="studio-link">{c.label}</Link>, built to the published construction standard.</p>
-        ))}
+      )}
+      {more}
+      {(section.composites ?? []).map((c) => (
+        <p key={c.id} className="dx-note">Caveat composite: <Link href={`/indices/${c.id}`} className="studio-link">{c.label}</Link>, built to the published construction standard.</p>
+      ))}
+    </>
+  );
+}
+
+/** A section: its headline reading in full, then every indicator in it. */
+export function SectionView({ dash, reading }: { dash: DashboardRef; reading: SectionReading }) {
+  return (
+    <main className="dx">
+      <Hero kicker={<><Link href={dash.base}>{dash.name}</Link> · {reading.section.title}</>} title={reading.section.question} />
+      <div className="dx-body">
+        <SectionPanel dash={dash} reading={reading} />
         <Legend />
       </div>
     </main>
