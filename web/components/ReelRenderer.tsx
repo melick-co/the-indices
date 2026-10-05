@@ -213,8 +213,8 @@ export default function ReelRenderer({
 
       {missingKey && (
         <p className="runway-missing">
-          RUNWAY_API_KEY (or RUNWAYML_API_SECRET) is not set on the server.
-          Add it in Vercel env, then generate. Nothing is faked without a key.
+          ELEVENLABS_API_KEY is not set on the server. Add it in Vercel env, then
+          generate. Nothing is faked without a key.
         </p>
       )}
 
