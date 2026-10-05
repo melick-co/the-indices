@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { loadEconomyDashboard } from '@/lib/economy-dashboard';
 import { DashboardView } from '@/components/dashboard/Views';
+import { Icon } from '@/components/dashboard/Icons';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
@@ -24,6 +25,14 @@ export default async function EconomyDashboard() {
       </>}
       sections={sections}
       legendNote={<>See also the <Link href="/quality-of-life" className="studio-link">quality of life dashboard</Link>.</>}
-    />
+    >
+      <Link href="/indices/australia-inc" className="dx-band dx-band-link">
+        <span className="dx-band-icon"><Icon name="chart" size={18} /></span>
+        <div>
+          <h2>Australia Inc.: the country&apos;s profit and loss →</h2>
+          <p>The national accounts read as a business: what the country earns, pays abroad, spends and keeps, and how it pays for its investment</p>
+        </div>
+      </Link>
+    </DashboardView>
   );
 }

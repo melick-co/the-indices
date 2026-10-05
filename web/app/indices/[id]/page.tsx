@@ -6,10 +6,13 @@ import { loadSection } from '@/lib/economy-dashboard';
 import { SectionView } from '@/components/dashboard/Views';
 import { PopulationView } from '@/components/dashboard/Population';
 import { loadPopulation } from '@/lib/population';
+import { PnlView } from '@/components/dashboard/Pnl';
+import { loadPnl } from '@/lib/pnl';
 
 // Section pages of the economy dashboard share this route with the composite indices (/indices/hsi).
 export const dynamic = 'force-dynamic';
 export function generateMetadata({ params }: { params: { id: string } }) {
+  if (params.id === 'australia-inc') return { title: 'Australia Inc.: the country\'s profit and loss — Caveat', description: 'The national accounts read as a profit and loss statement: what Australia earns, pays out, spends and keeps.' };
   const section = sectionById(params.id);
   if (section) return { title: `${section.title} — Economy dashboard — Caveat`, description: section.question };
   const p = indexById(params.id);
@@ -21,6 +24,11 @@ const fmt = (n: number | null, d = 1) => (n == null ? '—' : n.toFixed(d));
 
 export default async function IndexOrSectionPage({ params }: { params: { id: string } }) {
   const section = sectionById(params.id);
+  if (params.id === 'australia-inc') {
+    const d = await loadPnl();
+    if (!d) notFound();
+    return <PnlView d={d} />;
+  }
   if (section?.id === 'people') {
     const [reading, d] = await Promise.all([loadSection(section), loadPopulation()]);
     return <PopulationView dash={{ base: '/indices', name: 'Economy dashboard' }} reading={reading} d={d} />;
