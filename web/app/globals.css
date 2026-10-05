@@ -4516,7 +4516,7 @@ html:has(.site-shell--ops) body {
 
 /* Flex so a wrapped last row stretches across, instead of leaving an empty block. */
 .dx-ticker { display: flex; flex-wrap: wrap; gap: 1px; margin-top: 18px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.1); border-radius: 6px; overflow: hidden; }
-.dx-tick { flex: 1 1 150px; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; background: var(--dx-navy-2); text-decoration: none !important; border-top: 3px solid var(--dx-neutral); transition: background .15s; }
+.dx-tick { flex: 1 1 max(140px, calc(100% / var(--cols, 5) - 1px)); display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; background: var(--dx-navy-2); text-decoration: none !important; border-top: 3px solid var(--dx-neutral); transition: background .15s; }
 .dx-tick:hover { background: var(--dx-navy-3); }
 .dx-tick.good { border-top-color: #34c17f; } .dx-tick.bad { border-top-color: #f0675c; } .dx-tick.watch { border-top-color: #f2a93b; } .dx-tick.neutral { border-top-color: #8597bd; }
 .dx-tick-label { display: flex; align-items: center; gap: 6px; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--dx-on-navy-muted); }
@@ -4571,7 +4571,7 @@ a.dx-headline:hover .dx-big { color: var(--dx-navy-3); }
 /* Drivers */
 .dx-drivers { border-top: 1px solid var(--dx-line); padding: 8px 10px 10px; }
 .dx-drivers-head { margin: 2px 4px 6px; font-size: .66rem; font-weight: 650; text-transform: uppercase; letter-spacing: .07em; color: var(--dx-muted); }
-.dx-driver { display: grid; grid-template-columns: 28px minmax(0, 1fr) 84px 72px 64px; align-items: center; gap: 8px; padding: 6px 6px 6px 4px; border-left: 3px solid transparent; border-radius: 4px; text-decoration: none !important; }
+.dx-driver { display: grid; grid-template-columns: 28px minmax(0, 1fr) 76px 88px 76px; align-items: center; gap: 8px; padding: 6px 6px 6px 4px; border-left: 3px solid transparent; border-radius: 4px; text-decoration: none !important; }
 a.dx-driver:hover { background: #f5f7fb; }
 .dx-driver.bad { border-left-color: var(--dx-bad); } .dx-driver.watch { border-left-color: var(--dx-watch); } .dx-driver.good { border-left-color: var(--dx-good); } .dx-driver.neutral { border-left-color: #c3cad6; }
 .dx-driver-icon { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 5px; }
@@ -4579,8 +4579,8 @@ a.dx-driver:hover { background: #f5f7fb; }
 .dx-driver-icon.watch { color: var(--dx-watch); background: var(--dx-watch-bg); } .dx-driver-icon.neutral { color: var(--dx-neutral); background: var(--dx-neutral-bg); }
 .dx-driver-label { display: flex; flex-direction: column; min-width: 0; font-size: .84rem; font-weight: 550; line-height: 1.25; }
 .dx-driver-ref { font-size: .68rem; font-weight: 400; color: var(--dx-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dx-driver-value { text-align: right; font-weight: 650; font-size: .9rem; }
-.dx-driver-change { text-align: right; }
+.dx-driver-value { text-align: right; font-weight: 650; font-size: .9rem; white-space: nowrap; }
+.dx-driver-change { text-align: right; white-space: nowrap; }
 
 .dx-dev { position: relative; display: block; height: 8px; border-radius: 4px; background: #eef1f6; overflow: hidden; }
 .dx-dev-fill { position: absolute; top: 0; bottom: 0; background: var(--dx-neutral); }
