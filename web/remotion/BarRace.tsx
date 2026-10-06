@@ -9,7 +9,13 @@ import { INTRO_SECONDS, OUTRO_SECONDS, RACE_FPS, stepSeconds, type RaceProps } f
 
 const NAVY = '#0f1830', NAVY2 = '#1d2a48', ON = '#eef2fa', MUTED = '#a9b6d3', ACCENT = '#4f8fd1';
 const PALETTE = ['#4f8fd1', '#2f9e44', '#f07f1e', '#c2372d', '#8a5cc2', '#d9a21b', '#14837b', '#b04a7a', '#8db8e8', '#7aa95c', '#e0775a', '#5b6bb5'];
-const colourFor = (key: string) => PALETTE[[...key].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % PALETTE.length];
+/** Distinct colours: entities in order of their peak value take the palette in turn (a hash of the key let India,
+ * England, the Philippines and Vietnam all land on the same blue). */
+function colours(race: RaceProps['race']): Record<string, string> {
+  const peak = new Map<string, number>();
+  for (const f of race.frames) for (const [k, v] of Object.entries(f.values)) peak.set(k, Math.max(peak.get(k) ?? 0, v));
+  return Object.fromEntries([...peak.entries()].sort((a, b) => b[1] - a[1]).map(([k], i) => [k, PALETTE[i % PALETTE.length]]));
+}
 
 function value(v: number, unit: RaceProps['race']['unit']) {
   if (unit === 'usd') return `US$${Math.round(v).toLocaleString('en-AU')}`;
@@ -31,6 +37,7 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
   const s = sAt(frame);
   const slots = format === '1:1' ? Math.min(race.topN, 8) : race.topN;
   const c = useMemo(() => curves(race), [race]);
+  const colourOf = useMemo(() => colours(race), [race]);
   const flags = useMemo(() => Object.fromEntries(Object.entries(race.labels).map(([k, l]) => [k, flagDataUri(l)])), [race]);
   const now = standings(c, s);
   const glide = glidingRanks(c, sAt, frame, slots);
@@ -86,7 +93,7 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
               <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{race.labels[x.k] ?? x.k}</span>
               {flags[x.k] && <Img src={flags[x.k]!} alt="" style={{ height: Math.min(30, slotH * 0.36), width: Math.min(45, slotH * 0.54), flexShrink: 0, borderRadius: 3, boxShadow: '0 0 0 1px rgba(255,255,255,.25)' }} />}
             </div>
-            <div style={{ width: w, height: '100%', background: colourFor(x.k), borderRadius: 6 }} />
+            <div style={{ width: w, height: '100%', background: colourOf[x.k] ?? ACCENT, borderRadius: 6 }} />
             <div style={{ paddingLeft: 16, fontSize: Math.min(32, slotH * 0.38), color: ON, fontVariantNumeric: 'tabular-nums' }}>{value(x.v, race.unit)}</div>
           </div>
         );
