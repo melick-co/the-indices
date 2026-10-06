@@ -7,7 +7,7 @@ import { indexById } from '@/content/indices/registry';
 export const dynamic = 'force-dynamic';
 export function generateMetadata({ params }: { params: { id: string } }) {
   const p = indexById(params.id);
-  return p ? { title: `${p.index.name} — The Indices`, description: p.index.concept } : {};
+  return p ? { title: `${p.index.name} — The Caveat’s Indices`, description: p.index.concept } : {};
 }
 
 const TIER: Record<number, string> = { 1: 't1', 2: 't2', 3: 't3' };

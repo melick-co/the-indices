@@ -24,11 +24,11 @@ export default function IndicesShell({ children }: { children: React.ReactNode }
         <div className="ix-mast-row">
           <Link href={IX.home} className="ix-brand">
             <span className="ix-mark" aria-hidden="true"><i /><i /><i /></span>
-            The Indices
+            The Caveat’s Indices
           </Link>
-          <Link href="/" className="ix-by">by Caveat</Link>
+          <Link href="/" className="ix-by">The Caveat →</Link>
         </div>
-        <nav className="ix-nav" aria-label="The Indices">
+        <nav className="ix-nav" aria-label="The Caveat’s Indices">
           {NAV.map((n) => (
             <Link key={n.href} href={n.href} className={`ix-nav-link${active(n.href, 'exact' in n && n.exact) ? ' is-active' : ''}`}>{n.label}</Link>
           ))}

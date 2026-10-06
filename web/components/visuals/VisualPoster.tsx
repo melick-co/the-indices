@@ -11,7 +11,7 @@ export function VisualPoster({ v, compact = false }: { v: Visual; compact?: bool
   return (
     <article className={`vz-poster${compact ? ' compact' : ''}`}>
       <header className="vz-head">
-        <span className="vz-brand"><span className="ix-mark" aria-hidden="true"><i /><i /><i /></span>The Indices</span>
+        <span className="vz-brand"><span className="ix-mark" aria-hidden="true"><i /><i /><i /></span>The Caveat’s Indices</span>
         <h1 className="vz-title">{v.title}</h1>
         {v.subtitle && <p className="vz-sub">{v.subtitle}</p>}
       </header>

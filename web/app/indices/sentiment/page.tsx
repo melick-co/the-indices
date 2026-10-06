@@ -8,7 +8,7 @@ import { IX } from '@/lib/indices-paths';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'Sentiment & polls dashboard — The Indices',
+  title: 'Sentiment & polls dashboard — The Caveat’s Indices',
   description: 'How Australians and businesses feel, what the polls say, and whether the official numbers back the mood.',
 };
 
