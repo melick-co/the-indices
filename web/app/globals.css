@@ -1862,6 +1862,7 @@ table.data tr:hover td { background: transparent; }
   margin-top: 0;
 }
 
+.cc-paste { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 10px; }
 .cc-link-status {
   margin: 8px 0 0;
   font-size: 13px;
