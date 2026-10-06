@@ -126,14 +126,15 @@ async function main() {
     if (dry) { console.log(`Dry run: drafts uploaded, nothing published.\n${Object.entries(videos).map(([f, u]) => `  ${f}: ${u}`).join('\n')}`); return; }
     const lastFrame = race.frames.at(-1)!;
     const rows = Object.entries(lastFrame.values).sort((a, b) => b[1] - a[1]).slice(0, race.topN).map(([code, value]) => ({ label: race.labels[code] ?? code, code, value }));
-    const { error } = await db.from('visuals').insert({
+    // Upsert: re-rendering a race the same day replaces that day's visual (and its videos, uploaded with upsert).
+    const { error } = await db.from('visuals').upsert({
       slug, dataset_key: race.key, template: 'race', title: race.title, subtitle: race.subtitle, takeaways: race.takeaways,
       alt: `Animated bar chart race: ${race.title}. Final standings in ${lastFrame.period}.`,
       spec: { template: 'race', unit: race.unit, measure: race.subtitle, rows, period: lastFrame.period, priorPeriod: race.frames[0].period },
       sources: [race.source], videos, checks: { captions: 'derived from the data, not written by a model', music: musicFile ? 'ElevenLabs Music' : 'none' },
       status: 'published', published_at: new Date().toISOString(),
-    });
-    if (error) throw new Error(`visuals insert: ${error.message}`);
+    }, { onConflict: 'slug' });
+    if (error) throw new Error(`visuals upsert: ${error.message}`);
     console.log(`Published /indices/visuals/${slug} with ${Object.keys(videos).length} videos.`);
   } finally {
     await rm(publicDir, { recursive: true, force: true });

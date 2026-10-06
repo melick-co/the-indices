@@ -3,6 +3,7 @@ import { loadObservations } from '@/lib/chart-from-data';
 import { OECD } from '@/lib/economy-dashboard';
 import { entityNames } from '@/lib/entity-names';
 import { shortName } from '@/lib/population';
+import { isCountryItem } from '@/lib/breakdown-categories';
 
 /**
  * Bar-chart races: one value per entity per period, from stored official series. Captions are derived from the
@@ -63,7 +64,7 @@ function finish(r: Omit<Race, 'captions' | 'takeaways'>): Race {
 }
 
 async function bornOverseas(db: Db): Promise<Race | null> {
-  const rows = (await breakdownRows(db, 'erp_cob')).filter((r) => r.category_level === 'item' && r.category !== '1101');
+  const rows = (await breakdownRows(db, 'erp_cob')).filter((r) => isCountryItem(r.category, r.category_name, r.category_level) && r.category !== '1101');
   if (!rows.length) return null;
   const periods = [...new Set(rows.map((r) => r.period))].sort();
   const labels = Object.fromEntries(rows.map((r) => [r.category, shortName(r.category_name)]));
@@ -77,7 +78,7 @@ async function bornOverseas(db: Db): Promise<Race | null> {
 
 /** Monthly travel by country, summed into complete calendar years. */
 async function travel(db: Db, dataset: 'visitors_country' | 'residents_trips_country'): Promise<Race | null> {
-  const rows = (await breakdownRows(db, dataset)).filter((r) => r.category_level === 'item');
+  const rows = (await breakdownRows(db, dataset)).filter((r) => isCountryItem(r.category, r.category_name, r.category_level));
   if (!rows.length) return null;
   const sums = new Map<string, Map<string, { n: number; v: number }>>();
   for (const r of rows) {
