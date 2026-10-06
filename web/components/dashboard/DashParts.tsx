@@ -47,6 +47,13 @@ export function compactReading(v: number, unit: Reading['indicator']['unit'], de
   if (unit === 'points') return `${Math.round(v)} pts`;
   return formatReading(v, unit, decimals);
 }
+/** The tile reading. A growth rate that rounds to zero reads "Flat": "0.0%" looks like missing data. */
+export function tileReading(r: Reading): string {
+  if (!r.latest) return '—';
+  const text = compactReading(r.latest.value, r.indicator.unit, r.indicator.decimals);
+  const growth = /growth/i.test(r.indicator.label) && (r.indicator.unit === 'percent');
+  return growth && /^-?0(\.0+)?%$/.test(text) ? 'Flat' : text;
+}
 const COMPACT_CHANGE: Partial<Record<NonNullable<Reading['indicator']['unit']>, (d: number) => string>> = {
   per_100k: (d) => `${Math.round(d * 10) / 10}/100k`, points: (d) => `${Math.round(d)} pts`,
 };
