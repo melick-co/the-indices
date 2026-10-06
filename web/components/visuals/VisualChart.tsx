@@ -1,4 +1,5 @@
 import type { VisualSpec } from '@/lib/visuals-data';
+import { flagDataUri } from '@/lib/flags';
 import { formatReading } from '@/lib/economy-dashboard';
 
 /** Values as the chart labels them (compact; the takeaways carry the full figures). */
@@ -13,7 +14,7 @@ export function chartValue(v: number, unit: VisualSpec['unit']): string {
 const PALETTE = ['#1d2a48', '#2e4170', '#4f8fd1', '#8db8e8', '#2f9e44', '#f07f1e', '#c2372d', '#8a5cc2', '#d9a21b', '#5b6b85', '#14837b', '#b04a7a', '#c3cad6'];
 
 /** Thumbnails show the top rows only (plus the highlighted row if it falls below them), so their labels can be read. */
-function thumbRows(s: VisualSpec, n = 8): VisualSpec {
+function thumbRows(s: VisualSpec, n = 10): VisualSpec {
   const top = s.rows.slice(0, n);
   const hl = s.rows.findIndex((r) => r.highlight);
   return { ...s, rows: hl >= n ? [...top.slice(0, n - 1), s.rows[hl]] : top };
@@ -23,9 +24,13 @@ function RankedBars({ s: full, thumb = false }: { s: VisualSpec; thumb?: boolean
   const s = thumb ? thumbRows(full) : full;
   // Ranks are positions in the full list, even when a thumbnail skips rows.
   const place = (code: string) => full.rows.findIndex((r) => r.code === code) + 1;
-  const W = 760, rowH = thumb ? 30 : 19, padL = 150, padR = 70, top = 8;
+  const flags = Object.fromEntries(s.rows.map((r) => [r.code, flagDataUri(r.label)]));
+  // A thumbnail is square: the rows share its height. The full chart keeps a fixed row height.
+  const W = thumb ? 480 : 760, padL = thumb ? 170 : 170, padR = thumb ? 62 : 70, top = 8, foot = s.median != null ? 26 : 8;
+  const rowH = thumb ? (W - top - foot) / Math.max(1, s.rows.length) : 19;
   // A line of its own below the bars for the median label, so it never sits on the last row.
-  const H = top + s.rows.length * rowH + (s.median != null ? 26 : 8);
+  const H = thumb ? W : top + s.rows.length * rowH + foot;
+  const flagH = Math.min(14, rowH * 0.5), flagW = flagH * 1.5;
   const max = Math.max(...s.rows.map((r) => r.value), s.median ?? 0);
   const min = Math.min(0, ...s.rows.map((r) => r.value));
   const x = (v: number) => padL + ((v - min) / (max - min || 1)) * (W - padL - padR);
@@ -41,7 +46,9 @@ function RankedBars({ s: full, thumb = false }: { s: VisualSpec; thumb?: boolean
         const y = top + i * rowH;
         return (
           <g key={r.code} className={r.highlight ? 'vz-row hl' : 'vz-row'}>
-            <text x={padL - 8} y={y + rowH / 2 + 4} textAnchor="end" className="vz-label">{place(r.code)}. {r.label}</text>
+            {/* The flag after the country name, between the label and the bar. */}
+            {flags[r.code] && <image href={flags[r.code]!} x={padL - 6 - flagW} y={y + (rowH - flagH) / 2} width={flagW} height={flagH} preserveAspectRatio="none" />}
+            <text x={padL - (flags[r.code] ? 12 + flagW : 8)} y={y + rowH / 2 + 4} textAnchor="end" className="vz-label">{place(r.code)}. {r.label}</text>
             <rect x={x(Math.min(0, r.value))} y={y + 3} width={Math.max(1, Math.abs(x(r.value) - x(0)))} height={rowH - 6} rx={2} />
             <text x={x(r.value) + 5} y={y + rowH / 2 + 4} className="vz-value">{chartValue(r.value, s.unit)}</text>
           </g>

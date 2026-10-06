@@ -5,7 +5,7 @@ import { Hero } from '@/components/dashboard/Views';
 import { IX } from '@/lib/indices-paths';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Polls — Sentiment & polls — The Indices', description: 'Every published federal poll since the 2025 election, with the trends.' };
+export const metadata = { title: 'Polls — Sentiment & polls — The Caveat’s Indices', description: 'Every published federal poll since the 2025 election, with the trends.' };
 
 export default async function PollsPage() {
   const polls = await loadPolls();

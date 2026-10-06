@@ -4924,15 +4924,13 @@ a.dx-driver:hover { background: #f5f7fb; }
 .vz-grid { align-items: stretch; }
 .vz-card { flex-direction: column; gap: 0; background: #fff; border: 1px solid #dfe4ec; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(16,24,40,.06); transition: transform .15s, box-shadow .15s; }
 .vz-card:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(16,24,40,.12); }
-.vz-thumb { position: relative; display: block; height: 200px; overflow: hidden; background: #f7f9fc; border-bottom: 1px solid #e6eaf1; }
-.vz-thumb-chart { display: block; padding: 10px 12px 0; }
-.vz-thumb-chart .vz-svg text { font-size: 15px; }
-.vz-thumb::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 36px; background: linear-gradient(rgba(247,249,252,0), #f7f9fc); pointer-events: none; }
+.vz-thumb { position: relative; display: block; aspect-ratio: 1 / 1; overflow: hidden; background: #f7f9fc; border-bottom: 1px solid #e6eaf1; }
+.vz-thumb-chart { display: flex; align-items: center; height: 100%; padding: 10px 12px; box-sizing: border-box; }
+.vz-thumb-chart > svg { width: 100%; height: 100%; }
+.vz-thumb-chart .vz-svg text { font-size: 17px; }
 .vz-thumb video { display: block; width: 100%; height: 100%; object-fit: contain; background: #0f1830; }
 .vz-thumb:has(video) { background: #0f1830; }
-.vz-thumb:has(video)::after { display: none; }
 .vz-thumb img { display: block; width: 100%; height: 100%; object-fit: contain; }
-.vz-thumb:has(img)::after { display: none; }
 .vz-thumb:has(img) { background: #0f1830; }
 /* The play mark: a translucent circle over the poster, so the reader knows the picture plays. */
 .vz-play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; filter: drop-shadow(0 4px 14px rgba(0,0,0,.45)); transition: transform .15s ease; }

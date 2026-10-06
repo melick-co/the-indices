@@ -23,6 +23,8 @@ export type Race = {
   source: { org: string; dataset: string; url?: string };
   /** Entities to keep (the ones that are ever in the top N). */
   topN: number;
+  /** An ending of stacked columns, one per period: the largest entities plus everyone else, to each period's total. */
+  stack?: { totals: Record<string, number>; title: string; otherLabel: string };
 };
 
 type Db = ReturnType<typeof createClient>;
@@ -68,7 +70,11 @@ async function bornOverseas(db: Db): Promise<Race | null> {
   if (!rows.length) return null;
   const periods = [...new Set(rows.map((r) => r.period))].sort();
   const labels = Object.fromEntries(rows.map((r) => [r.category, shortName(r.category_name)]));
+  // Every country of birth but Australia, so each column reaches the whole overseas-born population.
+  const totals: Record<string, number> = {};
+  for (const r of rows) totals[r.period] = (totals[r.period] ?? 0) + r.value;
   return finish({
+    stack: { totals, title: `Everyone born overseas, ${periods[0]} to ${periods.at(-1)}`, otherLabel: 'All other countries' },
     key: 'race:erp_cob', title: `Australia's immigrants by country of birth, ${periods[0]} to ${periods.at(-1)}`,
     subtitle: 'Australian residents born overseas, by country of birth, at 30 June each year', unit: 'persons', labels, topN: 10,
     frames: periods.map((p) => ({ period: p, values: Object.fromEntries(rows.filter((r) => r.period === p).map((r) => [r.category, r.value])) })),

@@ -126,7 +126,7 @@ export function extractJson<T>(raw: string): T | null {
 async function write(d: Dataset, factLines: string[], feedback?: string): Promise<Copy> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY is not set');
-  const system = `You write the words for a data graphic in the style of Visual Capitalist, for "The Indices", an Australian data site.
+  const system = `You write the words for a data graphic in the style of Visual Capitalist, for "The Caveat’s Indices", an Australian data site.
 Rules:
 - Use ONLY the numbers in the facts. Do not round to a different precision than shown unless you write fewer digits of the same number (e.g. $2,927.1 billion may become $2.9 trillion). Never invent, add or subtract numbers yourself.
 - Title: punchy, under 80 characters, sentence case, optionally starting "Ranked:", "Visualised:" or "Charted:". Australian spelling.

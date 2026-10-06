@@ -5,11 +5,20 @@ import { FlipYear } from './FlipYear';
 import { loadFonts } from './fonts';
 import { FONT } from './theme';
 import { flagDataUri } from '../lib/flags';
-import { INTRO_SECONDS, OUTRO_SECONDS, RACE_FPS, stepSeconds, type RaceProps } from '../lib/race-video-types';
+import { INTRO_SECONDS, OUTRO_SECONDS, RACE_FPS, raceEndSeconds, stepSeconds, type RaceProps } from '../lib/race-video-types';
+import { StackEnding } from './StackEnding';
+
+const BRAND = 'The Caveat’s Indices';
 
 const NAVY = '#0f1830', NAVY2 = '#1d2a48', ON = '#eef2fa', MUTED = '#a9b6d3', ACCENT = '#4f8fd1';
 const PALETTE = ['#4f8fd1', '#2f9e44', '#f07f1e', '#c2372d', '#8a5cc2', '#d9a21b', '#14837b', '#b04a7a', '#8db8e8', '#7aa95c', '#e0775a', '#5b6bb5'];
-const colourFor = (key: string) => PALETTE[[...key].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % PALETTE.length];
+/** Distinct colours: entities in order of their peak value take the palette in turn (a hash of the key let India,
+ * England, the Philippines and Vietnam all land on the same blue). */
+function colours(race: RaceProps['race']): Record<string, string> {
+  const peak = new Map<string, number>();
+  for (const f of race.frames) for (const [k, v] of Object.entries(f.values)) peak.set(k, Math.max(peak.get(k) ?? 0, v));
+  return Object.fromEntries([...peak.entries()].sort((a, b) => b[1] - a[1]).map(([k], i) => [k, PALETTE[i % PALETTE.length]]));
+}
 
 function value(v: number, unit: RaceProps['race']['unit']) {
   if (unit === 'usd') return `US$${Math.round(v).toLocaleString('en-AU')}`;
@@ -31,6 +40,7 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
   const s = sAt(frame);
   const slots = format === '1:1' ? Math.min(race.topN, 8) : race.topN;
   const c = useMemo(() => curves(race), [race]);
+  const colourOf = useMemo(() => colours(race), [race]);
   const flags = useMemo(() => Object.fromEntries(Object.entries(race.labels).map(([k, l]) => [k, flagDataUri(l)])), [race]);
   const now = standings(c, s);
   const glide = glidingRanks(c, sAt, frame, slots);
@@ -55,7 +65,8 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
   const area = height - top - bottom;
   const slotH = area / slots;
   const barMax = width - pad * 2 - labelW - (wide ? 260 : 200);
-  const outroStart = durationInFrames - OUTRO_SECONDS * RACE_FPS;
+  // With a stacked ending, the race hands over to it; otherwise the end card fades in.
+  const outroStart = race.stack ? Math.round(raceEndSeconds(race) * RACE_FPS) : durationInFrames - OUTRO_SECONDS * RACE_FPS;
   const keyframe = reached;
   const caption = [...race.captions].reverse().find((c) => keyframe >= c.frame && keyframe - c.frame <= Math.ceil(2.5 / stepSeconds(n)));
   const introOpacity = interpolate(frame, [0, 12, intro - 10, intro + 5], [0, 1, 1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
@@ -70,7 +81,7 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
       )}
       {/* Header */}
       <div style={{ position: 'absolute', left: pad, right: pad, top: tall ? 200 : 60 }}>
-        <div style={{ fontSize: tall ? 26 : 24, letterSpacing: 4, textTransform: 'uppercase', color: MUTED, fontWeight: 600 }}>The Indices</div>
+        <div style={{ fontSize: tall ? 26 : 24, letterSpacing: 4, textTransform: 'uppercase', color: MUTED, fontWeight: 600 }}>{BRAND}</div>
         <div style={{ fontSize: titleSize, fontWeight: 700, lineHeight: 1.1, marginTop: 10 }}>{race.title}</div>
         <div style={{ fontSize: tall ? 30 : 26, color: MUTED, marginTop: 10 }}>{race.subtitle}</div>
       </div>
@@ -86,7 +97,7 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
               <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{race.labels[x.k] ?? x.k}</span>
               {flags[x.k] && <Img src={flags[x.k]!} alt="" style={{ height: Math.min(30, slotH * 0.36), width: Math.min(45, slotH * 0.54), flexShrink: 0, borderRadius: 3, boxShadow: '0 0 0 1px rgba(255,255,255,.25)' }} />}
             </div>
-            <div style={{ width: w, height: '100%', background: colourFor(x.k), borderRadius: 6 }} />
+            <div style={{ width: w, height: '100%', background: colourOf[x.k] ?? ACCENT, borderRadius: 6 }} />
             <div style={{ paddingLeft: 16, fontSize: Math.min(32, slotH * 0.38), color: ON, fontVariantNumeric: 'tabular-nums' }}>{value(x.v, race.unit)}</div>
           </div>
         );
@@ -105,15 +116,16 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
       <div style={{ position: 'absolute', left: pad, right: besideClock, bottom: clockBottom - (tall ? 0 : 22), fontSize: tall ? 22 : 18, lineHeight: 1.3, color: MUTED }}>Source: {race.source.org}, {race.source.dataset}. Values between {race.frames.length > 1 && /^\d{4}$/.test(race.frames[0].period) ? 'years' : 'periods'} are interpolated.</div>
       {/* Title card */}
       <AbsoluteFill style={{ background: NAVY, opacity: introOpacity, justifyContent: 'center', padding: pad }}>
-        <div style={{ fontSize: tall ? 30 : 28, letterSpacing: 5, textTransform: 'uppercase', color: ACCENT, fontWeight: 700 }}>The Indices</div>
+        <div style={{ fontSize: tall ? 30 : 28, letterSpacing: 5, textTransform: 'uppercase', color: ACCENT, fontWeight: 700 }}>{BRAND}</div>
         <div style={{ fontSize: titleSize * 1.25, fontWeight: 800, lineHeight: 1.08, marginTop: 18 }}>{race.title}</div>
         <div style={{ fontSize: tall ? 34 : 30, color: MUTED, marginTop: 16 }}>{race.subtitle}</div>
       </AbsoluteFill>
+      {race.stack && <StackEnding race={race} format={format} musicFile={null} start={outroStart} colourOf={colourOf} flags={flags} brand={BRAND} />}
       {/* End card */}
-      <AbsoluteFill style={{ background: `linear-gradient(180deg, rgba(15,24,48,0) 0%, ${NAVY2} 55%)`, opacity: outroOpacity, justifyContent: 'flex-end', padding: pad, paddingBottom: tall ? 300 : 70 }}>
-        <div style={{ fontSize: tall ? 40 : 36, fontWeight: 800 }}>The Indices</div>
+      {!race.stack && <AbsoluteFill style={{ background: `linear-gradient(180deg, rgba(15,24,48,0) 0%, ${NAVY2} 55%)`, opacity: outroOpacity, justifyContent: 'flex-end', padding: pad, paddingBottom: tall ? 300 : 70 }}>
+        <div style={{ fontSize: tall ? 40 : 36, fontWeight: 800 }}>{BRAND}</div>
         <div style={{ fontSize: tall ? 26 : 24, color: MUTED, marginTop: 8 }}>Australia, on one page · official data · {race.source.org}</div>
-      </AbsoluteFill>
+      </AbsoluteFill>}
     </AbsoluteFill>
   );
 };
