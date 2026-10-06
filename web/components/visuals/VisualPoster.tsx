@@ -31,11 +31,30 @@ export function VisualPoster({ v, compact = false }: { v: Visual; compact?: bool
   );
 }
 
+const KIND: Record<Visual['template'], string> = { ranked: 'Ranking', treemap: 'Breakdown', change: 'Change', race: 'Video' };
+
+/** A gallery card: a fixed-height thumbnail (a video frame for races), the title, a one-line teaser, kind and date. */
 export function VisualCard({ v }: { v: Visual }) {
+  const video = v.videos?.['16:9'];
   return (
     <Link href={`${IX.visuals}/${v.slug}`} className="vz-card">
-      <VisualPoster v={v} compact />
-      <span className="vz-card-meta">{day(v.published_at)}</span>
+      <span className="vz-thumb">
+        {v.template === 'race' && video ? (
+          <>
+            {/* #t= shows a frame mid-race as the still; nothing plays in the gallery. */}
+            <video src={`${video}${video.includes('#') ? '' : '#t=20'}`} muted playsInline preload="metadata" aria-hidden="true" tabIndex={-1} />
+            <span className="vz-badge">▶ Video</span>
+          </>
+        ) : (
+          <span className="vz-thumb-chart"><VisualChart spec={v.spec} thumb /></span>
+        )}
+      </span>
+      <span className="vz-card-body">
+        <span className="vz-card-kind">{KIND[v.template]}</span>
+        <span className="vz-card-title">{v.title}</span>
+        {v.takeaways[0] && <span className="vz-card-teaser">{v.takeaways[0]}</span>}
+        <span className="vz-card-meta">{day(v.published_at)}</span>
+      </span>
     </Link>
   );
 }
