@@ -71,7 +71,7 @@ export async function fetchLinkContent(url: string): Promise<
   }
 }
 
-async function summariseTranscript(title: string, transcript: string): Promise<string | undefined> {
+export async function summariseTranscript(title: string, transcript: string): Promise<string | undefined> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) {
     return `YouTube: ${title}. Transcript attached. Key takeaways could not be written because ANTHROPIC_API_KEY is not set.`;

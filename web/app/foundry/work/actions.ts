@@ -3,7 +3,7 @@ import { requireAdmin } from '@/lib/auth';
 
 import { createClient } from '@/lib/supabase-server';
 import { revalidatePath } from 'next/cache';
-import { fetchLinkContent as loadLinkContent } from '@/lib/link-content';
+import { fetchLinkContent as loadLinkContent, summariseTranscript } from '@/lib/link-content';
 import {
   buildInputPrompt,
   deriveTopicFromText,
@@ -20,6 +20,15 @@ import {
 export async function fetchLinkContent(url: string) {
   await requireAdmin();
   return loadLinkContent(url);
+}
+
+/** For a video YouTube blocked: the transcript pasted from its "Show transcript" panel, summarised the same way. */
+export async function summarisePastedTranscript(title: string, text: string) {
+  await requireAdmin();
+  const clean = text.replace(/^\s*\d{1,2}(:\d{2}){1,2}\s*$/gm, ' ').replace(/\s+/g, ' ').trim();
+  if (clean.length < 200) return { ok: false as const, error: 'That transcript is too short to summarise.' };
+  const takeaways = await summariseTranscript(title, clean);
+  return { ok: true as const, takeaways, text: clean };
 }
 
 function revalidateFoundry(sessionId?: string) {

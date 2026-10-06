@@ -94,9 +94,30 @@ export function youtubeProxyConfig(env: Record<string, string | undefined> = pro
   return undefined;
 }
 
-export function mapTranscriptError(error: unknown): string {
+export type ProxyKind = 'none' | 'webshare' | 'generic';
+
+export function youtubeProxyKind(env: Record<string, string | undefined> = process.env): ProxyKind {
+  if (env.WEBSHARE_PROXY_USERNAME?.trim() && env.WEBSHARE_PROXY_PASSWORD?.trim()) return 'webshare';
+  if (env.YOUTUBE_PROXY_HTTP?.trim() || env.YOUTUBE_PROXY_HTTPS?.trim()) return 'generic';
+  return 'none';
+}
+
+/** Says which case a block hit, so one test link tells us whether the proxy is missing or not working. */
+export function blockedMessage(proxy: ProxyKind): string {
+  if (proxy === 'webshare') {
+    return 'YouTube blocked the request even through the Webshare proxy. Check the Webshare plan is Residential '
+      + '(not Proxy Server or Static Residential) and the username is the plain one, without -rotate.';
+  }
+  if (proxy === 'generic') {
+    return 'YouTube blocked the request even through the YOUTUBE_PROXY proxy. That proxy\'s IPs are likely blocked too.';
+  }
+  return 'YouTube blocked the request from this server, and no proxy is configured here. '
+    + 'Set WEBSHARE_PROXY_USERNAME and WEBSHARE_PROXY_PASSWORD for this environment and redeploy.';
+}
+
+export function mapTranscriptError(error: unknown, proxy: ProxyKind = youtubeProxyKind()): string {
   if (error instanceof RequestBlocked || error instanceof PoTokenRequired) {
-    return 'YouTube blocked the transcript request from this host.';
+    return blockedMessage(proxy);
   }
   if (error instanceof AgeRestricted) {
     return 'This video is age-restricted, so captions cannot be fetched here.';
@@ -110,7 +131,7 @@ export function mapTranscriptError(error: unknown): string {
   if (error instanceof VideoUnplayable) {
     const reason = error.reason?.trim();
     if (reason?.includes('not a bot')) {
-      return 'YouTube blocked the transcript request from this host.';
+      return blockedMessage(proxy);
     }
     return reason
       ? `YouTube would not play this video (${reason}).`

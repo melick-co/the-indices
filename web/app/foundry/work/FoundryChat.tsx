@@ -25,6 +25,7 @@ import {
   archiveFoundrySession,
   bankFoundrySession,
   fetchLinkContent,
+  summarisePastedTranscript,
   saveFoundrySession,
   setupMonitoring,
   trackSession,
@@ -139,6 +140,9 @@ export default function FoundryChat({
   const [linkUrl, setLinkUrl] = useState('');
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkStatus, setLinkStatus] = useState<string | null>(null);
+  // A YouTube link whose captions were blocked: its transcript can be pasted in by hand instead.
+  const [pasteFor, setPasteFor] = useState<{ inputId: string; title: string } | null>(null);
+  const [pasteText, setPasteText] = useState('');
   const [showContext, setShowContext] = useState(
     () => !normalizeMessages(session.messages).length,
   );
@@ -413,8 +417,9 @@ export default function FoundryChat({
       const nextPrompt = fetched.takeaways
         ? appendContextTakeaways(prompt, fetched.takeaways)
         : prompt;
+      const inputId = uid();
       const next: SessionInput[] = [...inputs, {
-        id: uid(),
+        id: inputId,
         type: 'link' as const,
         url: fetched.url || clean,
         label: fetched.title,
@@ -424,8 +429,10 @@ export default function FoundryChat({
       if (nextPrompt !== prompt) setPrompt(nextPrompt);
       setLinkUrl('');
       const blocked = fetched.kind === 'youtube' && (fetched.takeaways ?? '').includes('Could not transcribe');
+      setPasteFor(blocked ? { inputId, title: fetched.title } : null);
+      setPasteText('');
       setLinkStatus(blocked
-        ? 'Could not read captions. The title and link are in context.'
+        ? 'Could not read captions. The title and link are in context. Paste the transcript below to summarise it.'
         : fetched.kind === 'youtube'
           ? `Wrote takeaways from ${fetched.title} into context.`
           : `Added ${fetched.title}`);
@@ -435,6 +442,32 @@ export default function FoundryChat({
       await saveFoundrySession(sessionId, { title, prompt: nextPrompt, inputs: next, intent });
     } catch (e: unknown) {
       setLinkStatus(e instanceof Error ? e.message : 'Could not fetch that link.');
+    } finally {
+      setLinkBusy(false);
+    }
+  }
+
+  async function addPastedTranscript() {
+    if (!pasteFor || linkBusy || !pasteText.trim()) return;
+    setLinkBusy(true);
+    setLinkStatus('Summarising transcript…');
+    try {
+      const res = await summarisePastedTranscript(pasteFor.title, pasteText);
+      if (!res.ok) {
+        setLinkStatus(res.error);
+        return;
+      }
+      const nextPrompt = res.takeaways ? appendContextTakeaways(prompt, res.takeaways) : prompt;
+      const next = inputs.map((i) => (i.id === pasteFor.inputId ? { ...i, content: res.text } : i));
+      setInputs(next);
+      if (nextPrompt !== prompt) setPrompt(nextPrompt);
+      setLinkStatus(`Wrote takeaways from ${pasteFor.title} into context.`);
+      note(`Transcribed YouTube (pasted) · ${pasteFor.title}`);
+      setPasteFor(null);
+      setPasteText('');
+      await saveFoundrySession(sessionId, { title, prompt: nextPrompt, inputs: next, intent });
+    } catch (e: unknown) {
+      setLinkStatus(e instanceof Error ? e.message : 'Could not summarise that transcript.');
     } finally {
       setLinkBusy(false);
     }
@@ -679,6 +712,26 @@ export default function FoundryChat({
             </label>
           </div>
           {linkStatus && <p className="cc-link-status">{linkStatus}</p>}
+          {pasteFor && (
+            <div className="cc-paste">
+              <textarea
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+                rows={5}
+                placeholder={'On YouTube, open the video, click "...more" then "Show transcript", select it all and paste it here.'}
+                className="cc-textarea"
+              />
+              <div className="cc-context-row">
+                <button type="button" className="cc-link" onClick={addPastedTranscript}
+                  disabled={linkBusy || !pasteText.trim()}>
+                  {linkBusy ? 'summarising…' : 'summarise transcript'}
+                </button>
+                <button type="button" className="cc-link" onClick={() => { setPasteFor(null); setPasteText(''); }}>
+                  dismiss
+                </button>
+              </div>
+            </div>
+          )}
           <div className="cc-context-head">context</div>
           <textarea
             value={prompt}
