@@ -4,6 +4,19 @@
  * API: https://api.worldbank.org/v2/
  */
 export const WB_SERIES = [
+  // Full history for the GDP-per-person bar race (The Indices). The dashboards keep the IMF WEO figure (gdp_per_capita).
+  {
+    metric_id: 'gdp_per_capita_usd_wb',
+    indicator: 'NY.GDP.PCAP.CD',
+    name: 'GDP per capita (current US$)',
+    unit: 'USD',
+    basis: 'Gross domestic product per person, current US dollars, annual',
+    direction: 'higher_is_less_pressure',
+    category: 'economy',
+    source_id: 'worldbank_wdi',
+    source_dataset: 'WDI NY.GDP.PCAP.CD',
+    startYear: 1960,
+  },
   {
     metric_id: 'market_cap_gdp',
     indicator: 'CM.MKT.LCAP.GD.ZS',

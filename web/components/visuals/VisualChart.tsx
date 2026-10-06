@@ -130,7 +130,8 @@ function ChangeBars({ s }: { s: VisualSpec }) {
 }
 
 export function VisualChart({ spec }: { spec: VisualSpec }) {
-  if (spec.template === 'ranked') return <RankedBars s={spec} />;
+  // A race's page shows its final standings as ranked bars; the videos carry the motion.
+  if (spec.template === 'ranked' || spec.template === 'race') return <RankedBars s={spec} />;
   if (spec.template === 'treemap') return <Treemap s={spec} />;
   return <ChangeBars s={spec} />;
 }
