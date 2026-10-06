@@ -12,9 +12,20 @@ export function chartValue(v: number, unit: VisualSpec['unit']): string {
 
 const PALETTE = ['#1d2a48', '#2e4170', '#4f8fd1', '#8db8e8', '#2f9e44', '#f07f1e', '#c2372d', '#8a5cc2', '#d9a21b', '#5b6b85', '#14837b', '#b04a7a', '#c3cad6'];
 
-function RankedBars({ s }: { s: VisualSpec }) {
-  const W = 760, rowH = 19, padL = 150, padR = 70, top = 8;
-  const H = top + s.rows.length * rowH + 8;
+/** Thumbnails show the top rows only (plus the highlighted row if it falls below them), so their labels can be read. */
+function thumbRows(s: VisualSpec, n = 8): VisualSpec {
+  const top = s.rows.slice(0, n);
+  const hl = s.rows.findIndex((r) => r.highlight);
+  return { ...s, rows: hl >= n ? [...top.slice(0, n - 1), s.rows[hl]] : top };
+}
+
+function RankedBars({ s: full, thumb = false }: { s: VisualSpec; thumb?: boolean }) {
+  const s = thumb ? thumbRows(full) : full;
+  // Ranks are positions in the full list, even when a thumbnail skips rows.
+  const place = (code: string) => full.rows.findIndex((r) => r.code === code) + 1;
+  const W = 760, rowH = thumb ? 30 : 19, padL = 150, padR = 70, top = 8;
+  // A line of its own below the bars for the median label, so it never sits on the last row.
+  const H = top + s.rows.length * rowH + (s.median != null ? 26 : 8);
   const max = Math.max(...s.rows.map((r) => r.value), s.median ?? 0);
   const min = Math.min(0, ...s.rows.map((r) => r.value));
   const x = (v: number) => padL + ((v - min) / (max - min || 1)) * (W - padL - padR);
@@ -22,17 +33,17 @@ function RankedBars({ s }: { s: VisualSpec }) {
     <svg viewBox={`0 0 ${W} ${H}`} className="vz-svg" role="img" aria-label={`${s.measure}, ${s.period}`}>
       {s.median != null && (
         <g className="vz-median">
-          <line x1={x(s.median)} x2={x(s.median)} y1={top - 4} y2={H - 4} />
-          <text x={x(s.median) + 4} y={H - 8}>OECD median {chartValue(s.median, s.unit)}</text>
+          <line x1={x(s.median)} x2={x(s.median)} y1={top - 4} y2={H - 20} />
+          <text x={x(s.median)} y={H - 6} textAnchor="middle">OECD median {chartValue(s.median, s.unit)}</text>
         </g>
       )}
       {s.rows.map((r, i) => {
         const y = top + i * rowH;
         return (
           <g key={r.code} className={r.highlight ? 'vz-row hl' : 'vz-row'}>
-            <text x={padL - 8} y={y + 13} textAnchor="end" className="vz-label">{i + 1}. {r.label}</text>
+            <text x={padL - 8} y={y + rowH / 2 + 4} textAnchor="end" className="vz-label">{place(r.code)}. {r.label}</text>
             <rect x={x(Math.min(0, r.value))} y={y + 3} width={Math.max(1, Math.abs(x(r.value) - x(0)))} height={rowH - 6} rx={2} />
-            <text x={x(r.value) + 5} y={y + 13} className="vz-value">{chartValue(r.value, s.unit)}</text>
+            <text x={x(r.value) + 5} y={y + rowH / 2 + 4} className="vz-value">{chartValue(r.value, s.unit)}</text>
           </g>
         );
       })}
@@ -102,8 +113,8 @@ function Treemap({ s }: { s: VisualSpec }) {
   );
 }
 
-function ChangeBars({ s }: { s: VisualSpec }) {
-  const rows = s.rows.filter((r) => r.prior != null && r.prior > 0).sort((a, b) => b.value / b.prior! - a.value / a.prior!);
+function ChangeBars({ s, thumb = false }: { s: VisualSpec; thumb?: boolean }) {
+  const rows = s.rows.filter((r) => r.prior != null && r.prior > 0).sort((a, b) => b.value / b.prior! - a.value / a.prior!).slice(0, thumb ? 8 : undefined);
   const W = 760, rowH = 26, padL = 150, padR = 90, top = 22;
   const H = top + rows.length * rowH + 10;
   const max = Math.max(...rows.flatMap((r) => [r.value, r.prior!]));
@@ -129,9 +140,9 @@ function ChangeBars({ s }: { s: VisualSpec }) {
   );
 }
 
-export function VisualChart({ spec }: { spec: VisualSpec }) {
+export function VisualChart({ spec, thumb = false }: { spec: VisualSpec; thumb?: boolean }) {
   // A race's page shows its final standings as ranked bars; the videos carry the motion.
-  if (spec.template === 'ranked' || spec.template === 'race') return <RankedBars s={spec} />;
+  if (spec.template === 'ranked' || spec.template === 'race') return <RankedBars s={spec} thumb={thumb} />;
   if (spec.template === 'treemap') return <Treemap s={spec} />;
-  return <ChangeBars s={spec} />;
+  return <ChangeBars s={spec} thumb={thumb} />;
 }

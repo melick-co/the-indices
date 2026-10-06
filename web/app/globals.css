@@ -4918,3 +4918,20 @@ a.dx-driver:hover { background: #f5f7fb; }
 .vz-video-row figure { margin: 0; } .vz-video-row video { max-height: 420px; max-width: 100%; border-radius: 8px; background: #000; }
 .vz-video-row figcaption { font-size: .72rem; color: #5b6b85; text-align: center; }
 @media (max-width: 760px) { .vz-title { font-size: 1.4rem; } .vz-head, .vz-takeaways, .vz-foot { padding-left: 16px; padding-right: 16px; } }
+
+/* Visuals gallery cards: equal heights, fixed thumbnails */
+.vz-grid { align-items: stretch; }
+.vz-card { flex-direction: column; gap: 0; background: #fff; border: 1px solid #dfe4ec; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(16,24,40,.06); transition: transform .15s, box-shadow .15s; }
+.vz-card:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(16,24,40,.12); }
+.vz-thumb { position: relative; display: block; height: 200px; overflow: hidden; background: #f7f9fc; border-bottom: 1px solid #e6eaf1; }
+.vz-thumb-chart { display: block; padding: 10px 12px 0; }
+.vz-thumb-chart .vz-svg text { font-size: 15px; }
+.vz-thumb::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 36px; background: linear-gradient(rgba(247,249,252,0), #f7f9fc); pointer-events: none; }
+.vz-thumb video { display: block; width: 100%; height: 100%; object-fit: cover; background: #0f1830; }
+.vz-thumb:has(video)::after { display: none; }
+.vz-badge { position: absolute; left: 10px; bottom: 10px; padding: 4px 9px; border-radius: 4px; background: rgba(15,24,48,.85); color: #fff; font-size: .72rem; font-weight: 700; letter-spacing: .03em; }
+.vz-card-body { display: flex; flex-direction: column; gap: 5px; padding: 12px 14px 14px; flex: 1; }
+.vz-card-kind { font-size: .64rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; color: #2e4170; }
+.vz-card-title { font-size: 1rem; font-weight: 750; line-height: 1.25; color: #121a2b; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.vz-card-teaser { font-size: .8rem; line-height: 1.4; color: #5b6b85; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.vz-card .vz-card-meta { margin-top: auto; padding-top: 4px; }
