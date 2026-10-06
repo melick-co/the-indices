@@ -10,6 +10,8 @@ import { loadDashboard, loadEconomyDashboard, periodLabel, type SectionReading }
 import { IX } from '@/lib/indices-paths';
 import { currentMeasure, loadPolls, personOf, pollAverage, rollingAverage, type Poll } from '@/lib/polls';
 import { loadPnl, type PnlData } from '@/lib/pnl';
+import { loadVisuals } from '@/lib/visuals';
+import { VisualCard } from '@/components/visuals/VisualPoster';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
@@ -86,8 +88,8 @@ function pnlDetail(d: PnlData) {
 }
 
 export default async function IndicesHome({ searchParams }: { searchParams: { tile?: string } }) {
-  const [economy, qol, sentiment, polls, pnl] = await Promise.all([
-    loadEconomyDashboard(), loadDashboard(QOL_SECTIONS), loadDashboard(SENTIMENT_SECTIONS), loadPolls(), loadPnl(),
+  const [economy, qol, sentiment, polls, pnl, visuals] = await Promise.all([
+    loadEconomyDashboard(), loadDashboard(QOL_SECTIONS), loadDashboard(SENTIMENT_SECTIONS), loadPolls(), loadPnl(), loadVisuals(3),
   ]);
   const details: Record<string, React.ReactNode> = {};
   const tiles = (prefix: string, base: string, name: string, readings: SectionReading[]) => readings.map((r) => {
@@ -139,6 +141,15 @@ export default async function IndicesHome({ searchParams }: { searchParams: { ti
         intro={<>The economy, quality of life and public mood: official data, judged against targets, history and other countries. Of {all.length} headline readings, {good} are on target or better and {pressure} are under pressure. Click any tile for the detail.</>} />
       <div className="dx-body">
         <TileBoard groups={groups} details={details} initial={searchParams.tile ?? null} />
+        {visuals.length > 0 && (
+          <section className="ix-group ix-visuals" aria-labelledby="ix-g-visuals">
+            <div className="ix-group-head">
+              <h2 id="ix-g-visuals">Latest visuals</h2>
+              <Link href={IX.visuals} className="ix-group-link">All visuals →</Link>
+            </div>
+            <div className="vz-grid">{visuals.map((v) => <VisualCard key={v.slug} v={v} />)}</div>
+          </section>
+        )}
         <Legend note={<>Tiles marked “Poll” are private polls, shown as context and never as official data.</>} />
       </div>
     </main>
