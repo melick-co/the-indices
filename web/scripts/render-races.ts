@@ -14,11 +14,11 @@ import { copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { bundle } from '@remotion/bundler';
-import { ensureBrowser, renderMedia, selectComposition } from '@remotion/renderer';
+import { ensureBrowser, renderMedia, renderStill, selectComposition } from '@remotion/renderer';
 import { createClient } from '@/lib/supabase-server';
 import { ELEVEN_API_BASE } from '@/lib/elevenlabs-client';
 import { buildRaces, type Race } from '@/lib/visuals-race';
-import { RACE_COMPOSITION_ID, raceSeconds, type RaceFormat, type RaceProps } from '@/lib/race-video-types';
+import { HOLD_SECONDS, INTRO_SECONDS, RACE_COMPOSITION_ID, RACE_FPS, raceSeconds, stepSeconds, type RaceFormat, type RaceProps } from '@/lib/race-video-types';
 import { FONT_FILES } from '@/remotion/fonts';
 
 const WEB_ROOT = resolve(__dirname, '..');
@@ -55,7 +55,7 @@ async function music(seconds: number, publicDir: string): Promise<string | null>
   }
 }
 
-async function render(race: Race, musicFile: string | null, publicDir: string, outDir: string): Promise<Record<RaceFormat, string>> {
+async function render(race: Race, musicFile: string | null, publicDir: string, outDir: string): Promise<Record<string, string>> {
   await mkdir(join(publicDir, 'fonts'), { recursive: true });
   for (const f of FONT_FILES) await copyFile(join(WEB_ROOT, 'app', 'fonts', f), join(publicDir, 'fonts', f));
   const browserExecutable = process.env.REMOTION_BROWSER?.trim() || undefined;
@@ -66,7 +66,7 @@ async function render(race: Race, musicFile: string | null, publicDir: string, o
     publicDir,
     webpackOverride: (config) => ({ ...config, resolve: { ...config.resolve, alias: { ...((config.resolve?.alias as Record<string, string> | undefined) ?? {}), '@': WEB_ROOT } } }),
   });
-  const out = {} as Record<RaceFormat, string>;
+  const out: Record<string, string> = {};
   for (const format of FORMATS) {
     const props: RaceProps = { race, format, musicFile };
     const composition = await selectComposition({ serveUrl, id: RACE_COMPOSITION_ID, inputProps: props, browserExecutable });
@@ -80,6 +80,14 @@ async function render(race: Race, musicFile: string | null, publicDir: string, o
     console.log(`\n  ${file} (${((await stat(file)).size / 1e6).toFixed(1)} MB)`);
     out[format] = file;
   }
+  // The poster: the square frame at the final standings (before the end card), shown with a play mark on the site.
+  const props: RaceProps = { race, format: '1:1', musicFile: null };
+  const composition = await selectComposition({ serveUrl, id: RACE_COMPOSITION_ID, inputProps: props, browserExecutable });
+  const n = race.frames.length;
+  const frame = Math.round((INTRO_SECONDS + stepSeconds(n) * (n - 1) + HOLD_SECONDS / 2) * RACE_FPS);
+  out.poster = join(outDir, 'poster.jpg');
+  await renderStill({ composition, serveUrl, output: out.poster, frame, inputProps: props, imageFormat: 'jpeg', jpegQuality: 88, browserExecutable });
+  console.log(`  ${out.poster} (frame ${frame})`);
   return out;
 }
 
@@ -118,8 +126,9 @@ async function main() {
     const prefix = dry ? `drafts/${slug}` : slug;
     const videos: Record<string, string> = {};
     for (const [format, file] of Object.entries(files)) {
-      const path = `${prefix}/${format.replace(':', 'x')}.mp4`;
-      const { error } = await db.storage.from(BUCKET).upload(path, await readFile(file), { contentType: 'video/mp4', upsert: true });
+      const poster = format === 'poster';
+      const path = poster ? `${prefix}/poster.jpg` : `${prefix}/${format.replace(':', 'x')}.mp4`;
+      const { error } = await db.storage.from(BUCKET).upload(path, await readFile(file), { contentType: poster ? 'image/jpeg' : 'video/mp4', upsert: true });
       if (error) throw new Error(`upload ${path}: ${error.message}`);
       // A version in the link, so a re-render at the same path is never served from a stale CDN or browser cache.
       videos[format] = `${db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl}?v=${Date.now()}`;
@@ -136,7 +145,7 @@ async function main() {
       status: 'published', published_at: new Date().toISOString(),
     }, { onConflict: 'slug' });
     if (error) throw new Error(`visuals upsert: ${error.message}`);
-    console.log(`Published /indices/visuals/${slug} with ${Object.keys(videos).length} videos.`);
+    console.log(`Published /indices/visuals/${slug} with ${Object.keys(videos).filter((k) => k !== 'poster').length} videos and a poster.`);
   } finally {
     await rm(publicDir, { recursive: true, force: true });
     await rm(outDir, { recursive: true, force: true });

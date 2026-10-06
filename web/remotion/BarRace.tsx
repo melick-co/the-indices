@@ -1,9 +1,10 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { AbsoluteFill, Audio, cancelRender, continueRender, delayRender, interpolate, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Audio, Img, cancelRender, continueRender, delayRender, interpolate, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import { curves, glidingRanks, standings } from './race-motion';
 import { FlipYear } from './FlipYear';
 import { loadFonts } from './fonts';
 import { FONT } from './theme';
+import { flagDataUri } from '../lib/flags';
 import { INTRO_SECONDS, OUTRO_SECONDS, RACE_FPS, stepSeconds, type RaceProps } from '../lib/race-video-types';
 
 const NAVY = '#0f1830', NAVY2 = '#1d2a48', ON = '#eef2fa', MUTED = '#a9b6d3', ACCENT = '#4f8fd1';
@@ -30,6 +31,7 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
   const s = sAt(frame);
   const slots = format === '1:1' ? Math.min(race.topN, 8) : race.topN;
   const c = useMemo(() => curves(race), [race]);
+  const flags = useMemo(() => Object.fromEntries(Object.entries(race.labels).map(([k, l]) => [k, flagDataUri(l)])), [race]);
   const now = standings(c, s);
   const glide = glidingRanks(c, sAt, frame, slots);
   const rows = now.map((x) => ({ k: x.k, v: x.v, r: glide[x.k] ?? slots + 1 })).filter((x) => x.r < slots);
@@ -41,13 +43,15 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
   const sinceChange = reached === 0 ? 999 : frame - (intro + reached * perStep);
 
   const pad = tall ? 80 : 70;
-  // Each format gives the clock its own zone so no bar can run into it: top right beside the title (16:9), a band
-  // below the bars inside the platforms' safe area (9:16), a strip below the bars beside the caption (1:1).
-  const clockSize = tall ? 110 : wide ? 100 : 76;
+  // The year clock sits in the bottom-right corner in every format (inside the platforms' safe area on 9:16); the
+  // caption and source line run beside it on the left, and the bars stop above them.
+  const clockSize = tall ? 110 : wide ? 100 : 84;
   const clockW = clockSize * 0.66 * 4 + clockSize * 0.08 * 3;
+  const clockBottom = tall ? 340 : 40;
+  const besideClock = pad + clockW + 30;
   const top = tall ? 560 : wide ? 250 : 280;
-  const bottom = tall ? 690 : wide ? 130 : 290;
-  const labelW = wide ? 330 : 300;
+  const bottom = clockBottom + clockSize + 60;
+  const labelW = wide ? 380 : 340;
   const area = height - top - bottom;
   const slotH = area / slots;
   const barMax = width - pad * 2 - labelW - (wide ? 260 : 200);
@@ -65,7 +69,7 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
         <Audio src={staticFile(musicFile)} volume={(f) => interpolate(f, [0, 20, durationInFrames - 45, durationInFrames], [0, 0.55, 0.55, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })} />
       )}
       {/* Header */}
-      <div style={{ position: 'absolute', left: pad, right: wide ? pad + clockW + 40 : pad, top: tall ? 200 : 60 }}>
+      <div style={{ position: 'absolute', left: pad, right: pad, top: tall ? 200 : 60 }}>
         <div style={{ fontSize: tall ? 26 : 24, letterSpacing: 4, textTransform: 'uppercase', color: MUTED, fontWeight: 600 }}>The Indices</div>
         <div style={{ fontSize: titleSize, fontWeight: 700, lineHeight: 1.1, marginTop: 10 }}>{race.title}</div>
         <div style={{ fontSize: tall ? 30 : 26, color: MUTED, marginTop: 10 }}>{race.subtitle}</div>
@@ -78,24 +82,27 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
         const fade = interpolate(x.r, [slots - 1, slots - 0.2], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
         return (
           <div key={x.k} style={{ position: 'absolute', left: pad, top: y, height: slotH * 0.78, width: width - pad * 2, display: 'flex', alignItems: 'center', opacity: fade }}>
-            <div style={{ width: labelW, paddingRight: 18, textAlign: 'right', fontSize: Math.min(36, slotH * 0.42), fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{race.labels[x.k] ?? x.k}</div>
+            <div style={{ width: labelW, paddingRight: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, fontSize: Math.min(34, slotH * 0.4), fontWeight: 600 }}>
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{race.labels[x.k] ?? x.k}</span>
+              {flags[x.k] && <Img src={flags[x.k]!} alt="" style={{ height: Math.min(30, slotH * 0.36), width: Math.min(45, slotH * 0.54), flexShrink: 0, borderRadius: 3, boxShadow: '0 0 0 1px rgba(255,255,255,.25)' }} />}
+            </div>
             <div style={{ width: w, height: '100%', background: colourFor(x.k), borderRadius: 6 }} />
             <div style={{ paddingLeft: 16, fontSize: Math.min(32, slotH * 0.38), color: ON, fontVariantNumeric: 'tabular-nums' }}>{value(x.v, race.unit)}</div>
           </div>
         );
       })}
       {/* Period counter: a split-flap clock */}
-      <div style={{ position: 'absolute', right: pad, ...(wide ? { top: 64 } : { bottom: tall ? 520 : 150 }) }}>
+      <div style={{ position: 'absolute', right: pad, bottom: clockBottom }}>
         <FlipYear text={period} prev={prevPeriod} sinceChange={sinceChange} flipFrames={Math.min(10, Math.max(6, Math.round(perStep * 0.6)))} size={clockSize} />
       </div>
       {/* Caption */}
       {caption && frame < outroStart && (
-        <div style={{ position: 'absolute', left: pad, right: tall || wide ? pad : pad + clockW + 30, bottom: tall ? 410 : wide ? 56 : 160, display: 'flex' }}>
-          <div style={{ background: ACCENT, color: '#fff', fontSize: tall ? 34 : 30, fontWeight: 700, padding: '12px 22px', borderRadius: 8 }}>{caption.text}</div>
+        <div style={{ position: 'absolute', left: pad, right: besideClock, bottom: clockBottom + (tall ? 70 : 52), display: 'flex' }}>
+          <div style={{ background: ACCENT, color: '#fff', fontSize: tall ? 32 : wide ? 30 : 26, fontWeight: 700, padding: '10px 20px', borderRadius: 8, lineHeight: 1.2 }}>{caption.text}</div>
         </div>
       )}
       {/* Source */}
-      <div style={{ position: 'absolute', left: pad, right: pad, bottom: tall ? 345 : 18, fontSize: tall ? 22 : 20, color: MUTED }}>Source: {race.source.org}, {race.source.dataset}. Values between {race.frames.length > 1 && /^\d{4}$/.test(race.frames[0].period) ? 'years' : 'periods'} are interpolated.</div>
+      <div style={{ position: 'absolute', left: pad, right: besideClock, bottom: clockBottom - (tall ? 0 : 22), fontSize: tall ? 22 : 18, lineHeight: 1.3, color: MUTED }}>Source: {race.source.org}, {race.source.dataset}. Values between {race.frames.length > 1 && /^\d{4}$/.test(race.frames[0].period) ? 'years' : 'periods'} are interpolated.</div>
       {/* Title card */}
       <AbsoluteFill style={{ background: NAVY, opacity: introOpacity, justifyContent: 'center', padding: pad }}>
         <div style={{ fontSize: tall ? 30 : 28, letterSpacing: 5, textTransform: 'uppercase', color: ACCENT, fontWeight: 700 }}>The Indices</div>

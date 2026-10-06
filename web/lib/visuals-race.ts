@@ -69,8 +69,8 @@ async function bornOverseas(db: Db): Promise<Race | null> {
   const periods = [...new Set(rows.map((r) => r.period))].sort();
   const labels = Object.fromEntries(rows.map((r) => [r.category, shortName(r.category_name)]));
   return finish({
-    key: 'race:erp_cob', title: `Australia's largest overseas-born groups, ${periods[0]} to ${periods.at(-1)}`,
-    subtitle: 'Australian residents by country of birth, at 30 June each year', unit: 'persons', labels, topN: 10,
+    key: 'race:erp_cob', title: `Australia's immigrants by country of birth, ${periods[0]} to ${periods.at(-1)}`,
+    subtitle: 'Australian residents born overseas, by country of birth, at 30 June each year', unit: 'persons', labels, topN: 10,
     frames: periods.map((p) => ({ period: p, values: Object.fromEntries(rows.filter((r) => r.period === p).map((r) => [r.category, r.value])) })),
     source: { org: 'ABS', dataset: 'Estimated resident population by country of birth (ERP_COB)', url: 'https://data.api.abs.gov.au/rest/data/ABS,ERP_COB' },
   });
