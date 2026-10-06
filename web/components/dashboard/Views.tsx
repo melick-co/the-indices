@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import StoryChart from '@/components/StoryChart';
-import { Change, DeviationBar, compactReading, ToneChip, Trend, Value, historyChart, isPressure, peersChart, reference, tone } from '@/components/dashboard/DashParts';
+import { Change, DeviationBar, tileReading, ToneChip, Trend, Value, historyChart, isPressure, peersChart, reference, tone } from '@/components/dashboard/DashParts';
 import { Icon, indicatorIcon, sectionIcon } from '@/components/dashboard/Icons';
 import { formatReading, periodLabel, type Reading, type SectionReading } from '@/lib/economy-dashboard';
 import { sydneyDay } from '@/lib/dates';
@@ -42,7 +42,7 @@ function Ticker({ dash, s }: { dash: DashboardRef; s: SectionReading }) {
   return (
     <Link href={`${dash.base}/${s.section.id}/${h.key}`} className={`dx-tick ${tone(h)}`}>
       <span className="dx-tick-label"><Icon name={sectionIcon(s.section.id)} size={13} />{h.indicator.short ?? h.indicator.label}</span>
-      <span className="dx-tick-value">{h.latest ? compactReading(h.latest.value, h.indicator.unit, h.indicator.decimals) : '—'}</span>
+      <span className="dx-tick-value">{tileReading(h)}</span>
       <span className="dx-tick-meta"><Change reading={h} compact />{h.latest && <span>{periodLabel(h.latest.period)}</span>}</span>
     </Link>
   );
@@ -59,7 +59,7 @@ export function DriverRow({ href, r }: { href?: string; r: Reading }) {
         <span className="dx-driver-ref">{ref ? `vs ${ref.label}` : r.verdict}</span>
       </span>
       <DeviationBar reading={r} />
-      <span className="dx-driver-value">{r.latest ? compactReading(r.latest.value, r.indicator.unit, r.indicator.decimals) : '—'}</span>
+      <span className="dx-driver-value">{tileReading(r)}</span>
       <span className="dx-driver-change"><Change reading={r} compact /></span>
     </>
   );

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Change, Trend, compactReading, isPressure, tone, type Tone } from '@/components/dashboard/DashParts';
+import { Change, Trend, tileReading, isPressure, tone, type Tone } from '@/components/dashboard/DashParts';
 import { Icon, sectionIcon, type IconName } from '@/components/dashboard/Icons';
 import { Hero, Legend, SectionPanel } from '@/components/dashboard/Views';
 import { LeadersCard, VotingCard } from '@/components/dashboard/Polls';
@@ -40,7 +40,7 @@ function sectionTile(r: SectionReading, label?: string) {
   const h = r.headline;
   return (
     <Tile icon={sectionIcon(r.section.id)} label={label ?? h.indicator.short ?? h.indicator.label}
-      value={h.latest ? compactReading(h.latest.value, h.indicator.unit, h.indicator.decimals) : '—'} tone={tone(h)}
+      value={tileReading(h)} tone={tone(h)}
       change={<Change reading={h} compact />} period={h.latest ? periodLabel(h.latest.period) : undefined}
       spark={h.history.slice(-24)} />
   );
