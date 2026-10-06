@@ -121,7 +121,8 @@ async function main() {
       const path = `${prefix}/${format.replace(':', 'x')}.mp4`;
       const { error } = await db.storage.from(BUCKET).upload(path, await readFile(file), { contentType: 'video/mp4', upsert: true });
       if (error) throw new Error(`upload ${path}: ${error.message}`);
-      videos[format] = db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      // A version in the link, so a re-render at the same path is never served from a stale CDN or browser cache.
+      videos[format] = `${db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl}?v=${Date.now()}`;
     }
     if (dry) { console.log(`Dry run: drafts uploaded, nothing published.\n${Object.entries(videos).map(([f, u]) => `  ${f}: ${u}`).join('\n')}`); return; }
     const lastFrame = race.frames.at(-1)!;

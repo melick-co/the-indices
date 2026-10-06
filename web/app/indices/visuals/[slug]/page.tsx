@@ -13,7 +13,9 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 export default async function VisualPage({ params }: { params: { slug: string } }) {
   const v = await loadVisual(params.slug);
   if (!v) notFound();
-  const formats = Object.entries(v.videos ?? {});
+  // Vertical first: it is the main format for social; the database doesn't keep the order the videos were added in.
+  const ORDER = ['9:16', '16:9', '1:1'];
+  const formats = Object.entries(v.videos ?? {}).sort(([a], [b]) => (ORDER.indexOf(a) + 1 || 99) - (ORDER.indexOf(b) + 1 || 99));
   return (
     <main className="vz-page">
       <p className="vz-crumb"><Link href={IX.visuals}>← All visuals</Link></p>
