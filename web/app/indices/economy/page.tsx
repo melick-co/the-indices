@@ -6,7 +6,7 @@ import { IX } from '@/lib/indices-paths';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'Economy dashboard — The Caveat’s Indices',
+  title: 'Economy dashboard — Caveat Indices',
   description: 'The health of the Australian economy on one page: growth, jobs, prices, rates, housing, population and public finances.',
 };
 

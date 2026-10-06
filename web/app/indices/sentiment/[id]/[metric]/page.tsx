@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: { id: string; metric: string } }) {
   const section = sentimentSectionById(params.id);
-  return section ? { title: `${section.title} — Sentiment & polls — The Caveat’s Indices` } : {};
+  return section ? { title: `${section.title} — Sentiment & polls — Caveat Indices` } : {};
 }
 
 export default async function SentimentIndicatorPage({ params }: { params: { id: string; metric: string } }) {

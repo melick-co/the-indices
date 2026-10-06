@@ -6,7 +6,7 @@ import { IX } from '@/lib/indices-paths';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'Quality of life dashboard — The Caveat’s Indices',
+  title: 'Quality of life dashboard — Caveat Indices',
   description: 'How Australians are living: income, work, housing, health, skills, safety, life satisfaction and civic life, against the rest of the OECD.',
 };
 

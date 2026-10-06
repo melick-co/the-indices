@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: { id: string; metric: string } }) {
   const section = sectionById(params.id);
-  return section ? { title: `${section.title} — Economy dashboard — The Caveat’s Indices` } : {};
+  return section ? { title: `${section.title} — Economy dashboard — Caveat Indices` } : {};
 }
 
 export default async function IndicatorPage({ params }: { params: { id: string; metric: string } }) {

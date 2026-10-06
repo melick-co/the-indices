@@ -6,7 +6,7 @@ import { IX } from '@/lib/indices-paths';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'Population — The Caveat’s Indices',
+  title: 'Population — Caveat Indices',
   description: 'How fast the population is growing and why: births, deaths, migration by visa and country, who is leaving, and travel.',
 };
 

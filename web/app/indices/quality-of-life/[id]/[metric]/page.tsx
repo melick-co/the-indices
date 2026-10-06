@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: { id: string; metric: string } }) {
   const section = qolSectionById(params.id);
-  return section ? { title: `${section.title} — Quality of life — The Caveat’s Indices` } : {};
+  return section ? { title: `${section.title} — Quality of life — Caveat Indices` } : {};
 }
 
 export default async function QolIndicatorPage({ params }: { params: { id: string; metric: string } }) {
