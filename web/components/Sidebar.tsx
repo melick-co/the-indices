@@ -7,7 +7,7 @@ const LINKS = [
   { href: '/', label: 'Today' },
   { href: '/explainers', label: 'Explainers' },
   { href: '/the-rub', label: 'The Rub' },
-  { href: '/indices', label: 'The Caveat’s Indices' },
+  { href: '/indices', label: 'Caveat Indices' },
   { href: '/instruments', label: 'Instruments' },
   { href: '/markets', label: 'Markets' },
   { href: '/trending', label: 'Trending' },

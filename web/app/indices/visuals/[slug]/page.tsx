@@ -8,7 +8,7 @@ import { loadVisual, newerRace } from '@/lib/visuals';
 export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const v = await loadVisual(params.slug);
-  return v ? { title: `${v.title} — The Caveat’s Indices`, description: v.subtitle ?? undefined } : {};
+  return v ? { title: `${v.title} — Caveat Indices`, description: v.subtitle ?? undefined } : {};
 }
 
 export default async function VisualPage({ params }: { params: { slug: string } }) {

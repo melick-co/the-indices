@@ -7,7 +7,7 @@ import { IX } from '@/lib/indices-paths';
 export const dynamic = 'force-dynamic';
 export function generateMetadata({ params }: { params: { id: string } }) {
   const section = sectionById(params.id);
-  return section ? { title: `${section.title} — Economy — The Caveat’s Indices`, description: section.question } : {};
+  return section ? { title: `${section.title} — Economy — Caveat Indices`, description: section.question } : {};
 }
 
 export default async function EconomySectionPage({ params }: { params: { id: string } }) {

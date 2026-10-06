@@ -15,7 +15,7 @@ import { VisualCard } from '@/components/visuals/VisualPoster';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'The Caveat’s Indices — Australia on one page',
+  title: 'Caveat Indices — Australia on one page',
   description: 'Australia\'s economy, quality of life and public mood on one page: official data, judged against targets, history and other countries.',
 };
 
@@ -137,7 +137,7 @@ export default async function IndicesHome({ searchParams }: { searchParams: { ti
   const good = all.filter((h) => tone(h) === 'good').length;
   return (
     <main className="dx ix-home">
-      <Hero kicker="Australia, on one page" title="The Caveat’s Indices"
+      <Hero kicker="Australia, on one page" title="Caveat Indices"
         intro={<>The economy, quality of life and public mood: official data, judged against targets, history and other countries. Of {all.length} headline readings, {good} are on target or better and {pressure} are under pressure. Click any tile for the detail.</>} />
       <div className="dx-body">
         <TileBoard groups={groups} details={details} initial={searchParams.tile ?? null} />

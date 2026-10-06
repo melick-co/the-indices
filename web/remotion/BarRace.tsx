@@ -8,7 +8,7 @@ import { flagDataUri } from '../lib/flags';
 import { INTRO_SECONDS, OUTRO_SECONDS, RACE_FPS, raceEndSeconds, stepSeconds, type RaceProps } from '../lib/race-video-types';
 import { StackEnding } from './StackEnding';
 
-const BRAND = 'The Caveat’s Indices';
+const BRAND = 'Caveat Indices';
 
 const NAVY = '#0f1830', NAVY2 = '#1d2a48', ON = '#eef2fa', MUTED = '#a9b6d3', ACCENT = '#4f8fd1';
 const PALETTE = ['#4f8fd1', '#2f9e44', '#f07f1e', '#c2372d', '#8a5cc2', '#d9a21b', '#14837b', '#b04a7a', '#8db8e8', '#7aa95c', '#e0775a', '#5b6bb5'];
