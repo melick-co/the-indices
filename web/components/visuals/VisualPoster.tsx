@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PlayMark } from '@/components/visuals/RacePlayer';
 import { VisualChart } from '@/components/visuals/VisualChart';
 import { IX } from '@/lib/indices-paths';
 import type { Visual } from '@/lib/visuals';
@@ -35,15 +36,19 @@ const KIND: Record<Visual['template'], string> = { ranked: 'Ranking', treemap: '
 
 /** A gallery card: a fixed-height thumbnail (a video frame for races), the title, a one-line teaser, kind and date. */
 export function VisualCard({ v }: { v: Visual }) {
-  const video = v.videos?.['16:9'];
+  const poster = v.videos?.poster;
+  const video = v.videos?.['1:1'] ?? v.videos?.['16:9'];
   return (
     <Link href={`${IX.visuals}/${v.slug}`} className="vz-card">
       <span className="vz-thumb">
-        {v.template === 'race' && video ? (
+        {v.template === 'race' && (poster || video) ? (
           <>
-            {/* #t= shows a frame mid-race as the still; nothing plays in the gallery. */}
-            <video src={`${video}${video.includes('#') ? '' : '#t=20'}`} muted playsInline preload="metadata" aria-hidden="true" tabIndex={-1} />
-            <span className="vz-badge">▶ Video</span>
+            {poster
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={poster} alt="" />
+              // Races rendered before posters: #t= shows a frame mid-race as the still; nothing plays in the gallery.
+              : <video src={`${video}${video!.includes('#') ? '' : '#t=20'}`} muted playsInline preload="metadata" aria-hidden="true" tabIndex={-1} />}
+            <PlayMark />
           </>
         ) : (
           <span className="vz-thumb-chart"><VisualChart spec={v.spec} thumb /></span>
