@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
 import { loadObservations } from '@/lib/chart-from-data';
+import { isCountryItem } from '@/lib/breakdown-categories';
 
 /**
  * The population page's data: components of change (observations, pop_*), and the ABS breakdowns (agent/supabase/
@@ -174,7 +175,7 @@ export async function loadPopulation(): Promise<PopulationData> {
     const v = (code: string, p: string) => all.find((r) => r.category === code && r.period === p)?.value ?? null;
     const total = v('TOT', cEnd) ?? 0;
     const aus = v('1101', cEnd) ?? 0;
-    const items = all.filter((r) => r.period === cEnd && r.category_level === 'item' && r.category !== '1101').sort((x, y) => y.value - x.value).slice(0, 15);
+    const items = all.filter((r) => r.period === cEnd && isCountryItem(r.category, r.category_name, r.category_level) && r.category !== '1101').sort((x, y) => y.value - x.value).slice(0, 15);
     born = {
       year: cEnd, total, overseas: total - aus,
       totalPrior5: v('TOT', p5), overseasPrior5: v('TOT', p5) != null && v('1101', p5) != null ? v('TOT', p5)! - v('1101', p5)! : null,
@@ -198,6 +199,7 @@ async function travel(db: Db, prefix: 'visitors' | 'residents_trips'): Promise<T
   const cw = window(country, end), cp = window(country, end, 1), cb = window(country, base);
   const rNames = new Map(reason.map((r) => [r.category, r.category_name]));
   const cNames = new Map(country.map((r) => [r.category, { name: r.category_name, level: r.category_level }]));
+  const isCountry = (c: string) => { const n = cNames.get(c); return !!n && isCountryItem(c, n.name, n.level); };
   const total = rw?.get('TOT') ?? 0;
   const rank = (w: Map<string, number> | null, p: Map<string, number> | null, b: Map<string, number> | null, keep: (c: string) => boolean, name: (c: string) => string) =>
     w ? [...w.entries()].filter(([c]) => keep(c)).sort((x, y) => y[1] - x[1]).map(([c, value]) => ({ code: c, name: name(c), value, prior: p?.get(c) ?? null, base: b?.get(c) ?? null, share: total ? value / total : 0 })) : [];
@@ -211,7 +213,7 @@ async function travel(db: Db, prefix: 'visitors' | 'residents_trips'): Promise<T
   return {
     end, total, prior: rp?.get('TOT') ?? null, base2019: rb?.get('TOT') ?? null,
     reasons: rank(rw, rp, rb, (c) => c !== 'TOT', (c) => rNames.get(c) ?? c),
-    countries: rank(cw, cp, cb, (c) => cNames.get(c)?.level === 'item', (c) => shortName(cNames.get(c)?.name ?? c)).slice(0, 15),
+    countries: rank(cw, cp, cb, isCountry, (c) => shortName(cNames.get(c)?.name ?? c)).slice(0, 15),
     annual: years('TOT'),
     annualByReason: new Map(reasonCodes.map((c) => [c, years(c)])),
   };

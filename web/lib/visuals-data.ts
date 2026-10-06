@@ -7,6 +7,7 @@ import { peerTable } from '@/lib/economy-dashboard';
 import { entityNames } from '@/lib/entity-names';
 import { loadPnl } from '@/lib/pnl';
 import { shortName } from '@/lib/population';
+import { isCountryItem } from '@/lib/breakdown-categories';
 
 /**
  * Chart-ready datasets for Visuals, built only from stored official series. Each one carries everything the graphic
@@ -100,8 +101,8 @@ async function travel(db: Db, dataset: 'visitors_country' | 'residents_trips_cou
   if (!end) return [];
   const now = twelve(rows, end), base = twelve(rows, `2019-${end.slice(5, 7)}`);
   if (!now) return [];
-  const names = new Map(rows.map((r) => [r.category, { name: shortName(r.category_name), level: r.category_level }]));
-  const items = [...now.entries()].filter(([c]) => names.get(c)?.level === 'item').sort((a, b) => b[1] - a[1]);
+  const names = new Map(rows.map((r) => [r.category, { name: shortName(r.category_name), level: r.category_level, raw: r.category_name }]));
+  const items = [...now.entries()].filter(([c]) => { const n = names.get(c); return !!n && isCountryItem(c, n.raw, n.level); }).sort((a, b) => b[1] - a[1]);
   const total = now.get('TOT') ?? items.reduce((s, [, v]) => s + v, 0);
   const visitors = dataset === 'visitors_country';
   const label = visitors ? 'Short-term visitor arrivals' : 'Short-term trips abroad by Australian residents';
@@ -132,7 +133,7 @@ async function bornOverseas(db: Db): Promise<Dataset[]> {
   const p10 = String(Number(end) - 10);
   const at = (p: string) => new Map(rows.filter((r) => r.period === p).map((r) => [r.category, r]));
   const now = at(end), then = at(p10);
-  const items = [...now.values()].filter((r) => r.category_level === 'item' && r.category !== '1101').sort((a, b) => b.value - a.value);
+  const items = [...now.values()].filter((r) => isCountryItem(r.category, r.category_name, r.category_level) && r.category !== '1101').sort((a, b) => b.value - a.value);
   const overseas = (now.get('TOT')?.value ?? 0) - (now.get('1101')?.value ?? 0);
   const src = [{ org: 'ABS', dataset: 'Estimated resident population by country of birth (ERP_COB)', url: 'https://data.api.abs.gov.au/rest/data/ABS,ERP_COB' }];
   const top = items.slice(0, 12);

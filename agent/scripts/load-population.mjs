@@ -135,7 +135,8 @@ async function breakdowns() {
       const code = r.COUNTRY_RESID;
       const name = countryNames.get(code) ?? code;
       out.push({ dataset: `${prefix}_country`, category: code, category_name: name,
-        category_level: code === 'TOT' ? 'total' : /^total/i.test(name) || /^T/.test(code) ? 'group' : 'item',
+        // OT1–OT9 ('Other South-East Asia' …) and NI ('Not stated') are residual groups, not countries.
+        category_level: code === 'TOT' ? 'total' : /^total/i.test(name) || /^T/.test(code) || /^OT\d$/.test(code) || code === 'NI' ? 'group' : 'item',
         period: r.TIME_PERIOD, value: Math.round(r.value), source_url: src('OAD_COUNTRY', `${cat}..10.M`) });
     }
   }
