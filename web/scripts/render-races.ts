@@ -20,6 +20,7 @@ import { ELEVEN_API_BASE } from '@/lib/elevenlabs-client';
 import { buildRaces, type Race } from '@/lib/visuals-race';
 import { HOLD_SECONDS, INTRO_SECONDS, RACE_COMPOSITION_ID, RACE_FPS, raceSeconds, stepSeconds, type RaceFormat, type RaceProps } from '@/lib/race-video-types';
 import { FONT_FILES } from '@/remotion/fonts';
+import { enqueue, queueEnabled, scheduleContent } from '@/lib/content-queue';
 
 const WEB_ROOT = resolve(__dirname, '..');
 const BUCKET = 'visual-videos';
@@ -96,9 +97,11 @@ const slugify = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').repla
 async function main() {
   const db = createClient();
   const races = await buildRaces();
-  const { data: past } = await db.from('visuals').select('dataset_key, published_at').eq('template', 'race').eq('status', 'published').order('published_at', { ascending: false });
+  // Races queued but not yet out count as made, so the same race isn't rendered again while it waits.
+  const { data: made } = await db.from('visuals').select('dataset_key, published_at, created_at').eq('template', 'race').in('status', ['published', 'draft']);
+  const past = (made ?? []).map((v) => ({ dataset_key: v.dataset_key, at: v.published_at ?? v.created_at })).sort((a, b) => b.at.localeCompare(a.at));
   const last = new Map<string, number>();
-  for (const v of past ?? []) if (!last.has(v.dataset_key)) last.set(v.dataset_key, (Date.now() - new Date(v.published_at).getTime()) / 864e5);
+  for (const v of past) if (!last.has(v.dataset_key)) last.set(v.dataset_key, (Date.now() - new Date(v.at).getTime()) / 864e5);
   if (list) {
     for (const r of races) console.log(`${r.key}: ${r.frames.length} periods (${r.frames[0].period}–${r.frames.at(-1)!.period}), ${raceSeconds(r).toFixed(1)}s, last published ${last.has(r.key) ? `${last.get(r.key)!.toFixed(0)} days ago` : 'never'}`);
     return;
@@ -136,16 +139,25 @@ async function main() {
     if (dry) { console.log(`Dry run: drafts uploaded, nothing published.\n${Object.entries(videos).map(([f, u]) => `  ${f}: ${u}`).join('\n')}`); return; }
     const lastFrame = race.frames.at(-1)!;
     const rows = Object.entries(lastFrame.values).sort((a, b) => b[1] - a[1]).slice(0, race.topN).map(([code, value]) => ({ label: race.labels[code] ?? code, code, value }));
+    // With the production queue on, a new race is a draft until its slot. A re-render of one already published the
+    // same day just replaces its videos and stays published.
+    const { data: existing } = await db.from('visuals').select('status').eq('slug', slug).maybeSingle();
+    const queueOn = existing?.status !== 'published' && await queueEnabled(db);
     // Upsert: re-rendering a race the same day replaces that day's visual (and its videos, uploaded with upsert).
     const { error } = await db.from('visuals').upsert({
       slug, dataset_key: race.key, template: 'race', title: race.title, subtitle: race.subtitle, takeaways: race.takeaways,
       alt: `Animated bar chart race: ${race.title}. Final standings in ${lastFrame.period}.`,
       spec: { template: 'race', unit: race.unit, measure: race.subtitle, rows, period: lastFrame.period, priorPeriod: race.frames[0].period },
       sources: [race.source], videos, checks: { captions: 'derived from the data, not written by a model', music: musicFile ? 'ElevenLabs Music' : 'none' },
-      status: 'published', published_at: new Date().toISOString(),
+      status: queueOn ? 'draft' : 'published', published_at: queueOn ? null : new Date().toISOString(),
     }, { onConflict: 'slug' });
     if (error) throw new Error(`visuals upsert: ${error.message}`);
-    console.log(`Published /indices/visuals/${slug} with ${Object.keys(videos).filter((k) => k !== 'poster').length} videos and a poster.`);
+    const made = `${Object.keys(videos).filter((k) => k !== 'poster').length} videos and a poster`;
+    if (queueOn) {
+      await enqueue(db, { kind: 'race', ref_slug: slug, title: race.title, summary: race.takeaways.join(' '), media: videos });
+      console.log(`Queued /indices/visuals/${slug} with ${made}.\nScheduling:`);
+      await scheduleContent(db);
+    } else console.log(`Published /indices/visuals/${slug} with ${made}.`);
   } finally {
     await rm(publicDir, { recursive: true, force: true });
     await rm(outDir, { recursive: true, force: true });

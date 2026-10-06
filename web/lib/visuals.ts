@@ -30,7 +30,10 @@ export async function newerRace(v: Visual): Promise<string | null> {
   return data?.slug && data.slug !== v.slug ? data.slug : null;
 }
 
-export async function loadVisual(slug: string): Promise<Visual | null> {
-  const { data } = await createClient().from('visuals').select(COLS).eq('slug', slug).eq('status', 'published').maybeSingle();
+/** A published visual; with `draft`, any status (admin previews of pieces waiting in the production queue). */
+export async function loadVisual(slug: string, { draft = false } = {}): Promise<Visual | null> {
+  let q = createClient().from('visuals').select(COLS).eq('slug', slug);
+  if (!draft) q = q.eq('status', 'published');
+  const { data } = await q.maybeSingle();
   return (data as Visual) ?? null;
 }

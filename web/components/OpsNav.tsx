@@ -7,6 +7,7 @@ const PRIMARY = [
   { href: '/foundry', label: 'Foundry' },
   { href: '/foundry/desk', label: 'Desk' },
   { href: '/foundry/work', label: 'Work' },
+  { href: '/foundry/queue', label: 'Queue' },
   { href: '/indices', label: 'Caveat Indices' },
   { href: '/studio', label: 'Studio' },
 ] as const;
@@ -21,7 +22,8 @@ function isActive(pathname: string, href: string) {
   if (href === '/foundry') {
     return pathname === '/foundry' || (pathname.startsWith('/foundry/')
       && !pathname.startsWith('/foundry/desk')
-      && !pathname.startsWith('/foundry/work'));
+      && !pathname.startsWith('/foundry/work')
+      && !pathname.startsWith('/foundry/queue'));
   }
   if (href === '/indices') {
     return pathname === '/indices' || pathname.startsWith('/indices/')

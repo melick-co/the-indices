@@ -4,6 +4,7 @@ import { VisualPoster } from '@/components/visuals/VisualPoster';
 import { RacePlayer } from '@/components/visuals/RacePlayer';
 import { IX } from '@/lib/indices-paths';
 import { loadVisual, newerRace } from '@/lib/visuals';
+import { isAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: { params: { slug: string } }) {
@@ -11,11 +12,13 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   return v ? { title: `${v.title} — Caveat Indices`, description: v.subtitle ?? undefined } : {};
 }
 
-export default async function VisualPage({ params }: { params: { slug: string } }) {
-  const v = await loadVisual(params.slug);
+export default async function VisualPage({ params, searchParams }: { params: { slug: string }; searchParams: { preview?: string } }) {
+  // ?preview=1 (admins only, middleware): a draft waiting in the production queue.
+  const preview = searchParams.preview === '1' && await isAdmin();
+  const v = await loadVisual(params.slug, { draft: preview });
   if (!v) notFound();
   // An older render of a race sends readers to the newest one.
-  const newer = await newerRace(v);
+  const newer = preview ? null : await newerRace(v);
   if (newer) redirect(`${IX.visuals}/${newer}`);
   // The square video plays on the page; the vertical and landscape cuts are there to download for social.
   const videos = v.videos ?? {};

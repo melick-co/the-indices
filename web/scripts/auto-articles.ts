@@ -22,6 +22,7 @@ import { goLiveFromPitch, publishStoryFromPitch } from '@/lib/generate-story';
 import { generateHeroImage } from '@/lib/hero-image';
 import { generateHeroVideo } from '@/lib/hero-video';
 import type { FoundryEvent } from '@/lib/foundry-agent';
+import { enqueue, queueEnabled, scheduleContent } from '@/lib/content-queue';
 
 const DIMS = ['surprise', 'checkability', 'mechanism', 'visual', 'timing'] as const;
 const ELIGIBLE_STATES = ['candidate', 'pitched', 'approved', 'watchlist'];
@@ -97,10 +98,10 @@ async function candidates(today: string) {
     .filter((s) => !onlyPitches.length || s.status === 'published')
     .map((s) => s.pitch_id).filter(Boolean));
 
-  const { data: published } = await db.from('pitches').select('trigger_rows').eq('state', 'published');
+  const { data: published } = await db.from('pitches').select('trigger_rows').in('state', ['published', 'approved']); // queued articles keep their pitch approved until they go live
   const publishedToday = (published ?? []).filter((p) => {
     const m = (p.trigger_rows as Record<string, unknown> | null)?.auto_article as AutoMark | undefined;
-    return m?.outcome === 'published' && m.day === today;
+    return (m?.outcome === 'published' || m?.outcome === 'queued') && m.day === today;
   }).length;
 
   const cutoff = Date.now() - RETRY_DAYS * 864e5;
@@ -121,6 +122,8 @@ async function candidates(today: string) {
 
 /** True for the first article published today: it gets the paid hero video. */
 let heroVideoDue = false;
+/** The production queue is on: articles are queued for their slot rather than published on the spot. */
+let queueOn = false;
 
 async function runOne(p: Pitch, today: string): Promise<AutoMark> {
   const started: AutoMark = { attempted_at: new Date().toISOString(), day: today, outcome: 'running' };
@@ -178,6 +181,13 @@ async function runOne(p: Pitch, today: string): Promise<AutoMark> {
     catch (e) { log(`  Hero video failed (${e instanceof Error ? e.message : e}); publishing without one.`); }
   }
 
+  // With the production queue on, the article waits there for its slot; publish_due_content() puts it live.
+  if (story && queueOn) {
+    const { data: hero } = await db.from('stories').select('hero_image_url').eq('pitch_id', p.id).maybeSingle();
+    await enqueue(db, { kind: 'article', ref_slug: story.slug, title: story.title, summary: story.hook, media: hero?.hero_image_url ? { image: hero.hero_image_url } : {} });
+    log(`  Queued: /stories/${story.slug}`);
+    return { ...started, outcome: 'queued', slug: story.slug };
+  }
   const live = await goLiveFromPitch(p.id);
   log(`  Published: ${live.storyUrl}`);
   return { ...started, outcome: 'published', slug: live.slug };
@@ -197,6 +207,8 @@ async function main() {
   }
 
   heroVideoDue = publishedToday === 0;
+  queueOn = !noPublish && await queueEnabled(db);
+  if (queueOn) log('Production queue is on: passed articles are queued for scheduling.');
   const results: Array<{ headline: string } & AutoMark> = [];
   let published = 0;
   for (const p of eligible) {
@@ -211,8 +223,9 @@ async function main() {
     }
     await mark(p.id, result);
     results.push({ headline: p.headline, ...result });
-    if (result.outcome === 'published' || result.outcome === 'passed-unpublished') published++;
+    if (result.outcome === 'published' || result.outcome === 'queued' || result.outcome === 'passed-unpublished') published++;
   }
+  if (queueOn) { log('\nScheduling:'); await scheduleContent(db, log); }
 
   const summary = results.map((r) => `${r.outcome}: ${r.headline.slice(0, 80)}${r.slug ? ` (/stories/${r.slug})` : ''}`);
   await db.from('agent_runs').insert({
