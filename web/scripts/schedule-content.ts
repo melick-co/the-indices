@@ -5,6 +5,8 @@
  *
  *   npx tsx --import ./scripts/node-shims.mjs scripts/schedule-content.ts          # schedule what's ready
  *   npx tsx --import ./scripts/node-shims.mjs scripts/schedule-content.ts --list   # show the queue, change nothing
+ *   ... schedule-content.ts --reupload=youtube    # forget the uploads for posts not yet live (after switching the
+ *                                                 # channel's credentials), so they upload again to the new channel
  */
 import { createClient } from '@/lib/supabase-server';
 import { loadRules, scheduleContent } from '@/lib/content-queue';
@@ -12,6 +14,14 @@ import { postSocial } from '@/lib/social-post';
 
 async function main() {
   const db = createClient();
+  const reupload = process.argv.find((a) => a.startsWith('--reupload='))?.slice('--reupload='.length) || process.env.REUPLOAD_CHANNEL?.trim();
+  if (reupload) {
+    // Only posts not yet public: anything already live stays where it is (delete it by hand if it went to the wrong place).
+    const { data, error } = await db.from('content_posts').update({ external_url: null, status: 'scheduled', error: null, updated_at: new Date().toISOString() })
+      .eq('channel', reupload).in('status', ['scheduled', 'failed']).not('external_url', 'is', null).select('id');
+    if (error) throw new Error(error.message);
+    console.log(`${reupload}: ${data?.length ?? 0} post(s) will upload again to the channel the current credentials point at.`);
+  }
   if (process.argv.includes('--list')) {
     const rules = await loadRules(db);
     console.log(`Queue ${rules.installed ? (rules.enabled ? 'on' : 'off') : 'not installed'}.`);
