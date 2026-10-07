@@ -14,6 +14,9 @@ export default function SiteFooter() {
           Data as published by the cited statistical agencies. Where we compute a figure it is
           marked derived; where a source is exploratory it is marked tier 3 and never carries a headline.
         </div>
+        <div style={{ marginTop: '.6rem' }}>
+          <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms of use</Link>
+        </div>
     </footer>
   );
 }
