@@ -5,6 +5,7 @@
  *   npx tsx --import ./scripts/node-shims.mjs scripts/hero-media.ts --slug=<slug> [--video]
  *   npx tsx --import ./scripts/node-shims.mjs scripts/hero-media.ts --brief [--slug=<slug> ...]   # art briefs only, no images
  *   (or HERO_SLUG=<slug>, space separated for --brief; --brief with no slug briefs the published stories on the front page)
+ *   HERO_BRIEF="<scene>" ... --slug=<slug>    # draw this scene instead of the model's brief (the editor chooses the picture)
  */
 import { createClient } from '@/lib/supabase-server';
 import { generateHeroImage, heroBrief, heroPrompt } from '@/lib/hero-image';
@@ -13,6 +14,8 @@ import { generateHeroVideo } from '@/lib/hero-video';
 const slugs = [...process.argv.filter((a) => a.startsWith('--slug=')).map((a) => a.slice(7)), ...(process.env.HERO_SLUG ?? '').split(/\s+/)].filter(Boolean);
 const slug = slugs[0];
 const briefOnly = process.argv.includes('--brief');
+/** An editor's scene, used as the brief as given. The no-text rules still apply in the prompt. */
+const setBrief = process.env.HERO_BRIEF?.trim() || null;
 const withVideo = process.argv.includes('--video') || process.env.HERO_VIDEO === 'true';
 const log = (m: string) => console.log(m);
 
@@ -36,7 +39,8 @@ async function main() {
     .select('slug, title, hook, kicker, one_number, status').eq('slug', slug).maybeSingle();
   if (error || !story) throw new Error(`No story ${slug}${error ? `: ${error.message}` : ''}`);
   log(`${story.status}: ${story.title}`);
-  const image = await generateHeroImage(db, story, log);
+  if (setBrief) log(`Set brief (editor's): ${setBrief}`);
+  const image = await generateHeroImage(db, story, log, setBrief ?? undefined);
   if (withVideo) await generateHeroVideo(db, story, { heroGenerationId: image?.generationId ?? null, brief: image?.brief ?? null, log });
 }
 
