@@ -21,9 +21,9 @@ function needsAdmin(request: NextRequest) {
   if (matches(path, PUBLIC_EXCEPTIONS)) return false;
   if (matches(path, ADMIN_PREFIXES)) return true;
   if (/^\/stories\/[^/]+\/reel(\/|$)/.test(path)) return true;
-  // Draft previews of unpublished stories.
+  // Draft previews of unpublished stories, and of graphics waiting in the production queue.
   if (request.nextUrl.searchParams.get('preview') === '1'
-    && (path.startsWith('/stories/') || path.startsWith('/evidence/'))) return true;
+    && (path.startsWith('/stories/') || path.startsWith('/evidence/') || path.startsWith('/indices/visuals/'))) return true;
   return false;
 }
 

@@ -11,6 +11,7 @@
  * written) → published. The page draws the chart from the stored spec, so words and graphic come from the same numbers.
  */
 import { createClient } from '@/lib/supabase-server';
+import { enqueue, queueEnabled, scheduleContent } from '@/lib/content-queue';
 import { MODEL } from '@/lib/research-agent';
 import { formatReading } from '@/lib/economy-dashboard';
 import { buildDatasets, type Dataset, type VisualSpec } from '@/lib/visuals-data';
@@ -206,10 +207,14 @@ const slugify = (t: string) => t.toLowerCase().replace(/^(ranked|visualised|char
 async function main() {
   const db = createClient();
   const all = await buildDatasets();
-  const { data: past } = await db.from('visuals').select('dataset_key, template, published_at').eq('status', 'published').order('published_at', { ascending: false }).limit(200);
+  // Drafts waiting in the production queue count too, so a dataset isn't made twice and the daily cap holds.
+  const { data: made } = await db.from('visuals').select('dataset_key, template, published_at, created_at').in('status', ['published', 'draft']).order('created_at', { ascending: false }).limit(200);
+  const past = (made ?? []).map((v) => ({ ...v, published_at: v.published_at ?? v.created_at }))
+    .sort((a, b) => b.published_at.localeCompare(a.published_at));
   const now = Date.now();
   const recent = new Map<string, number>();
-  for (const v of past ?? []) if (!recent.has(v.dataset_key)) recent.set(v.dataset_key, (now - new Date(v.published_at).getTime()) / 864e5);
+  for (const v of past) if (!recent.has(v.dataset_key)) recent.set(v.dataset_key, (now - new Date(v.published_at).getTime()) / 864e5);
+  const queueOn = !dry && await queueEnabled(db);
   const lastTemplate = past?.[0]?.template ?? null;
   const ranked = all.map((d) => ({ d, s: score(d, recent, lastTemplate) })).sort((a, b) => b.s - a.s);
   console.log(`${all.length} candidate datasets.`);
@@ -244,12 +249,18 @@ async function main() {
     const slug = `${slugify(copy!.title)}-${today}`;
     const { error } = await db.from('visuals').insert({
       slug, dataset_key: d.key, template: d.spec.template, title: copy!.title, subtitle: copy!.subtitle, takeaways: copy!.takeaways, alt: copy!.alt,
-      spec: d.spec, sources: d.sources, checks: { numbers: 'all matched', claims: 'audited, none unsupported', facts: factLines.length }, status: 'published', published_at: new Date().toISOString(),
+      spec: d.spec, sources: d.sources, checks: { numbers: 'all matched', claims: 'audited, none unsupported', facts: factLines.length },
+      // With the production queue on, the visual is a draft until its slot.
+      status: queueOn ? 'draft' : 'published', published_at: queueOn ? null : new Date().toISOString(),
     });
     if (error) throw new Error(`visuals insert: ${error.message}`);
-    console.log(`  published /indices/visuals/${slug}`);
+    if (queueOn) {
+      await enqueue(db, { kind: 'visual', ref_slug: slug, title: copy!.title, summary: [copy!.subtitle, ...copy!.takeaways].filter(Boolean).join(' ') });
+      console.log(`  queued /indices/visuals/${slug}`);
+    } else console.log(`  published /indices/visuals/${slug}`);
     room--;
   }
+  if (queueOn) { console.log('\nScheduling:'); await scheduleContent(db); }
 }
 
 if (process.argv[1]?.endsWith('generate-visuals.ts')) main().catch((e) => { console.error(e); process.exit(1); });

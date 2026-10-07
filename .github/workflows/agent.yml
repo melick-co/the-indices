@@ -24,12 +24,15 @@ on:
     - cron: '19 21 * * *'
     # Bar-chart-race videos for The Indices: weekly, Tuesday about 9am Sydney (web/scripts/render-races.ts).
     - cron: '43 22 * * 1'
+    # Production queue: the scheduling assistant slots anything ready (generators also run it after queuing). Sites
+    # publish at the slot from Supabase (pg_cron, 42_production_queue.sql), not from here.
+    - cron: '11 19 * * *'
   workflow_dispatch:
     inputs:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, reel-cut, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, schedule, schedule-list, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, reel-cut, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, story-refresh(-apply): story slug(s). Space separated.'
@@ -306,6 +309,28 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
+  schedule:
+    # The content scheduling assistant (web/scripts/schedule-content.ts): slot ready pieces within schedule_rules.
+    if: >-
+      github.event_name == 'workflow_dispatch' && startsWith(inputs.task, 'schedule') ||
+      github.event_name == 'schedule' && github.event.schedule == '11 19 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run: { working-directory: web }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm ci --silent
+      - name: Schedule content
+        run: npx tsx --import ./scripts/node-shims.mjs scripts/schedule-content.ts ${{ inputs.task == 'schedule-list' && '--list' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
   races:
     # Bar-chart-race videos (9:16, 16:9, 1:1) with music and data-derived captions, published as a visual.
     # pitch input = a race key to force (e.g. race:erp_cob). races-dry-run uploads to drafts/ and publishes nothing.
@@ -331,6 +356,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
   story-refresh:
     # Rewrite published articles in the house news style (web/scripts/refresh-stories.ts; pitch input = slugs).
