@@ -12,7 +12,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
   const ops = isOpsPath(pathname);
 
   return (
-    <div className={ops ? 'site-shell site-shell--ops' : 'site-shell'}>
+    <div className={ops ? 'site-shell site-shell--ops' : 'site-shell site-shell--bs'}>
       {ops ? <OpsNav /> : <Sidebar />}
       <div className="site-main">{children}</div>
     </div>

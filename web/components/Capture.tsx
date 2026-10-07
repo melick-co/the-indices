@@ -17,7 +17,7 @@ export default function Capture() {
   }
 
   return (
-    <section className="capture">
+    <section className="capture" id="subscribe">
       <div className="wrap">
         <h2>One email when something doesn&rsquo;t add up.</h2>
         <p>

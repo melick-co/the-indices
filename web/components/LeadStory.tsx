@@ -24,7 +24,7 @@ export default function LeadStory({ story, wide = false }: { story: Story; wide?
         // eslint-disable-next-line @next/next/no-img-element
         <img className="lead-cut" src={art.url} alt={art.alt} />
       )}
-      <p className="lead-deck">{story.hook}</p>
+      <p className="lead-deck">{story.hook.replace(/\[\^\d+\]/g, '')}</p>
       {!story.body?.highlights?.items?.length && (
         <p className="lead-number">
           <strong>{story.oneNumber.value}</strong>

@@ -1,0 +1,262 @@
+/* ============================================================
+   The Caveat broadsheet, quality-magazine edition (Oct 2026).
+   Cream newsprint, one serif for everything editorial, tracked
+   capitals for taxonomy, 1px grey hairlines, no shadows, and a
+   single yellow: the Subscribe button. Scoped to the public site
+   (.site-shell--bs); Caveat Indices and the Foundry keep theirs.
+   ============================================================ */
+
+.site-shell--bs {
+  --bs-cream: #fdfcf3;
+  --bs-white: #ffffff;
+  --bs-margin: #fdfbe4;
+  --bs-recess: #e7e7e7;
+  --bs-rule: #d9d9d9;
+  --bs-ink: #000000;
+  --bs-caption: #6e6e6e;
+  --bs-mute: #b3b3b3;
+  --bs-charcoal: #211d1c;
+  --bs-yellow: #ffc500;
+  --bs-serif: var(--font-source-serif, Georgia), 'Times New Roman', serif;
+  --bs-sans: 'Helvetica Neue', var(--font-source-sans, Helvetica), Helvetica, Arial, sans-serif;
+
+  /* The shared tokens, re-pointed: every component that reads them follows. */
+  --color-paper-white: var(--bs-cream);
+  --color-ink-black: var(--bs-ink);
+  --color-charcoal: var(--bs-caption);
+  --color-fossil: var(--bs-caption);
+  --color-slate-iris: var(--bs-ink);
+  --color-bb-orange: var(--bs-ink);
+  --font-display: var(--bs-serif);
+  --font-body: var(--bs-serif);
+  --font-ui: var(--bs-sans);
+  --font-helveticaneue: var(--bs-sans);
+  --rule: var(--bs-rule);
+  --ink: var(--bs-ink);
+  --ink-soft: var(--bs-caption);
+  --ink-faint: var(--bs-caption);
+  --pen: var(--bs-ink);
+  --accent: var(--bs-ink);
+  --graphic-accent: var(--bs-ink);
+  --graphic-muted: var(--bs-mute);
+  --leading-body: 1.5;
+
+  background: var(--bs-cream);
+  color: var(--bs-ink);
+}
+body:has(.site-shell--bs) { background: #fdfcf3; }
+.site-shell--bs * { box-shadow: none; }
+
+/* ---------- masthead ---------- */
+.bs-head { width: 100%; }
+.bs-util { background: var(--bs-white); border-bottom: 1px solid var(--bs-rule); }
+.bs-util-inner {
+  max-width: var(--page-max-width); margin: 0 auto; padding: 8px var(--page-gutter);
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  font-family: var(--bs-sans); font-size: 13px; font-weight: 700; letter-spacing: 0.01em; text-transform: uppercase;
+}
+.bs-util-links, .bs-util-right { display: flex; align-items: center; gap: 18px; }
+.bs-util a { color: var(--bs-ink); }
+.bs-util a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.bs-util-quiet { color: var(--bs-caption) !important; font-weight: 400; }
+.bs-subscribe { background: var(--bs-yellow); color: var(--bs-ink); padding: 8px 16px; border-radius: 0; }
+.bs-subscribe:hover { text-decoration: none !important; background: #ffcf2e; }
+
+.bs-mast {
+  max-width: var(--page-max-width); margin: 0 auto; padding: 22px var(--page-gutter) 18px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; gap: 16px;
+}
+.bs-flag, .bs-motto {
+  display: flex; flex-direction: column; gap: 2px;
+  font-family: var(--bs-serif); font-size: 13px; line-height: 1.3; color: var(--bs-caption);
+}
+.bs-flag span:first-child { color: var(--bs-ink); text-transform: uppercase; letter-spacing: 0.075em; font-size: 12px; }
+.bs-motto { text-align: right; align-items: flex-end; font-style: italic; }
+.bs-wordmark {
+  font-family: var(--bs-serif); font-weight: 600; font-size: clamp(34px, 6vw, 60px); line-height: 1;
+  letter-spacing: -0.02em; color: var(--bs-ink); white-space: nowrap;
+}
+.bs-nav {
+  max-width: var(--page-max-width); margin: 0 auto; padding: 0 var(--page-gutter);
+  display: flex; flex-wrap: wrap; justify-content: center;
+  font-family: var(--bs-serif); font-size: 13px; letter-spacing: 0.075em; text-transform: uppercase;
+}
+.bs-nav::before, .bs-nav::after { content: ''; flex-basis: 100%; height: 0; border-top: 1px solid var(--bs-ink); }
+.bs-nav a { padding: 10px 14px; color: var(--bs-ink); position: relative; }
+.bs-nav a + a::before { content: '|'; position: absolute; left: -2px; color: var(--bs-mute); }
+.bs-nav a:hover, .bs-nav a[aria-current='page'] { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+
+@media (max-width: 760px) {
+  .bs-util-links { display: none; }
+  .bs-util-inner { justify-content: flex-end; }
+  .bs-mast { grid-template-columns: 1fr; text-align: center; padding: 16px; }
+  .bs-flag, .bs-motto { align-items: center; text-align: center; }
+  .bs-flag { order: 2; } .bs-motto { display: none; }
+  .bs-nav { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scrollbar-width: none; }
+  .bs-nav::before, .bs-nav::after { display: none; }
+  .bs-nav { border-top: 1px solid var(--bs-ink); border-bottom: 1px solid var(--bs-ink); }
+  .bs-nav a { flex: 0 0 auto; padding: 10px 12px; }
+}
+
+/* ---------- shared editorial type ---------- */
+.site-shell--bs .site-main { padding-top: 18px; }
+.site-shell--bs .lead-kicker,
+.site-shell--bs .brief-kicker,
+.site-shell--bs .card-kicker,
+.site-shell--bs .the-rub-flag,
+.site-shell--bs .explainer-flag,
+.site-shell--bs .the-rub-peg {
+  font-family: var(--bs-serif); font-style: normal; font-size: 12px; font-weight: 400;
+  letter-spacing: 0.075em; text-transform: uppercase; color: var(--bs-ink);
+}
+.site-shell--bs .section-head {
+  font-family: var(--bs-serif); font-style: normal; font-weight: 400; letter-spacing: -0.02em;
+  border-bottom: 1px solid var(--bs-rule);
+}
+
+/* ---------- home: ticker and key indices ---------- */
+.site-shell--bs .ticker { border-bottom: 1px solid var(--bs-rule); }
+.site-shell--bs .ticker-label {
+  font-family: var(--bs-serif); font-style: normal; font-weight: 400; font-size: 12px;
+  letter-spacing: 0.075em; text-transform: uppercase;
+}
+.site-shell--bs .ticker-item { font-family: var(--bs-serif); color: var(--bs-ink); }
+.site-shell--bs .agate { border-bottom: 1px solid var(--bs-rule); }
+.site-shell--bs .agate-head h2 {
+  font-family: var(--bs-serif); font-style: normal; font-weight: 400; font-size: 12px;
+  letter-spacing: 0.075em; text-transform: uppercase;
+}
+.site-shell--bs .agate-label { font-family: var(--bs-serif); font-size: 13px; color: var(--bs-caption); }
+.site-shell--bs .agate-value { font-family: var(--bs-serif); font-size: 18px; letter-spacing: -0.01em; color: var(--bs-ink); }
+
+/* ---------- home: lead | secondaries | The Rub ---------- */
+.site-shell--bs .sheet-row-lead { border-bottom: 1px solid var(--bs-rule); padding-bottom: 32px; }
+@media (min-width: 1025px) {
+  .site-shell--bs .lead { border-right: 1px solid var(--bs-rule); padding-right: 24px; }
+}
+@media (max-width: 1024px) {
+  .site-shell--bs .lead { border-right: 0; border-bottom: 1px solid var(--bs-rule); }
+}
+.site-shell--bs .lead-headline {
+  font-family: var(--bs-serif); font-style: normal; font-weight: 400;
+  font-size: clamp(30px, 3.6vw, 40px); line-height: 1.08; letter-spacing: -0.02em;
+}
+.site-shell--bs .lead-deck { font-size: 18px; line-height: 1.38; color: var(--bs-caption); }
+.site-shell--bs .lead-caveat { color: var(--bs-caption); border-top: 1px solid var(--bs-rule); font-size: 15px; }
+.site-shell--bs .lead-foot { font-family: var(--bs-serif); font-size: 13px; color: var(--bs-mute); }
+.site-shell--bs .lead-foot a { color: var(--bs-ink); border-bottom-color: var(--bs-rule); }
+.site-shell--bs .lead-cut { filter: none; }
+
+@media (min-width: 721px) {
+  .site-shell--bs .sheet-secondaries { border-right: 1px solid var(--bs-rule); padding-right: 18px; }
+  .site-shell--bs .sheet-more { border-right: 1px solid var(--bs-rule); }
+  }
+@media (max-width: 720px) {
+  .site-shell--bs .sheet-secondaries { border-right: 0; border-bottom: 1px solid var(--bs-rule); }
+  .site-shell--bs .sheet-more { border-right: 0; }
+  .site-shell--bs .the-rub { margin-top: 8px; }
+}
+.site-shell--bs .brief { border-bottom: 1px solid var(--bs-rule); padding-bottom: 16px; margin-bottom: 16px; }
+.site-shell--bs .brief-headline {
+  font-family: var(--bs-serif); font-weight: 400; font-size: 20px; line-height: 1.25; letter-spacing: -0.02em;
+}
+.site-shell--bs .brief-deck { font-size: 15px; color: var(--bs-caption); line-height: 1.4; }
+
+/* The Rub: the persistent sidebar card, with a black flag strip over a warm panel. */
+.site-shell--bs .the-rub { background: var(--bs-margin); padding: 0 16px 16px; align-self: stretch; }
+.site-shell--bs .the-rub-flag {
+  display: block; margin: 0 -16px 14px; padding: 8px 16px; background: var(--bs-ink); color: var(--bs-white);
+}
+.site-shell--bs .the-rub-name {
+  font-family: var(--bs-serif); font-weight: 600; font-size: 24px; letter-spacing: -0.02em; border-bottom: 1px solid var(--bs-rule);
+}
+.site-shell--bs .the-rub-hed { font-family: var(--bs-serif); font-style: italic; font-weight: 400; font-size: 18px; }
+.site-shell--bs .the-rub-peg { color: var(--bs-caption); }
+.site-shell--bs .the-rub-p { font-size: 15px; line-height: 1.45; }
+.site-shell--bs .the-rub-p:first-of-type::first-letter { font-family: var(--bs-serif); font-weight: 600; }
+.site-shell--bs .the-rub-more a { border-bottom-color: var(--bs-ink); }
+
+/* ---------- home: more stories and the explainer ---------- */
+.site-shell--bs .sheet-row-below { padding-top: 28px; }
+.site-shell--bs .explainer-hed { font-family: var(--bs-serif); font-weight: 400; font-size: 28px; letter-spacing: -0.02em; }
+.site-shell--bs .explainer-deck { color: var(--bs-caption); }
+.site-shell--bs .explainer-meta { font-family: var(--bs-serif); color: var(--bs-mute); }
+.site-shell--bs .explainer-meta a { color: var(--bs-ink); }
+
+/* ---------- home: instruments and markets panels ---------- */
+.site-shell--bs .dash-card,
+.site-shell--bs .instrument-card {
+  background: var(--bs-white); border: 1px solid var(--bs-rule); border-radius: 0; box-shadow: none;
+}
+.site-shell--bs .dash-name, .site-shell--bs .instrument-card-title { font-family: var(--bs-serif); }
+
+/* ---------- subscribe block and footer ---------- */
+.site-shell--bs .capture { border-top: 1px solid var(--bs-rule); border-bottom: 1px solid var(--bs-rule); margin-top: 80px; }
+.site-shell--bs .capture h2 { font-weight: 400; font-size: 32px; letter-spacing: -0.02em; }
+.site-shell--bs .capture p { color: var(--bs-caption); }
+.site-shell--bs .capture input {
+  font-family: var(--bs-sans); font-size: 14px; padding: 9px 12px; border: 1px solid var(--bs-charcoal); border-radius: 0; background: var(--bs-white);
+}
+.site-shell--bs .capture button {
+  font-family: var(--bs-sans); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.01em;
+  padding: 9px 16px; background: var(--bs-ink); color: var(--bs-white); border: 1px solid var(--bs-ink); border-radius: 0; cursor: pointer;
+}
+.site-shell--bs .site-foot { border-top: 1px solid var(--bs-ink); font-family: var(--bs-serif); color: var(--bs-caption); }
+.site-shell--bs .site-foot strong { font-family: var(--bs-serif); font-style: normal; font-weight: 600; letter-spacing: 0.075em; color: var(--bs-ink); }
+.site-shell--bs .site-foot a { color: var(--bs-caption); border-bottom-color: var(--bs-rule); }
+
+/* ---------- article ---------- */
+.site-shell--bs .article h1 {
+  font-family: var(--bs-serif); font-weight: 400; font-size: clamp(32px, 4.4vw, 48px); line-height: 1.08; letter-spacing: -0.02em;
+}
+.site-shell--bs .article h2 { font-family: var(--bs-serif); font-weight: 600; font-size: 24px; letter-spacing: -0.02em; }
+.site-shell--bs .article p { font-size: 18px; line-height: 1.55; }
+.site-shell--bs .story-deck { color: var(--bs-caption); font-size: 20px; line-height: 1.4; }
+.site-shell--bs .byline {
+  font-family: var(--bs-serif); font-style: normal; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--bs-caption); border-bottom: 1px solid var(--bs-rule);
+}
+.site-shell--bs .byline a { color: var(--bs-ink); }
+.site-shell--bs .pull { font-family: var(--bs-serif); border-top: 1px solid var(--bs-ink); border-bottom: 1px solid var(--bs-ink); font-size: 24px; letter-spacing: -0.01em; }
+.site-shell--bs .caveat-box { background: var(--bs-margin); border: 1px solid var(--bs-rule); outline: 0; }
+.site-shell--bs .caveat-box h3 { font-family: var(--bs-serif); font-weight: 400; letter-spacing: 0.075em; }
+.site-shell--bs .figure-cap { font-family: var(--bs-serif); color: var(--bs-caption); }
+.site-shell--bs .signoff { color: var(--bs-caption); }
+.site-shell--bs table.data { font-family: var(--bs-serif); font-size: 14px; }
+.site-shell--bs table.data th { border-bottom: 1px solid var(--bs-ink); text-transform: uppercase; font-size: 12px; letter-spacing: 0.05em; }
+.site-shell--bs table.data td { border-bottom: 1px solid var(--bs-rule); }
+.site-shell--bs .tier.t1 { color: var(--bs-ink); }
+.site-shell--bs .draft-banner { background: var(--bs-margin); border: 1px solid var(--bs-rule); }
+
+/* ---------- the story in three numbers: monochrome on the broadsheet ---------- */
+.site-shell--bs .hl { background: var(--bs-white); color: var(--bs-ink); border: 1px solid var(--bs-rule); border-radius: 0; }
+.site-shell--bs .hl-head { font-family: var(--bs-serif); font-weight: 400; letter-spacing: 0.075em; color: var(--bs-ink); }
+.site-shell--bs .hl-head .ix-mark i { background: var(--bs-ink); }
+.site-shell--bs .hl-head .ix-mark i:nth-child(2) { background: var(--bs-caption); }
+.site-shell--bs .hl-head .ix-mark i:nth-child(1) { background: var(--bs-mute); }
+.site-shell--bs .hl-item { border-left-color: var(--bs-rule); }
+.site-shell--bs .hl-fig { font-family: var(--bs-serif); font-weight: 400; letter-spacing: -0.02em; }
+.site-shell--bs .hl-arrow { color: var(--bs-ink); }
+.site-shell--bs .hl-arrow.down { color: var(--bs-caption); }
+.site-shell--bs .hl-label { font-family: var(--bs-serif); font-weight: 600; color: var(--bs-ink); }
+.site-shell--bs .hl-note, .site-shell--bs .hl-src { font-family: var(--bs-serif); color: var(--bs-caption); }
+.site-shell--bs .hl-area { fill: var(--bs-recess); }
+.site-shell--bs .hl-line { stroke: var(--bs-ink); stroke-width: 1.5; }
+.site-shell--bs .hl-dot { fill: var(--bs-ink); stroke: var(--bs-white); }
+.site-shell--bs .hl-dot.down { fill: var(--bs-caption); }
+.site-shell--bs .hl-spark-ends { font-family: var(--bs-serif); color: var(--bs-mute); }
+@media (max-width: 640px) {
+  .site-shell--bs .hl-item, .site-shell--bs .hl-item:first-child { border-top-color: var(--bs-rule); }
+}
+
+/* ---------- lists (explainers, archives) ---------- */
+.site-shell--bs .archive-list li { border-bottom: 1px solid var(--bs-rule); padding: 16px 0; }
+.site-shell--bs .archive-list li > a {
+  display: block; font-family: var(--bs-serif); font-size: 22px; line-height: 1.22; letter-spacing: -0.02em; color: var(--bs-ink);
+}
+.site-shell--bs .archive-list li > a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.site-shell--bs .archive-date {
+  font-family: var(--bs-serif); font-size: 12px; letter-spacing: 0.075em; text-transform: uppercase; color: var(--bs-ink); margin-bottom: 6px;
+}
+.site-shell--bs .archive-list li > p { font-size: 16px; color: var(--bs-caption); margin: 6px 0 0; }
+.site-shell--bs .section-lede { color: var(--bs-caption); }
