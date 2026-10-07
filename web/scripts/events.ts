@@ -324,14 +324,15 @@ async function publishLive(pitchId: string) {
   }
   const { data: story } = await db.from('stories').select('slug, title, hook, kicker, one_number').eq('pitch_id', row.id).single();
   let heroGenerationId: string | null = null;
+  let heroArtBrief: string | null = null;
   if (story) {
-    try { heroGenerationId = (await generateHeroImage(db, story, (m) => log(`    ${m}`)))?.generationId ?? null; }
+    try { const hero = await generateHeroImage(db, story, (m) => log(`    ${m}`)); heroGenerationId = hero?.generationId ?? null; heroArtBrief = hero?.brief ?? null; }
     catch (err) { log(`    Hero image failed: ${err instanceof Error ? err.message : err}`); }
     // The narrated clip is for the first story each Sydney day.
     const { data: today } = await db.from('stories').select('art').eq('status', 'published').eq('published', sydneyDay());
     const clipToday = (today ?? []).some((s) => JSON.stringify(s.art ?? '').includes('"clip"'));
     if (!clipToday) {
-      try { await generateHeroVideo(db, story, { heroGenerationId, log: (m) => log(`    ${m}`) }); }
+      try { await generateHeroVideo(db, story, { heroGenerationId, brief: heroArtBrief, log: (m) => log(`    ${m}`) }); }
       catch (err) { log(`    Hero video failed: ${err instanceof Error ? err.message : err}`); }
     }
   }

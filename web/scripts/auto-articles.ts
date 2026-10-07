@@ -171,13 +171,14 @@ async function runOne(p: Pitch, today: string): Promise<AutoMark> {
 
   const { data: story } = await db.from('stories').select('slug, title, hook, kicker, one_number').eq('pitch_id', p.id).single();
   let heroGenerationId: string | null = null;
+  let heroArtBrief: string | null = null;
   if (story) {
-    try { heroGenerationId = (await generateHeroImage(db, story, (m) => log(`  ${m}`)))?.generationId ?? null; }
+    try { const hero = await generateHeroImage(db, story, (m) => log(`  ${m}`)); heroGenerationId = hero?.generationId ?? null; heroArtBrief = hero?.brief ?? null; }
     catch (e) { log(`  Hero image failed (${e instanceof Error ? e.message : e}); publishing without one.`); }
   }
   if (story && heroVideoDue) {
     heroVideoDue = false;
-    try { await generateHeroVideo(db, story, { heroGenerationId, log: (m) => log(`  ${m}`) }); }
+    try { await generateHeroVideo(db, story, { heroGenerationId, brief: heroArtBrief, log: (m) => log(`  ${m}`) }); }
     catch (e) { log(`  Hero video failed (${e instanceof Error ? e.message : e}); publishing without one.`); }
   }
 

@@ -714,7 +714,8 @@ a.studio-tab.is-active { color: #111; }
 .lead-cut {
   display: block;
   width: 100%;
-  max-height: 180px;
+  /* The illustration's own shape (generated at 16:9): a short strip cropped away its top and bottom. */
+  aspect-ratio: 16 / 9;
   object-fit: cover;
   object-position: center;
   margin: 0 0 12px;

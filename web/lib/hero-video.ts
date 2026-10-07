@@ -42,7 +42,7 @@ export function narrationCandidates(story: HeroStory): string[] {
 export async function generateHeroVideo(
   db: SupabaseClient,
   story: HeroStory,
-  opts: { heroGenerationId?: string | null; log?: (msg: string) => void } = {},
+  opts: { heroGenerationId?: string | null; brief?: string | null; log?: (msg: string) => void } = {},
 ): Promise<{ url: string; narrated: boolean } | null> {
   const log = opts.log ?? (() => {});
   if (!isMediaConfigured()) { log('ElevenLabs not configured; no hero video.'); return null; }
@@ -52,7 +52,7 @@ export async function generateHeroVideo(
     const startFrame: ImageRef | undefined = opts.heroGenerationId
       ? { type: 'generation', generation_id: opts.heroGenerationId }
       : undefined;
-    const prompt = `${heroPrompt(story)} Motion: a slow, subtle camera push-in with gentle movement in the scene; calm and editorial.`.slice(0, 1000);
+    const prompt = `${heroPrompt(story, opts.brief)} Motion: a slow, subtle camera push-in with gentle movement in the scene; calm and editorial.`.slice(0, 1000);
     const task = await waitForTask(await createVideo({
       promptText: prompt, duration: CLIP_SECONDS, ratio: '16:9', resolution: '1080p', startFrame, generateAudio: false,
     }), 10 * 60 * 1000);
