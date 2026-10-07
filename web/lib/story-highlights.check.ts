@@ -17,3 +17,5 @@ assert.deepEqual(checkHighlights([
 assert.match(checkHighlights([{ figure: 'A$2.6trn', label: 'Housing credit' }, { figure: '-A$34bn', label: 'Dwellings' }], story).join(), /"2.6"/);
 assert.match(checkHighlights([{ figure: '7.3%', label: 'x', chart: 3 }, { figure: '7.3%', label: 'y' }], story).join(), /chart 3/);
 console.log('story-highlights.check: ok');
+assert.match(checkHighlights([{ figure: '7.3%', label: 'one two three four five six seven' }, { figure: '-A$34bn', label: 'Dwellings' }], story).join(), /over 6 words/);
+console.log('story-highlights.check: lengths ok');
