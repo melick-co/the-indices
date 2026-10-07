@@ -19,3 +19,5 @@ assert.match(checkHighlights([{ figure: '7.3%', label: 'x', chart: 3 }, { figure
 console.log('story-highlights.check: ok');
 assert.match(checkHighlights([{ figure: '7.3%', label: 'one two three four five six seven' }, { figure: '-A$34bn', label: 'Dwellings' }], story).join(), /over 6 words/);
 console.log('story-highlights.check: lengths ok');
+assert.match(checkHighlights([{ figure: '7.3%', label: 'a', chart: 0 }, { figure: '-A$34bn', label: 'b', chart: 0 }], story).join(), /used twice/);
+console.log('story-highlights.check: charts ok');

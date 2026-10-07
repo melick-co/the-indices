@@ -32,6 +32,8 @@ export function checkHighlights(items: StoryHighlight[], story: Pick<Story, 'tit
   const have = storyNumbers(story);
   const charts = chartsOf(story.body?.blocks);
   const problems: string[] = [];
+  const used = items.map((h) => h.chart).filter((c): c is number => c != null);
+  if (new Set(used).size < used.length) problems.push('a chart is used twice (each chart at most once; use null instead)');
   if (items.length < 2 || items.length > 4) problems.push(`${items.length} highlights (want 2 to 4)`);
   for (const h of items) {
     for (const n of numbersIn(`${h.figure} ${h.label} ${h.note ?? ''}`)) if (!have.has(n)) problems.push(`"${n}" in "${h.figure} / ${h.label} / ${h.note ?? ''}" is not in the story`);
@@ -65,7 +67,7 @@ export async function generateHighlights(story: StoryForHighlights, log: (m: str
         model: MODEL, max_tokens: 900,
         system: [
           'You design the graphic at the top of a data-journalism article: "the story in three numbers". A reader should get the gist of the standfirst from it at a glance, then read on.',
-          'Pick 3 highlights (2 to 4 if the story needs it) that follow the standfirst, in its order. Each: figure (compact, as it should appear large, e.g. "A$2,568bn", "4.6%", "-A$34bn"), label (what it is, at most 6 words), note (one line of context, at most 10 words), direction (up, down or flat: the way the figure moved), and chart (the index of the story chart that shows it, or null).',
+          'Pick 3 highlights (2 to 4 if the story needs it) that follow the standfirst, in its order. Each: figure (compact, as it should appear large, e.g. "A$2,568bn", "4.6%", "-A$34bn"), label (what it is, at most 6 words), note (one line of context, at most 10 words), direction (up, down or flat: the way the figure moved), and chart (the index of the story chart that shows it, or null; each chart at most once).',
           'Use only numbers that appear in the story as given; do not compute, round differently or add any. Notes restate what the story says, never a new claim. Write bn for billion, m for million and % for per cent; keep the figure under 11 characters. Australian English, no em dashes.',
           'Reply with JSON only: {"items":[{"figure":"","label":"","note":"","direction":"up","chart":0}]}.',
         ].join(' '),
@@ -84,4 +86,17 @@ export async function generateHighlights(story: StoryForHighlights, log: (m: str
     feedback = `\n\nYour last answer was rejected: ${problems.join('; ')}. Use only numbers that appear in the story.`;
   }
   return null;
+}
+
+/** Make and save a story's highlights (by slug). Quietly does nothing if they can't be made: the story keeps its art. */
+export async function attachHighlights(db: import('@supabase/supabase-js').SupabaseClient, slug: string, log: (m: string) => void = () => {}) {
+  const { data: r } = await db.from('stories').select('title, hook, caveat, kicker, one_number, body').eq('slug', slug).maybeSingle();
+  if (!r) return null;
+  const story = { title: r.title, hook: r.hook, caveat: r.caveat, kicker: r.kicker, oneNumber: r.one_number, body: r.body };
+  const h = await generateHighlights(story, log).catch((e) => { log(`Highlights failed: ${e instanceof Error ? e.message : e}`); return null; });
+  if (!h) return null;
+  const { error } = await db.from('stories').update({ body: { ...r.body, highlights: h }, updated_at: new Date().toISOString() }).eq('slug', slug);
+  if (error) { log(`Highlights save failed: ${error.message}`); return null; }
+  log(`Highlights: ${h.items.map((i) => i.figure).join(' · ')}`);
+  return h;
 }

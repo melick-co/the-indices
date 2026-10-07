@@ -28,6 +28,7 @@ import {
 import { updateFigures } from '@/lib/refresh-story';
 import { goLiveFromPitch, publishStoryFromPitch } from '@/lib/generate-story';
 import { generateHeroImage } from '@/lib/hero-image';
+import { attachHighlights } from '@/lib/story-highlights';
 import { generateHeroVideo } from '@/lib/hero-video';
 import { callClaudeJson } from '../../agent/scripts/lib/claude.mjs';
 import { ensureDocument } from '../../agent/scripts/lib/source-docs.mjs';
@@ -323,6 +324,7 @@ async function publishLive(pitchId: string) {
     return { pitch_id: row.id, slug: draft.slug, outcome: 'held' };
   }
   const { data: story } = await db.from('stories').select('slug, title, hook, kicker, one_number').eq('pitch_id', row.id).single();
+  if (story) await attachHighlights(db, story.slug, (m) => log(`    ${m}`));
   let heroGenerationId: string | null = null;
   let heroArtBrief: string | null = null;
   if (story) {
