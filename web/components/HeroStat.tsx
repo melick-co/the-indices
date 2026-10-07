@@ -6,7 +6,10 @@ import type { StoryOneNumber } from '@/lib/story-types';
 /**
  * Hero graphic (NEWS-STYLE.md §2.3, §4.2): the story's one number as a stat
  * card with its year-on-year comparison, both computed from stored data. The
- * figure counts up once it scrolls into view; reduced motion shows it static.
+ * real figure is what renders (server HTML, crawlers, link previews, no-JS);
+ * the count-up is an enhancement that only zeroes it once the card is known to
+ * be below the fold of a visible tab, and only ever animates back to the
+ * figure. Reduced motion, a hidden tab or a card already on screen stay static.
  */
 export default function HeroStat({ one }: { one: StoryOneNumber }) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -14,15 +17,20 @@ export default function HeroStat({ one }: { one: StoryOneNumber }) {
   const match = one.value.match(/^([^\d-]*)(-?[\d,]*\.?\d+)(.*)$/);
   const target = match ? Number(match[2].replace(/,/g, '')) : NaN;
   const decimals = match?.[2].split('.')[1]?.length ?? 0;
-  const [shown, setShown] = useState(Number.isFinite(target) ? 0 : NaN);
+  const [shown, setShown] = useState(target);
 
   useEffect(() => {
     if (!Number.isFinite(target)) return;
     const el = ref.current;
-    const finish = () => setShown(target);
-    if (!el || typeof IntersectionObserver === 'undefined'
-      || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { finish(); return; }
+    if (!el || typeof IntersectionObserver === 'undefined' || document.visibilityState !== 'visible'
+      || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      || el.getBoundingClientRect().top < window.innerHeight) return;
+    setShown(0);
     let raf = 0;
+    const finish = () => { io.disconnect(); cancelAnimationFrame(raf); setShown(target); };
+    // rAF stalls in a background tab: never leave the card at a partial figure.
+    const onHide = () => { if (document.visibilityState !== 'visible') finish(); };
+    document.addEventListener('visibilitychange', onHide);
     const io = new IntersectionObserver(([entry]) => {
       if (!entry.isIntersecting) return;
       io.disconnect();
@@ -35,7 +43,7 @@ export default function HeroStat({ one }: { one: StoryOneNumber }) {
       raf = requestAnimationFrame(step);
     }, { threshold: 0.4 });
     io.observe(el);
-    return () => { io.disconnect(); cancelAnimationFrame(raf); };
+    return () => { document.removeEventListener('visibilitychange', onHide); finish(); };
   }, [target]);
 
   const value = Number.isFinite(shown)
