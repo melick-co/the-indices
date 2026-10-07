@@ -7,7 +7,7 @@
  */
 import type { createClient } from '@/lib/supabase-server';
 import { itemUrl, loadRules, type Channel, type QueueItem, type QueuePost } from '@/lib/content-queue';
-import { idFromUrl, setSchedule, shortUrl, uploadVideo, youtubeConfigured, youtubeToken } from '@/lib/social/youtube';
+import { idFromUrl, setSchedule, shortUrl, uploadVideo, youtubeChannel, youtubeConfigured, youtubeToken } from '@/lib/social/youtube';
 
 type Db = ReturnType<typeof createClient>;
 
@@ -31,6 +31,8 @@ function description(q: QueueItem, caption: string | null, sources: string) {
 async function postYoutube(db: Db, log: (m: string) => void) {
   if (!youtubeConfigured()) { log('YouTube: not connected (no credentials).'); return; }
   const token = await youtubeToken();
+  const channel = await youtubeChannel(token).catch(() => null);
+  log(`YouTube: posting to the channel ${channel ? `${channel.title} (${channel.id})` : '(unknown)'}.`);
   await markConnected(db, 'youtube');
   const { data: rows } = await db.from('content_posts').select('*').eq('channel', 'youtube').in('status', ['planned', 'scheduled', 'not_connected', 'failed']);
   const posts = (rows ?? []) as QueuePost[];

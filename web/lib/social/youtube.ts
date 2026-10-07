@@ -75,5 +75,12 @@ export async function setSchedule(token: string, id: string, publishAt: Date | n
   await api(token, `${API}/videos?part=status`, { method: 'PUT', body: JSON.stringify({ id, status }) });
 }
 
+/** The channel the credentials point at, so every run says where it is posting. */
+export async function youtubeChannel(token: string): Promise<{ id: string; title: string } | null> {
+  const r = await api<{ items?: { id: string; snippet: { title: string } }[] }>(token, `${API}/channels?part=snippet&mine=true`, { method: 'GET' });
+  const c = r.items?.[0];
+  return c ? { id: c.id, title: c.snippet.title } : null;
+}
+
 export const shortUrl = (id: string) => `https://www.youtube.com/shorts/${id}`;
 export const idFromUrl = (url: string) => url.match(/(?:shorts\/|v=|youtu\.be\/)([\w-]{11})/)?.[1] ?? null;

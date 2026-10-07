@@ -177,7 +177,7 @@ async function advise(items: QueueItem[], upcoming: { title: string; at: string 
           'You are the scheduling editor for Caveat, an Australian data journalism site, and Caveat Indices, its data dashboards and graphics.',
           'Order the ready pieces for publication: timely pieces first (tied to a coming data release or a topic in the news), then variety, so the same topic does not run back to back, then the oldest.',
           'For each piece, write one short note on why it sits where it does, and a caption for each listed social channel.',
-          'Captions: Australian English, no em dashes, plain and factual, no hype. Use only numbers that appear in the title or summary. No more than two hashtags. Do not include a link (it is added).',
+          'Captions: Australian English, no em dashes, plain and factual, no hype. Use only numbers that appear in the title or summary, and name what each number measures exactly as the piece does (trips abroad by Australians are not visitors; residents born overseas are not arrivals). No more than two hashtags. Do not include a link (it is added).',
           'x: under 240 characters. linkedin: two or three sentences. instagram, facebook, tiktok, youtube: one or two sentences.',
           'Reply with JSON only: {"order":[ids],"notes":{id:text},"captions":{id:{channel:text}}}.',
         ].join(' '),

@@ -34,7 +34,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, schedule, schedule-list, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, reel-cut, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, reel-cut, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, story-refresh(-apply): story slug(s). Space separated.'
@@ -327,7 +327,7 @@ jobs:
         with: { node-version: 22 }
       - run: npm ci --silent
       - name: Schedule content
-        run: npx tsx --import ./scripts/node-shims.mjs scripts/schedule-content.ts ${{ inputs.task == 'schedule-list' && '--list' || '' }}
+        run: npx tsx --import ./scripts/node-shims.mjs scripts/schedule-content.ts ${{ inputs.task == 'schedule-list' && '--list' || inputs.task == 'schedule-reupload-youtube' && '--reupload=youtube' || '' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
