@@ -21,33 +21,45 @@ type HeroStory = { title: string; hook: string; kicker: string; one_number?: { l
  * editor would brief an illustrator. A reader should get what the story is about from the picture alone, before the
  * headline: who is affected, where, doing what. Abstract metaphors (giant floating objects, surreal scale) are out.
  */
+/** Props that carry writing: a brief with one is asked again (the image model would try to letter it). */
+const SIGNAGE = /\b(signs?|signage|board|billboard|sticker|banner|placard|label|headline|newspaper|poster|price tag|menu|screen showing)\b/i;
+
 export async function heroBrief(story: HeroStory): Promise<string | null> {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
   if (!key) return null;
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6', max_tokens: 400,
-        system: [
-          'You are the picture editor at an Australian broadsheet like the AFR or the Wall Street Journal. Brief an illustrator for the lead image of a data-journalism article.',
-          'The picture must tell part of the story at a glance and hook a general reader as much as the headline does. Be literal: show the people affected, the place, and the moment that captures the story, so someone who reads nothing else still gets what it is about.',
-          'Use recognisably Australian settings where they fit (suburban streets, brick and weatherboard houses, apartment towers, open homes, supermarket aisles, petrol stations, offices, building sites, airports, Parliament House or a city skyline).',
-          'Ordinary, fictional people are welcome and usually best: natural poses, everyday clothes, a mix of ages and backgrounds. Never a real or recognisable person.',
-          'One clear scene with one clear tension or action, readable as a small thumbnail. No abstract metaphors, surreal scale, floating objects or symbolic props standing in for the idea.',
-          'Stay true to the story: show only what it reports. Do not imply events or conditions it does not describe (shortages, protests, job losses, crime, disaster).',
-          'The picture must not carry any information: no text, no signs, boards, stickers, letters or documents with visible writing, no price tags or price boards, numbers, charts, screens with figures, currency symbols, logos or flags. Papers and screens, if shown, are seen edge-on or blank.',
-          'Reply with the scene only: one or two plain sentences, under 60 words, describing what is in the picture.',
-        ].join(' '),
-        messages: [{ role: 'user', content: `Kicker: ${story.kicker}\nHeadline: ${story.title}\nStandfirst: ${story.hook}${story.one_number?.label ? `\nThe key figure is about: ${story.one_number.label}` : ''}` }],
-      }),
-      signal: AbortSignal.timeout(60_000),
-    });
-    if (!res.ok) return null;
-    const body = await res.json() as { content?: { type: string; text?: string }[] };
-    const text = (body.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join(' ').replace(/\s+/g, ' ').trim();
-    return text || null;
+    const ask = async (extra: string) => {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6', max_tokens: 400,
+          system: [
+            'You are the picture editor at an Australian broadsheet like the AFR or the Wall Street Journal. Brief an illustrator for the lead image of a data-journalism article.',
+            'The picture must tell part of the story at a glance and hook a general reader as much as the headline does. Be literal: show the people affected, the place, and the moment that captures the story, so someone who reads nothing else still gets what it is about.',
+            'Use recognisably Australian settings where they fit (suburban streets, brick and weatherboard houses, apartment towers, open homes, supermarket aisles, petrol stations, offices, building sites, airports, Parliament House or a city skyline).',
+            'Ordinary, fictional people are welcome and usually best: natural poses, everyday clothes, a mix of ages and backgrounds. Never a real or recognisable person.',
+            'One clear scene with one clear tension or action, readable as a small thumbnail. No abstract metaphors, surreal scale, floating objects or symbolic props standing in for the idea.',
+            'Pick the setting that is most specific to this story (where it actually happens: the open home, the checkout, the bowser, the building site, the bank branch, the office), and avoid the stock scene of people at a kitchen table with papers unless nothing else fits.',
+            'Stay true to the story: show only what it reports. Do not imply events or conditions it does not describe (shortages, protests, job losses, crime, disaster).',
+            'The picture must not carry any information: no text, no signs, boards, stickers, letters or documents with visible writing, no price tags or price boards, numbers, charts, screens with figures, currency symbols, logos or flags. Papers and screens, if shown, are seen edge-on or blank.',
+            'Reply with the scene only: one or two plain sentences, under 60 words, describing what is in the picture.',
+          ].join(' '),
+          messages: [{ role: 'user', content: `Kicker: ${story.kicker}\nHeadline: ${story.title}\nStandfirst: ${story.hook}${story.one_number?.label ? `\nThe key figure is about: ${story.one_number.label}` : ''}${extra}` }],
+        }),
+        signal: AbortSignal.timeout(60_000),
+      });
+      if (!res.ok) return null;
+      const body = await res.json() as { content?: { type: string; text?: string }[] };
+      const text = (body.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join(' ').replace(/\s+/g, ' ').trim();
+      return text || null;
+    };
+    const first = await ask('');
+    const writing = first?.match(SIGNAGE);
+    if (!writing) return first;
+    // Signs and boards carry writing, which the picture must not have: ask once more without them.
+    const second = await ask(`\n\nYour last scene included "${writing[0]}", which would carry writing. Describe a scene with no signs, boards, stickers, labels or anything with writing on it.`);
+    return second && !SIGNAGE.test(second) ? second : null;
   } catch {
     return null;
   }
