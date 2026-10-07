@@ -3,9 +3,15 @@
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth';
 import { createClient } from '@/lib/supabase-server';
+import { postSocial } from '@/lib/social-post';
+import { youtubeConfigured } from '@/lib/social/youtube';
 import { CHANNELS, WEEKDAYS, loadRules, scheduleContent, wallTime, type ScheduleRules } from '@/lib/content-queue';
 
-const refresh = () => revalidatePath('/foundry/queue');
+/** After a change, bring social channels in step at once when this server has their credentials (else the next run). */
+async function refresh() {
+  if (youtubeConfigured()) await postSocial(createClient(), () => {}).catch(() => {});
+  revalidatePath('/foundry/queue');
+}
 
 async function setPostsTime(db: ReturnType<typeof createClient>, id: string, at: string | null) {
   await db.from('content_posts').update({ scheduled_at: at, updated_at: new Date().toISOString() }).eq('queue_id', id).neq('status', 'posted');
@@ -24,7 +30,7 @@ export async function reschedule(id: string, local: string) {
     .eq('id', id).in('status', ['ready', 'scheduled', 'held']);
   if (error) throw new Error(error.message);
   await setPostsTime(db, id, at.toISOString());
-  refresh();
+  await refresh();
 }
 
 /** Due now: Supabase publishes it within five minutes. */
@@ -36,7 +42,7 @@ export async function publishNow(id: string) {
     .eq('id', id).in('status', ['ready', 'scheduled', 'held']);
   if (error) throw new Error(error.message);
   await setPostsTime(db, id, now);
-  refresh();
+  await refresh();
 }
 
 export async function setStatus(id: string, status: 'held' | 'ready' | 'cancelled') {
@@ -46,14 +52,14 @@ export async function setStatus(id: string, status: 'held' | 'ready' | 'cancelle
   const { error } = await db.from('content_queue').update(patch).eq('id', id).in('status', ['ready', 'scheduled', 'held', 'failed']);
   if (error) throw new Error(error.message);
   if (status !== 'held') await setPostsTime(db, id, null);
-  refresh();
+  await refresh();
 }
 
 export async function planNow(): Promise<string[]> {
   await requireAdmin();
   const lines: string[] = [];
   await scheduleContent(createClient(), (m) => lines.push(m.trim()));
-  refresh();
+  await refresh();
   return lines;
 }
 
@@ -72,7 +78,10 @@ export async function saveRules(rules: ScheduleRules) {
   for (const days of Object.values(rules.days ?? {})) if (!(days ?? []).every((d) => (WEEKDAYS as readonly string[]).includes(d))) throw new Error('Unknown weekday.');
   for (const ch of Object.values(rules.channels)) if (!(ch ?? []).every((c) => (CHANNELS as readonly string[]).includes(c))) throw new Error('Unknown channel.');
   const db = createClient();
-  const { error } = await db.from('schedule_rules').upsert({ id: 1, rules, updated_at: new Date().toISOString() });
+  const { installed: _installed, ...stored } = rules as ScheduleRules & { installed?: boolean };
+  const current = await loadRules(db);
+  // Which channels are connected is the poster's to record, not the form's.
+  const { error } = await db.from('schedule_rules').upsert({ id: 1, rules: { ...stored, connected: current.connected ?? [] }, updated_at: new Date().toISOString() });
   if (error) throw new Error(error.message);
-  refresh();
+  await refresh();
 }

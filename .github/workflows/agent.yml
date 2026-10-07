@@ -27,6 +27,8 @@ on:
     # Production queue: the scheduling assistant slots anything ready (generators also run it after queuing). Sites
     # publish at the slot from Supabase (pg_cron, 42_production_queue.sql), not from here.
     - cron: '11 19 * * *'
+    - cron: '11 1 * * *'
+    - cron: '11 7 * * *'
   workflow_dispatch:
     inputs:
       task:
@@ -310,10 +312,11 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
   schedule:
-    # The content scheduling assistant (web/scripts/schedule-content.ts): slot ready pieces within schedule_rules.
+    # The content scheduling assistant (web/scripts/schedule-content.ts): slot ready pieces within schedule_rules, then
+    # bring connected social channels in step (YouTube uploads ahead of the slot with YouTube's own publish time).
     if: >-
       github.event_name == 'workflow_dispatch' && startsWith(inputs.task, 'schedule') ||
-      github.event_name == 'schedule' && github.event.schedule == '11 19 * * *'
+      github.event_name == 'schedule' && (github.event.schedule == '11 19 * * *' || github.event.schedule == '11 1 * * *' || github.event.schedule == '11 7 * * *')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -330,6 +333,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
 
   races:
     # Bar-chart-race videos (9:16, 16:9, 1:1) with music and data-derived captions, published as a visual.
@@ -357,6 +363,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
 
   story-refresh:
     # Rewrite published articles in the house news style (web/scripts/refresh-stories.ts; pitch input = slugs).

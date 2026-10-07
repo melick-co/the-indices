@@ -28,6 +28,8 @@ export type ScheduleRules = {
   slots: Partial<Record<QueueKind, string[]>>;
   days?: Partial<Record<QueueKind, (typeof WEEKDAYS)[number][]>>;
   channels: Partial<Record<QueueKind, Channel[]>>;
+  /** Channels whose credentials have worked (the poster records this), so their posts are planned as scheduled. */
+  connected?: Channel[];
 };
 
 export const DEFAULT_RULES: ScheduleRules = {
@@ -196,9 +198,9 @@ async function advise(items: QueueItem[], upcoming: { title: string; at: string 
   }
 }
 
-/** Which social accounts are connected. None yet: each is added with its own posting code and credentials. */
-export function connectedChannels(): Set<Channel> {
-  return new Set<Channel>(['site']);
+/** The site, plus every channel the poster has connected with working credentials. */
+export function connectedChannels(rules: ScheduleRules): Set<Channel> {
+  return new Set<Channel>(['site', ...(rules.connected ?? [])]);
 }
 
 /**
@@ -225,7 +227,7 @@ export async function scheduleContent(db: Db, log: (m: string) => void = console
   const advice = await advise(items, (ev ?? []).map((e) => ({ title: String(e.title), at: String(e.scheduled_at) })), (recent ?? []).map((r) => String(r.title)), rules);
   const ordered = advice.order.map((id) => items.find((i) => i.id === id)!).filter(Boolean);
   const slots = planSlots(rules, ordered, taken, events, now);
-  const connected = connectedChannels();
+  const connected = connectedChannels(rules);
   const lines: string[] = [];
   for (const item of ordered) {
     const at = slots.get(item.id);
