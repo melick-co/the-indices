@@ -34,7 +34,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, reel-cut, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, hero-review, reel-cut, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, story-refresh(-apply): story slug(s). Space separated.'
@@ -512,7 +512,7 @@ jobs:
     # hero-media generates hero art and the narrated clip for one story (pitch input = slug).
     if: >-
       github.event_name == 'workflow_dispatch' &&
-      (inputs.task == 'media-smoke' || inputs.task == 'media-smoke-video' || inputs.task == 'hero-media' || inputs.task == 'hero-image' || inputs.task == 'hero-brief')
+      (inputs.task == 'media-smoke' || inputs.task == 'media-smoke-video' || inputs.task == 'hero-media' || inputs.task == 'hero-image' || inputs.task == 'hero-brief' || inputs.task == 'hero-review')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -523,7 +523,7 @@ jobs:
         with: { node-version: 22 }
       - run: npm ci --silent
       - name: ElevenLabs smoke test
-        if: inputs.task != 'hero-media' && inputs.task != 'hero-image' && inputs.task != 'hero-brief'
+        if: inputs.task != 'hero-media' && inputs.task != 'hero-image' && inputs.task != 'hero-brief' && inputs.task != 'hero-review'
         run: npx tsx --import ./scripts/node-shims.mjs scripts/elevenlabs-smoke.ts ${{ inputs.task == 'media-smoke-video' && '--video' || '' }}
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
@@ -543,6 +543,16 @@ jobs:
           HERO_SLUG: ${{ inputs.pitch }}
           HERO_BRIEF: ${{ inputs.edits }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Picture check on existing illustrations, no images made (pitch = story slugs; edits = image URLs to check against one story)
+        if: inputs.task == 'hero-review'
+        run: npx tsx --import ./scripts/node-shims.mjs scripts/hero-media.ts --review
+        env:
+          HERO_SLUG: ${{ inputs.pitch }}
+          HERO_REVIEW_URLS: ${{ inputs.edits }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

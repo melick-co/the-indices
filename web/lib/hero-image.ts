@@ -81,6 +81,71 @@ export function heroPrompt(story: HeroStory, brief?: string | null) {
   return [rules[0], subject.slice(0, room), ...rules.slice(1)].join(' ');
 }
 
+export type ArtReview = { ok: boolean; problems: string[] };
+
+/**
+ * The picture desk's last look before an illustration goes live: a model looks at the finished image and fails it
+ * for any legible writing or numbers, a flag, unfairness to the people shown, a real or recognisable person, or a
+ * scene that misstates the story. Image models ignore "no text" surprisingly often, and a joke can land on people,
+ * so nothing is attached without passing. If the review can't run, the image fails safe (not attached).
+ */
+export async function reviewHeroImage(image: Buffer, mediaType: string, story: HeroStory, scene: string | null): Promise<ArtReview> {
+  const key = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!key) return { ok: false, problems: ['no ANTHROPIC_API_KEY, so the picture could not be checked'] };
+  if (image.length > 4.5e6) return { ok: false, problems: ['the picture is too large to check (was it re-encoded? ffmpeg may be missing)'] };
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6', max_tokens: 500,
+        system: [
+          'You are the picture editor of an Australian broadsheet, checking an illustration before it runs as the lead image of a data-journalism article.',
+          'Fail it if any of these is true:',
+          '(1) legible writing anywhere: words, letters, numbers, prices, labels on packaging, signs, badges or screens with readable figures (illegible squiggles standing for print are fine);',
+          '(2) a flag or anything clearly made to look like one, including flag designs on clothing;',
+          '(3) it mocks or demeans the people shown or any group (shown as lazy, greedy, foolish or to blame), or relies on a stereotype;',
+          '(4) a real or recognisable person, or a caricature of a public figure;',
+          '(5) it misstates the story: implies something the headline and standfirst do not say, or the opposite of it.',
+          'Otherwise pass it. Judge the picture itself, not the brief.',
+          'Reply with JSON only: {"ok": true|false, "problems": ["short description of each problem"]}.',
+        ].join(' '),
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: image.toString('base64') } },
+            { type: 'text', text: `Headline: ${story.title}\nStandfirst: ${story.hook}${scene ? `\nThe scene briefed: ${scene}` : ''}` },
+          ],
+        }],
+      }),
+      signal: AbortSignal.timeout(90_000),
+    });
+    if (!res.ok) return { ok: false, problems: [`the picture check failed to run (${res.status})`] };
+    const body = await res.json() as { content?: { type: string; text?: string }[] };
+    const text = (body.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join('');
+    const json = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)) as Partial<ArtReview>;
+    const problems = Array.isArray(json.problems) ? json.problems.map(String) : [];
+    return { ok: json.ok === true && !problems.length, problems: json.ok === true ? problems : problems.length ? problems : ['failed without a reason'] };
+  } catch (e) {
+    return { ok: false, problems: [`the picture check failed to run (${e instanceof Error ? e.message : e})`] };
+  }
+}
+
+/** One image from the generator, re-encoded for the web, with its cost recorded. */
+async function drawOnce(story: { slug: string }, prompt: string, log: (msg: string) => void) {
+  const task = await waitForTask(await createTextToImage({ promptText: prompt, ratio: '16:9', resolution: '2K' }));
+  const src = task.output?.[0];
+  if (task.status !== 'SUCCEEDED' || !src) { log(`Hero image ${task.status}: ${task.failure ?? 'no output'}`); return null; }
+  await recordCost({
+    slug: story.slug, stage: 'hero_image', provider: 'elevenlabs', model: ELEVEN_IMAGE_MODEL,
+    sku: SKU.elevenImage(ELEVEN_IMAGE_MODEL), quantity: 1, unit: 'image', detail: { generation: task.id, resolution: '2K' },
+  }, log);
+  const img = await fetch(src);
+  if (!img.ok) { log(`Hero image download failed (${img.status}).`); return null; }
+  const original = img.headers.get('content-type')?.split(';')[0] ?? task.contentType ?? 'image/png';
+  return { task, web: await webImage(Buffer.from(await img.arrayBuffer()), original) };
+}
+
 export async function generateHeroImage(
   db: SupabaseClient,
   story: { slug: string } & HeroStory,
@@ -89,21 +154,24 @@ export async function generateHeroImage(
 ): Promise<{ url: string; generationId: string; brief: string | null } | null> {
   if (!isMediaConfigured()) { log('ElevenLabs not configured; no hero image.'); return null; }
 
-  const scene = brief === undefined ? await heroBrief(story) : brief;
-  if (scene) log(`Art brief: ${scene}`);
-  const prompt = heroPrompt(story, scene);
-  const task = await waitForTask(await createTextToImage({ promptText: prompt, ratio: '16:9', resolution: '2K' }));
-  const src = task.output?.[0];
-  if (task.status !== 'SUCCEEDED' || !src) { log(`Hero image ${task.status}: ${task.failure ?? 'no output'}`); return null; }
-  await recordCost({
-    slug: story.slug, stage: 'hero_image', provider: 'elevenlabs', model: ELEVEN_IMAGE_MODEL,
-    sku: SKU.elevenImage(ELEVEN_IMAGE_MODEL), quantity: 1, unit: 'image', detail: { generation: task.id, resolution: '2K' },
-  }, log);
-
-  const img = await fetch(src);
-  if (!img.ok) { log(`Hero image download failed (${img.status}).`); return null; }
-  const original = img.headers.get('content-type')?.split(';')[0] ?? task.contentType ?? 'image/png';
-  const web = await webImage(Buffer.from(await img.arrayBuffer()), original);
+  const setBrief = brief !== undefined;
+  let scene = setBrief ? brief : await heroBrief(story);
+  let drawn: Awaited<ReturnType<typeof drawOnce>> = null;
+  let prompt = '';
+  // At most two attempts: a picture that fails review is drawn once more (with a fresh brief, unless the brief was
+  // set by an editor); if that fails too, nothing is attached and the story keeps the art it has.
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    if (scene) log(`Art brief${attempt > 1 ? ' (second attempt)' : ''}: ${scene}`);
+    prompt = heroPrompt(story, scene);
+    const d = await drawOnce(story, prompt, log);
+    if (!d) return null;
+    const review = await reviewHeroImage(d.web.data, d.web.contentType, story, scene);
+    if (review.ok) { log('Picture check: passed.'); drawn = d; break; }
+    log(`Picture check: failed (${review.problems.join('; ')}).`);
+    if (attempt === 1 && !setBrief) scene = (await heroBrief(story)) ?? scene;
+  }
+  if (!drawn) { log('Not attached: the picture failed review twice, so the story keeps its current art.'); return null; }
+  const { task, web } = drawn;
   const path = `auto/${story.slug}-${Date.now()}.${web.ext}`;
   const { error: upErr } = await db.storage.from(STORY_ART_BUCKET)
     .upload(path, web.data, { contentType: web.contentType, upsert: false });
