@@ -41,7 +41,7 @@ on:
         required: false
         default: ''
       edits:
-        description: 'story-revision-edit: JSON list of {"find": "...", "replace": "..."} copy edits.'
+        description: 'story-revision-edit: JSON list of {"find": "...", "replace": "..."} copy edits. hero-image, hero-media: a set art brief (the scene to draw) in place of the model''s.'
         required: false
         default: ''
       note:
@@ -541,6 +541,7 @@ jobs:
         run: npx tsx --import ./scripts/node-shims.mjs scripts/hero-media.ts ${{ inputs.task == 'hero-media' && '--video' || '' }}
         env:
           HERO_SLUG: ${{ inputs.pitch }}
+          HERO_BRIEF: ${{ inputs.edits }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
