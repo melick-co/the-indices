@@ -1,4 +1,5 @@
 import { sydneyDay } from '@/lib/dates';
+import { attachHighlights } from '@/lib/story-highlights';
 import { createClient } from '@/lib/supabase-server';
 import { checkStory, draftStory, goLiveFromPitch, type PriorArticle } from '@/lib/generate-story';
 import type { StructuredStory } from '@/lib/article-from-pitch';
@@ -125,6 +126,8 @@ export async function applyRevision(slug: string, opts: { note?: string; force?:
   }).eq('story_id', row.story_id);
   if (error) throw new Error(error.message);
   await db.from('story_revisions').update({ status: 'applied', resolved_at: now }).eq('revision_id', pending.revision_id);
+  // The revision's body replaces the old one, highlights included: make them again from the revised figures.
+  await attachHighlights(db, slug).catch(() => null);
   return { slug, title: String(pending.content.title) };
 }
 

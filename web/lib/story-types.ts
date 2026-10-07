@@ -118,8 +118,26 @@ export type StoryBlock =
   | StoryTimelineBlock
   | StoryChartBlock;
 
+/**
+ * The story in three numbers: the standfirst's key points shown visually at the top of the story (and as the home
+ * lead's graphic). Every figure comes from the story's own checked text; mini charts reuse its own chart blocks.
+ */
+export type StoryHighlight = {
+  /** The figure as shown, compact ("A$2,568bn", "4.6%", "-A$34bn"). */
+  figure: string;
+  /** What it is, in a few words. */
+  label: string;
+  /** One short line of context ("highest since 2010"). */
+  note?: string;
+  direction?: 'up' | 'down' | 'flat';
+  /** Index into the story's chart blocks (in order) for the mini chart, if one fits. */
+  chart?: number | null;
+};
+export type StoryHighlights = { items: StoryHighlight[]; generated_at: string; model: string };
+
 export interface StoryBody {
   blocks: StoryBlock[];
+  highlights?: StoryHighlights;
 }
 
 export type HomeSection = 'hero' | 'frame_checks' | 'stories';

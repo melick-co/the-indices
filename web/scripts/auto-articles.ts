@@ -20,6 +20,7 @@ import { createClient } from '@/lib/supabase-server';
 import { strengthenPitch } from '@/lib/strengthen-pitch';
 import { goLiveFromPitch, publishStoryFromPitch } from '@/lib/generate-story';
 import { generateHeroImage } from '@/lib/hero-image';
+import { attachHighlights } from '@/lib/story-highlights';
 import { generateHeroVideo } from '@/lib/hero-video';
 import type { FoundryEvent } from '@/lib/foundry-agent';
 import { enqueue, queueEnabled, scheduleContent } from '@/lib/content-queue';
@@ -170,6 +171,8 @@ async function runOne(p: Pitch, today: string): Promise<AutoMark> {
   }
 
   const { data: story } = await db.from('stories').select('slug, title, hook, kicker, one_number').eq('pitch_id', p.id).single();
+  // The story in three numbers: the graphic at the top of the story, from its own checked figures.
+  if (story) await attachHighlights(db, story.slug, (m) => log(`  ${m}`));
   let heroGenerationId: string | null = null;
   let heroArtBrief: string | null = null;
   if (story) {

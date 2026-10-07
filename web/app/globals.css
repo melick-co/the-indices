@@ -5003,3 +5003,32 @@ a.dx-driver:hover { background: #f5f7fb; }
 .pq-kind-rules > label:first-of-type { flex-direction: row; align-items: center; }
 .pq-days { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
 @media (max-width: 640px) { .pq-row-main { flex-wrap: wrap; } .pq-cal { grid-template-columns: 1fr 1fr; } }
+
+/* The story in three numbers (components/StoryHighlights.tsx): the top-of-story graphic. */
+.hl { margin: 0 0 14px; padding: 18px 20px 14px; background: #0f1830; color: #eef2fa; border-radius: 4px; container-type: inline-size; }
+.hl-head { display: flex; align-items: center; gap: 8px; font-family: var(--font-ui, system-ui), sans-serif; font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #a9b6d3; margin-bottom: 14px; }
+.hl-grid { display: grid; grid-template-columns: repeat(var(--hl-n, 3), minmax(0, 1fr)); gap: 0; }
+.hl-item { padding: 0 18px; border-left: 1px solid rgba(169, 182, 211, .22); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.hl-item:first-child { padding-left: 0; border-left: 0; }
+.hl-item:last-child { padding-right: 0; }
+.hl-fig { font-family: var(--font-display, Georgia), serif; /* sized to each column, so a nine-character figure fits */ font-size: clamp(1.25rem, calc(100cqi / var(--hl-n, 3) / 6.4), 2.9rem); font-weight: 700; line-height: 1.05; letter-spacing: -.01em; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+.hl-arrow { font-size: .45em; position: relative; top: -.35em; color: #8db8e8; }
+.hl-arrow.down { color: #f0a46b; }
+.hl-label { font-family: var(--font-ui, system-ui), sans-serif; font-size: .92rem; font-weight: 600; color: #eef2fa; line-height: 1.25; }
+.hl-note { font-family: var(--font-ui, system-ui), sans-serif; font-size: .8rem; color: #a9b6d3; line-height: 1.3; }
+.hl-spark { margin: 6px 0 2px; }
+.hl-spark svg { display: block; width: 100%; height: 56px; overflow: visible; }
+.hl-area { fill: rgba(79, 143, 209, .22); }
+.hl-line { fill: none; stroke: #8db8e8; stroke-width: 2; }
+.hl-dot { fill: #fff; stroke: #0f1830; stroke-width: 2; }
+.hl-dot.down { fill: #f0a46b; }
+.hl-spark-ends { display: flex; justify-content: space-between; font-family: var(--font-ui, system-ui), sans-serif; font-size: .66rem; color: #7f8db0; }
+.hl-src { margin-top: 12px; font-family: var(--font-ui, system-ui), sans-serif; font-size: .7rem; color: #7f8db0; }
+@container (max-width: 420px) {
+  .hl-fig { font-size: 2rem; }
+}
+@media (max-width: 640px) {
+  .hl-grid { grid-template-columns: 1fr; gap: 14px; }
+  .hl-item, .hl-item:first-child { padding: 12px 0 0; border-left: 0; border-top: 1px solid rgba(169, 182, 211, .22); }
+  .hl-item:first-child { border-top: 0; padding-top: 0; }
+}
