@@ -1,3 +1,4 @@
+import { Brand } from './BrandMark';
 import React, { useMemo, useState, useEffect } from 'react';
 import { AbsoluteFill, Audio, Img, cancelRender, continueRender, delayRender, interpolate, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import { curves, glidingRanks, standings } from './race-motion';
@@ -81,7 +82,7 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
       )}
       {/* Header */}
       <div style={{ position: 'absolute', left: pad, right: pad, top: tall ? 200 : 60 }}>
-        <div style={{ fontSize: tall ? 26 : 24, letterSpacing: 4, textTransform: 'uppercase', color: MUTED, fontWeight: 600 }}>{BRAND}</div>
+        <Brand name={BRAND} size={tall ? 26 : 24} style={{ fontSize: tall ? 26 : 24, letterSpacing: 4, textTransform: 'uppercase', color: MUTED, fontWeight: 600  }} />
         <div style={{ fontSize: titleSize, fontWeight: 700, lineHeight: 1.1, marginTop: 10 }}>{race.title}</div>
         <div style={{ fontSize: tall ? 30 : 26, color: MUTED, marginTop: 10 }}>{race.subtitle}</div>
       </div>
@@ -116,14 +117,14 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
       <div style={{ position: 'absolute', left: pad, right: besideClock, bottom: clockBottom - (tall ? 0 : 22), fontSize: tall ? 22 : 18, lineHeight: 1.3, color: MUTED }}>Source: {race.source.org}, {race.source.dataset}. Values between {race.frames.length > 1 && /^\d{4}$/.test(race.frames[0].period) ? 'years' : 'periods'} are interpolated.</div>
       {/* Title card */}
       <AbsoluteFill style={{ background: NAVY, opacity: introOpacity, justifyContent: 'center', padding: pad }}>
-        <div style={{ fontSize: tall ? 30 : 28, letterSpacing: 5, textTransform: 'uppercase', color: ACCENT, fontWeight: 700 }}>{BRAND}</div>
+        <Brand name={BRAND} size={tall ? 30 : 28} style={{ fontSize: tall ? 30 : 28, letterSpacing: 5, textTransform: 'uppercase', color: ACCENT, fontWeight: 700  }} />
         <div style={{ fontSize: titleSize * 1.25, fontWeight: 800, lineHeight: 1.08, marginTop: 18 }}>{race.title}</div>
         <div style={{ fontSize: tall ? 34 : 30, color: MUTED, marginTop: 16 }}>{race.subtitle}</div>
       </AbsoluteFill>
       {race.stack && <StackEnding race={race} format={format} musicFile={null} start={outroStart} colourOf={colourOf} flags={flags} brand={BRAND} />}
       {/* End card */}
       {!race.stack && <AbsoluteFill style={{ background: `linear-gradient(180deg, rgba(15,24,48,0) 0%, ${NAVY2} 55%)`, opacity: outroOpacity, justifyContent: 'flex-end', padding: pad, paddingBottom: tall ? 300 : 70 }}>
-        <div style={{ fontSize: tall ? 40 : 36, fontWeight: 800 }}>{BRAND}</div>
+        <Brand name={BRAND} size={tall ? 40 : 36} style={{ fontSize: tall ? 40 : 36, fontWeight: 800  }} />
         <div style={{ fontSize: tall ? 26 : 24, color: MUTED, marginTop: 8 }}>Australia, on one page · official data · {race.source.org}</div>
       </AbsoluteFill>}
     </AbsoluteFill>

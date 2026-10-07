@@ -1,3 +1,4 @@
+import { Brand } from './BrandMark';
 import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
 import { RACE_FPS, STACK_FADE_SECONDS, stackBuildSeconds, type RaceProps } from '../lib/race-video-types';
@@ -67,7 +68,7 @@ export const StackEnding: React.FC<RaceProps & { start: number; colourOf: Record
   return (
     <AbsoluteFill style={{ background: NAVY, opacity: fade }}>
       <div style={{ position: 'absolute', left: pad, right: pad, top: tall ? 200 : 60 }}>
-        <div style={{ fontSize: tall ? 26 : 24, letterSpacing: 4, textTransform: 'uppercase', color: MUTED, fontWeight: 600 }}>{brand}</div>
+        <Brand name={brand} size={tall ? 26 : 24} style={{ fontSize: tall ? 26 : 24, letterSpacing: 4, textTransform: 'uppercase', color: MUTED, fontWeight: 600  }} />
         <div style={{ fontSize: tall ? 60 : wide ? 56 : 50, fontWeight: 700, lineHeight: 1.1, marginTop: 10 }}>{race.stack.title}</div>
         <div style={{ fontSize: tall ? 30 : 26, color: MUTED, marginTop: 10 }}>
           {millions(firstTotal)} in {periods[0]}; <span style={{ color: ON, fontWeight: 700, opacity: done }}>{millions(lastTotal)} in {periods.at(-1)}</span>
