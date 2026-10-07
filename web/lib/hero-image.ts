@@ -22,7 +22,7 @@ type HeroStory = { title: string; hook: string; kicker: string; one_number?: { l
  * headline: who is affected, where, doing what. Abstract metaphors (giant floating objects, surreal scale) are out.
  */
 /** Props that carry writing: a brief with one is asked again (the image model would try to letter it). */
-const SIGNAGE = /\b(signs?|signage|board|billboard|sticker|banner|placard|label|headline|newspaper|poster|price tag|menu|screen showing)\b/i;
+const SIGNAGE = /\b(signs?|signage|board|billboard|sticker|banner|placard|label|headline|newspaper|poster|price tag|menu|screen showing|caption|speech bubble|thought bubble)\b/i;
 
 export async function heroBrief(story: HeroStory): Promise<string | null> {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
@@ -35,16 +35,17 @@ export async function heroBrief(story: HeroStory): Promise<string | null> {
         body: JSON.stringify({
           model: 'claude-sonnet-4-6', max_tokens: 400,
           system: [
-            'You are the picture editor at an Australian broadsheet like the AFR or the Wall Street Journal. Brief an illustrator for the lead image of a data-journalism article.',
-            'The picture must tell part of the story at a glance and hook a general reader as much as the headline does. Be literal: show the people affected, the place, and the moment that captures the story, so someone who reads nothing else still gets what it is about.',
-            'Use recognisably Australian settings where they fit (suburban streets, brick and weatherboard houses, apartment towers, open homes, supermarket aisles, petrol stations, offices, building sites, airports, Parliament House or a city skyline).',
-            'Ordinary, fictional people are welcome and usually best: natural poses, everyday clothes, a mix of ages and backgrounds. Never a real or recognisable person.',
-            'One clear scene with one clear tension or action, readable as a small thumbnail. No abstract metaphors, surreal scale, floating objects or symbolic props standing in for the idea.',
-            'Pick the setting that is most specific to this story (where it actually happens: the open home, the checkout, the bowser, the building site, the bank branch, the office), and avoid the stock scene of people at a kitchen table with papers unless nothing else fits.',
-            'Stay true to the story: show only what it reports. Do not imply events or conditions it does not describe (shortages, protests, job losses, crime, disaster).',
-            'Be fair to the people shown: depict them neutrally and with dignity, never as lazy, greedy, foolish or to blame; the picture shows the situation, not a verdict on a group.',
-            'The picture must not carry any information: no text, no signs, boards, stickers, letters or documents with visible writing, no price tags or price boards, numbers, charts, screens with figures, currency symbols, logos or flags. Papers and screens, if shown, are seen edge-on or blank.',
-            'Reply with the scene only: one or two plain sentences, under 60 words, describing what is in the picture.',
+            'You are the picture editor at an Australian broadsheet like the AFR or the Wall Street Journal, briefing an illustrator for the lead image of a data-journalism article.',
+          'The picture must tell part of the story at a glance and hook a general reader as much as the headline does: start from a literal scene (the people affected, the place, the moment), so someone who reads nothing else still gets what it is about.',
+          'Then add wit: one visual twist that lands the irony or absurdity at the heart of the story, the way a good editorial cartoon does, so the reader smiles, gets the point and wants to share it. The twist exaggerates the real situation; it never invents a fact or overstates the numbers.',
+          'Satire aims at situations, policies and institutions, never at ordinary people or at any group: the people in the picture are the ones it happens to, shown with sympathy and dignity, never as lazy, greedy, foolish or to blame.',
+          'Use recognisably Australian settings specific to the story (single-storey brick-veneer and weatherboard houses on wide suburban streets, apartment towers, open inspections, supermarket checkouts, petrol stations, building sites, offices, Parliament House or a city skyline), never English terraces or American streets.',
+          'Ordinary, fictional people of different ages and backgrounds, as modern Australia looks: natural poses, everyday clothes. Never a real or recognisable person, and no caricatures of politicians or public figures.',
+          'One clear scene, readable as a small thumbnail. The twist should be visual and physical (a slice of pizza so thin you can see through it, a queue for an open inspection running round the block), not a symbol to decode.',
+          'Avoid the stock scene of people at a kitchen table with papers unless nothing else fits.',
+          'Stay true to the story: do not imply events or conditions it does not describe (shortages, protests, job losses, crime, disaster).',
+          'The picture must not carry any information or words: no captions, speech bubbles, signs, boards, stickers, labels, documents with visible writing, price tags, numbers, charts, screens with figures, currency symbols, logos or flags. Papers and screens, if shown, are seen edge-on or blank.',
+          'Reply with the scene only: two or three plain sentences, under 70 words, describing what is in the picture, twist included.',
           ].join(' '),
           messages: [{ role: 'user', content: `Kicker: ${story.kicker}\nHeadline: ${story.title}\nStandfirst: ${story.hook}${story.one_number?.label ? `\nThe key figure is about: ${story.one_number.label}` : ''}${extra}` }],
         }),
@@ -70,10 +71,10 @@ export async function heroBrief(story: HeroStory): Promise<string | null> {
 export function heroPrompt(story: HeroStory, brief?: string | null) {
   // The rules come first and the subject is trimmed to fit, so the cap can never cut a rule off.
   const rules = [
-    'Editorial illustration for an Australian broadsheet, in the tradition of the AFR and the Wall Street Journal.',
+    'Witty editorial illustration for an Australian broadsheet, in the tradition of the AFR and the Wall Street Journal: a literal scene with one satirical visual twist.',
     'Style: textured print illustration with realistic proportions and recognisable people and places; muted newsprint palette with one deep navy accent (#1d2a48).',
     'Composition: wide 16:9; the scene fills the frame edge to edge, the main subject large; readable at thumbnail size.',
-    'No text anywhere: no signs, boards or stickers, no writing, letters, numbers, prices, symbols or glyphs (no currency signs), charts, screens with figures, logos, flags, or real or recognisable people.',
+    'No text anywhere: no captions, speech bubbles, signs, boards or stickers, no writing, letters, numbers, prices, symbols or glyphs (no currency signs), charts, screens with figures, logos, flags, or real or recognisable people.',
   ];
   const subject = brief ? `Scene: ${brief}` : `Scene: a literal, everyday moment that shows ${story.kicker.toLowerCase()}: ${story.title}. ${story.hook}`;
   const room = 1000 - rules.join(' ').length - 4;
