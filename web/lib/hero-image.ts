@@ -15,12 +15,15 @@ import { ELEVEN_IMAGE_MODEL } from '@/lib/elevenlabs-client';
  */
 
 export function heroPrompt(story: { title: string; hook: string; kicker: string }) {
-  return [
-    'Editorial illustration for a data-journalism article in a broadsheet newspaper.',
-    `Subject: ${story.kicker}. ${story.title}. ${story.hook}`.slice(0, 600),
-    'Style: restrained, textured print illustration, muted newsprint palette with one deep navy blue accent (#1d2a48), matching the masthead, strong single focal point, generous negative space.',
-    'Do not include any text, letters, numbers, symbols or glyphs (no currency signs of any kind), charts, graphs, logos, flags, real people or recognisable public figures.',
-  ].join(' ').slice(0, 1000);
+  // The rules come first and the subject is trimmed to fit, so the cap can never cut a rule off.
+  const rules = [
+    'Editorial illustration for a broadsheet data-journalism article.',
+    'Style: restrained, textured print illustration, muted newsprint palette, one deep navy accent (#1d2a48), one strong focal point.',
+    'Composition: wide 16:9; the scene fills the frame edge to edge, the main subject large across most of the width; no empty margins around a small central object.',
+    'No text, letters, numbers, symbols or glyphs (no currency signs), charts, graphs, logos, flags, real people or public figures.',
+  ];
+  const room = 1000 - rules.join(' ').length - 12;
+  return [rules[0], `Subject: ${story.kicker}. ${story.title}. ${story.hook}`.slice(0, room), ...rules.slice(1)].join(' ');
 }
 
 export async function generateHeroImage(
