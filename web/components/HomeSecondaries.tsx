@@ -11,7 +11,7 @@ export default function HomeSecondaries({ stories }: { stories: Story[] }) {
           <h2 className="brief-headline">
             <Link href={`/stories/${story.slug}`}>{story.title}</Link>
           </h2>
-          <p className="brief-deck">{story.hook}</p>
+          <p className="brief-deck">{story.hook.replace(/\[\^\d+\]/g, '')}</p>
         </article>
       ))}
     </div>

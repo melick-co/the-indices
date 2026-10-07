@@ -1,4 +1,6 @@
 import './globals.css';
+// The public broadsheet's look (scoped to .site-shell--bs), layered over the shared styles.
+import './broadsheet.css';
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import { SiteShell } from '@/components/SiteShell';

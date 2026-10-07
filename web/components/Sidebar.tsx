@@ -3,33 +3,27 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const LINKS = [
+/** The broadsheet's sections: the reader's navigation, set as tracked capitals between hairlines. */
+const SECTIONS = [
   { href: '/', label: 'Today' },
   { href: '/explainers', label: 'Explainers' },
   { href: '/the-rub', label: 'The Rub' },
   { href: '/indices', label: 'Caveat Indices' },
   { href: '/instruments', label: 'Instruments' },
-  { href: '/markets', label: 'Markets' },
   { href: '/trending', label: 'Trending' },
   { href: '/methodology', label: 'Method' },
-  { href: '/foundry', label: 'Foundry' },
-  { href: '/foundry/desk', label: 'Desk' },
-  { href: '/foundry/work', label: 'Work' },
-  { href: '/foundry/queue', label: 'Queue' },
-  { href: '/account', label: 'Account' },
 ] as const;
 
 function isActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/';
-  if (href === '/foundry') {
-    return pathname === '/foundry' || (pathname.startsWith('/foundry/')
-      && !pathname.startsWith('/foundry/desk')
-      && !pathname.startsWith('/foundry/work')
-      && !pathname.startsWith('/foundry/queue'));
-  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/**
+ * The broadsheet masthead: a white utility bar (the one yellow button on the page is Subscribe), the wordmark on the
+ * cream page between the edition flag and the motto, then the section row. Desk tools sit behind "Newsroom"
+ * (the Foundry pages have their own navigation).
+ */
 export default function Sidebar() {
   const pathname = usePathname();
   // Sydney's date, on the server and in the browser alike. Without a time zone the server (UTC) and a reader's
@@ -43,27 +37,35 @@ export default function Sidebar() {
   });
 
   return (
-    <header className="site-sidebar">
-      <div className="mast-top">
-        <span className="mast-monogram" aria-hidden="true">C</span>
-        <div className="mast-meta mast-meta-left">
-          <span>{today}</span>
-          <span>Australia</span>
-        </div>
-        <Link href="/" className="wordmark">The Caveat</Link>
-        <div className="mast-meta mast-meta-right">
-          <span>Data journalism</span>
-          <span>Checkable claims</span>
+    <header className="bs-head">
+      <div className="bs-util">
+        <div className="bs-util-inner">
+          <nav className="bs-util-links" aria-label="Sections">
+            <Link href="/explainers">Explainers</Link>
+            <Link href="/indices">Indices</Link>
+            <Link href="/methodology">Method</Link>
+          </nav>
+          <div className="bs-util-right">
+            <Link href="/foundry" className="bs-util-quiet">Newsroom</Link>
+            <Link href="/account">Account</Link>
+            <Link href="/#subscribe" className="bs-subscribe">Subscribe</Link>
+          </div>
         </div>
       </div>
-      <p className="lector">Caveat lector. The detail that changes the story.</p>
-      <nav className="nav" aria-label="Primary">
-        {LINKS.map((l) => (
-          <Link
-            key={l.href}
-            href={l.href}
-            aria-current={isActive(pathname, l.href) ? 'page' : undefined}
-          >
+      <div className="bs-mast">
+        <div className="bs-flag">
+          <span>{today}</span>
+          <span>Australian edition</span>
+        </div>
+        <Link href="/" className="bs-wordmark" aria-label="The Caveat, home">The Caveat</Link>
+        <div className="bs-motto">
+          <span>Caveat lector.</span>
+          <span>The detail that changes the story.</span>
+        </div>
+      </div>
+      <nav className="bs-nav" aria-label="Primary">
+        {SECTIONS.map((l) => (
+          <Link key={l.href} href={l.href} aria-current={isActive(pathname, l.href) ? 'page' : undefined}>
             {l.label}
           </Link>
         ))}
