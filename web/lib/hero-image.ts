@@ -36,7 +36,8 @@ export async function heroBrief(story: HeroStory): Promise<string | null> {
           'Use recognisably Australian settings where they fit (suburban streets, brick and weatherboard houses, apartment towers, open homes, supermarket aisles, petrol stations, offices, building sites, airports, Parliament House or a city skyline).',
           'Ordinary, fictional people are welcome and usually best: natural poses, everyday clothes, a mix of ages and backgrounds. Never a real or recognisable person.',
           'One clear scene with one clear tension or action, readable as a small thumbnail. No abstract metaphors, surreal scale, floating objects or symbolic props standing in for the idea.',
-          'The picture must not carry any information: no text, signs with writing, numbers, prices, charts, screens with figures, currency symbols, logos or flags.',
+          'Stay true to the story: show only what it reports. Do not imply events or conditions it does not describe (shortages, protests, job losses, crime, disaster).',
+          'The picture must not carry any information: no text, no signs, boards, stickers, letters or documents with visible writing, no price tags or price boards, numbers, charts, screens with figures, currency symbols, logos or flags. Papers and screens, if shown, are seen edge-on or blank.',
           'Reply with the scene only: one or two plain sentences, under 60 words, describing what is in the picture.',
         ].join(' '),
         messages: [{ role: 'user', content: `Kicker: ${story.kicker}\nHeadline: ${story.title}\nStandfirst: ${story.hook}${story.one_number?.label ? `\nThe key figure is about: ${story.one_number.label}` : ''}` }],
@@ -59,7 +60,7 @@ export function heroPrompt(story: HeroStory, brief?: string | null) {
     'Editorial illustration for an Australian broadsheet, in the tradition of the AFR and the Wall Street Journal.',
     'Style: textured print illustration with realistic proportions and recognisable people and places; muted newsprint palette with one deep navy accent (#1d2a48).',
     'Composition: wide 16:9; the scene fills the frame edge to edge, the main subject large; readable at thumbnail size.',
-    'No text, writing on signs, letters, numbers, prices, symbols or glyphs (no currency signs), charts, screens with figures, logos, flags, or real or recognisable people.',
+    'No text anywhere: no signs, boards or stickers, no writing, letters, numbers, prices, symbols or glyphs (no currency signs), charts, screens with figures, logos, flags, or real or recognisable people.',
   ];
   const subject = brief ? `Scene: ${brief}` : `Scene: a literal, everyday moment that shows ${story.kicker.toLowerCase()}: ${story.title}. ${story.hook}`;
   const room = 1000 - rules.join(' ').length - 4;
