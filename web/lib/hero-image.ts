@@ -42,6 +42,7 @@ export async function heroBrief(story: HeroStory): Promise<string | null> {
             'One clear scene with one clear tension or action, readable as a small thumbnail. No abstract metaphors, surreal scale, floating objects or symbolic props standing in for the idea.',
             'Pick the setting that is most specific to this story (where it actually happens: the open home, the checkout, the bowser, the building site, the bank branch, the office), and avoid the stock scene of people at a kitchen table with papers unless nothing else fits.',
             'Stay true to the story: show only what it reports. Do not imply events or conditions it does not describe (shortages, protests, job losses, crime, disaster).',
+            'Be fair to the people shown: depict them neutrally and with dignity, never as lazy, greedy, foolish or to blame; the picture shows the situation, not a verdict on a group.',
             'The picture must not carry any information: no text, no signs, boards, stickers, letters or documents with visible writing, no price tags or price boards, numbers, charts, screens with figures, currency symbols, logos or flags. Papers and screens, if shown, are seen edge-on or blank.',
             'Reply with the scene only: one or two plain sentences, under 60 words, describing what is in the picture.',
           ].join(' '),
