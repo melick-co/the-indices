@@ -69,7 +69,8 @@ export default async function StoryPage({
           <>
             {/* Deck and hero graphic directly under the headline (NEWS-STYLE.md §2.2-2.3). */}
             <p className="story-deck"><Footnoted text={story.hook} /></p>
-            {story.oneNumber?.metric_id && <HeroStat one={story.oneNumber} />}
+            {/* The highlights panel carries the key figures; the single key-number box is only for stories without it. */}
+            {story.oneNumber?.metric_id && !story.body?.highlights?.items?.length && <HeroStat one={story.oneNumber} />}
           </>
         ) : null}
         {story.body?.highlights?.items?.length ? (

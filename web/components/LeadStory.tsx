@@ -25,10 +25,12 @@ export default function LeadStory({ story, wide = false }: { story: Story; wide?
         <img className="lead-cut" src={art.url} alt={art.alt} />
       )}
       <p className="lead-deck">{story.hook}</p>
-      <p className="lead-number">
-        <strong>{story.oneNumber.value}</strong>
-        <span>{story.oneNumber.label}</span>
-      </p>
+      {!story.body?.highlights?.items?.length && (
+        <p className="lead-number">
+          <strong>{story.oneNumber.value}</strong>
+          <span>{story.oneNumber.label}</span>
+        </p>
+      )}
       <p className="lead-caveat">{story.caveat}</p>
       <p className="lead-foot">
         <Link href={`/stories/${story.slug}`}>Read the story</Link>
