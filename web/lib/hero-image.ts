@@ -40,7 +40,7 @@ export async function heroBrief(story: HeroStory): Promise<string | null> {
           'Then add wit: one visual twist that lands the irony or absurdity at the heart of the story, the way a good editorial cartoon does, so the reader smiles, gets the point and wants to share it. The twist exaggerates the real situation; it never invents a fact or overstates the numbers.',
           'Satire aims at situations, policies and institutions, never at ordinary people or at any group: the people in the picture are the ones it happens to, shown with sympathy and dignity, never as lazy, greedy, foolish or to blame.',
           'Use recognisably Australian settings specific to the story (single-storey brick-veneer and weatherboard houses on wide suburban streets, apartment towers, open inspections, supermarket checkouts, petrol stations, building sites, offices, Parliament House or a city skyline), never English terraces or American streets.',
-          'Ordinary, fictional people of different ages and backgrounds, as modern Australia looks: natural poses, everyday clothes. Never a real or recognisable person, and no caricatures of politicians or public figures.',
+          'Ordinary, fictional people in natural poses and everyday clothes. Any group must be visibly mixed, the way a Sydney or Melbourne suburb looks today: Anglo, East and South-East Asian, South Asian, Middle Eastern, African, Pacific Islander and Aboriginal and Torres Strait Islander Australians, of different ages. Say so in the scene; never a uniformly white cast. Never a real or recognisable person, and no caricatures of politicians or public figures.',
           'One clear scene, readable as a small thumbnail. The twist should be visual and physical (a slice of pizza so thin you can see through it, a queue for an open inspection running round the block), not a symbol to decode.',
           'Avoid the stock scene of people at a kitchen table with papers unless nothing else fits.',
           'Stay true to the story: do not imply events or conditions it does not describe (shortages, protests, job losses, crime, disaster).',
@@ -71,10 +71,10 @@ export async function heroBrief(story: HeroStory): Promise<string | null> {
 export function heroPrompt(story: HeroStory, brief?: string | null) {
   // The rules come first and the subject is trimmed to fit, so the cap can never cut a rule off.
   const rules = [
-    'Witty editorial illustration for an Australian broadsheet, in the tradition of the AFR and the Wall Street Journal: a literal scene with one satirical visual twist.',
-    'Style: textured print illustration with realistic proportions and recognisable people and places; muted newsprint palette with one deep navy accent (#1d2a48).',
-    'Composition: wide 16:9; the scene fills the frame edge to edge, the main subject large; readable at thumbnail size.',
-    'No text anywhere: no captions, speech bubbles, signs, boards or stickers, no writing, letters, numbers, prices, symbols or glyphs (no currency signs), charts, screens with figures, logos, flags, or real or recognisable people.',
+    'Witty editorial illustration for an Australian broadsheet (AFR, WSJ): a literal scene with one satirical visual twist.',
+    'Textured print style, realistic proportions, muted newsprint palette, one navy accent (#1d2a48); wide 16:9, filling the frame.',
+    'Any crowd visibly mixed, as in an Australian suburb today (Anglo, Asian, South Asian, Middle Eastern, African, Pacific, Aboriginal); never all white.',
+    'No text, signs, captions, numbers, prices, symbols, charts, logos, flags, or real or recognisable people.',
   ];
   const subject = brief ? `Scene: ${brief}` : `Scene: a literal, everyday moment that shows ${story.kicker.toLowerCase()}: ${story.title}. ${story.hook}`;
   const room = 1000 - rules.join(' ').length - 4;
