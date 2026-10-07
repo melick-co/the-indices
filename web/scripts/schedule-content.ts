@@ -1,12 +1,14 @@
 /**
  * The content scheduling assistant: slot every ready piece in the production queue within the rules, and plan its
- * channel posts (web/lib/content-queue.ts). Generators run it after queuing; this runs it on its own too.
+ * channel posts (web/lib/content-queue.ts); then bring connected social channels in step (web/lib/social-post.ts).
+ * Generators run it after queuing; this runs it on its own too.
  *
  *   npx tsx --import ./scripts/node-shims.mjs scripts/schedule-content.ts          # schedule what's ready
  *   npx tsx --import ./scripts/node-shims.mjs scripts/schedule-content.ts --list   # show the queue, change nothing
  */
 import { createClient } from '@/lib/supabase-server';
 import { loadRules, scheduleContent } from '@/lib/content-queue';
+import { postSocial } from '@/lib/social-post';
 
 async function main() {
   const db = createClient();
@@ -21,6 +23,8 @@ async function main() {
     return;
   }
   await scheduleContent(db);
+  console.log('\nSocial:');
+  await postSocial(db);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

@@ -21,6 +21,7 @@ import { buildRaces, type Race } from '@/lib/visuals-race';
 import { HOLD_SECONDS, INTRO_SECONDS, RACE_COMPOSITION_ID, RACE_FPS, raceSeconds, stepSeconds, type RaceFormat, type RaceProps } from '@/lib/race-video-types';
 import { FONT_FILES } from '@/remotion/fonts';
 import { enqueue, queueEnabled, scheduleContent } from '@/lib/content-queue';
+import { postSocial } from '@/lib/social-post';
 
 const WEB_ROOT = resolve(__dirname, '..');
 const BUCKET = 'visual-videos';
@@ -157,6 +158,7 @@ async function main() {
       await enqueue(db, { kind: 'race', ref_slug: slug, title: race.title, summary: race.takeaways.join(' '), media: videos });
       console.log(`Queued /indices/visuals/${slug} with ${made}.\nScheduling:`);
       await scheduleContent(db);
+      await postSocial(db);
     } else console.log(`Published /indices/visuals/${slug} with ${made}.`);
   } finally {
     await rm(publicDir, { recursive: true, force: true });
