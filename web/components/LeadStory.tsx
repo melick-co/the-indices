@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Story } from '@/lib/story-types';
-import { storyReceipt } from '@/lib/story-types';
+import { sourceOrgLabel, storyReceipt } from '@/lib/story-types';
 import { resolveHeroImage } from '@/lib/story-art';
 import StoryHighlights from '@/components/StoryHighlights';
 
@@ -19,7 +19,7 @@ export default function LeadStory({ story, wide = false }: { story: Story; wide?
       {/* The story in numbers, when it has them; otherwise its illustration. */}
       {story.body?.highlights?.items?.length ? (
         <StoryHighlights highlights={story.body.highlights} blocks={story.body.blocks}
-          sources={[...new Set(story.evidence?.sources?.map((s) => s.org) ?? [])]} />
+          sources={[...new Set(story.evidence?.sources?.map((s) => sourceOrgLabel(s.org)) ?? [])]} />
       ) : art && (
         // eslint-disable-next-line @next/next/no-img-element
         <img className="lead-cut" src={art.url} alt={art.alt} />

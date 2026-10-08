@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { sourceOrgLabel } from '@/lib/story-types';
 import { notFound } from 'next/navigation';
 import SiteFooter from '@/components/SiteFooter';
 import { loadStoryBySlug } from '@/lib/stories-loader';
@@ -88,7 +89,7 @@ export default async function Evidence({
                   <a href={src.url} target="_blank" rel="noreferrer"
                     style={{ borderBottom: '1px solid var(--rule)' }}>{src.metric} ↗</a>
                 </td>
-                <td>{src.org}</td>
+                <td>{sourceOrgLabel(src.org)}</td>
                 <td><span className={`tier ${TIER_CLASS[src.tier]}`}>Tier {src.tier}</span></td>
                 <td>{src.period}</td>
                 <td style={{ fontSize: '.72rem', lineHeight: 1.5 }}>{src.basis}</td>

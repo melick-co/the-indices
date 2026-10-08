@@ -201,10 +201,13 @@ export interface Story {
 }
 
 /** Best (lowest) tier and unique publisher names for the receipt strip. */
+/** How a source organisation is shown: figures we computed are credited to Caveat and marked derived. */
+export const sourceOrgLabel = (org: string) => (/^caveat$/i.test(org.trim()) ? 'Caveat (derived)' : org);
+
 export function storyReceipt(story: Story): { tier: 1 | 2 | 3; orgs: string } {
   const sources = story.evidence?.sources ?? [];
   const tier = (sources.reduce((best, s) => Math.min(best, s.tier) as 1 | 2 | 3, 3 as 1 | 2 | 3));
-  const orgs = [...new Set(sources.map((s) => s.org).filter(Boolean))];
+  const orgs = [...new Set(sources.map((s) => s.org).filter(Boolean).map(sourceOrgLabel))];
   return {
     tier: sources.length ? tier : 3,
     orgs: orgs.length ? orgs.join(' + ') : 'Sources pending',
