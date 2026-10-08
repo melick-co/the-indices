@@ -7,6 +7,7 @@ import ReelControls from '@/components/ReelControls';
 import { loadPendingRevision, loadStoryBySlug, withRevision } from '@/lib/stories-loader';
 import { clipsOf, resolveHeroImage } from '@/lib/story-art';
 import StoryHighlights from '@/components/StoryHighlights';
+import { sourceOrgLabel } from '@/lib/story-types';
 import Footnoted from '@/components/Footnoted';
 import HeroStat from '@/components/HeroStat';
 
@@ -75,7 +76,7 @@ export default async function StoryPage({
         ) : null}
         {story.body?.highlights?.items?.length ? (
           <StoryHighlights highlights={story.body.highlights} blocks={story.body.blocks}
-            sources={[...new Set(story.evidence?.sources?.map((s) => s.org) ?? [])]} />
+            sources={[...new Set(story.evidence?.sources?.map((s) => sourceOrgLabel(s.org)) ?? [])]} />
         ) : clip ? (
           <figure className="story-hero-video">
             <video className="story-hero-art" src={clip.url} poster={art?.url} controls playsInline
