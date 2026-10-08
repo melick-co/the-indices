@@ -265,3 +265,11 @@ body:has(.site-shell--bs) { background: #fdfcf3; }
 }
 .site-shell--bs .archive-list li > p { font-size: 16px; color: var(--bs-caption); margin: 6px 0 0; }
 .site-shell--bs .section-lede { color: var(--bs-caption); }
+
+/* ---------- pictures: every article carries its illustration ---------- */
+.site-shell--bs .cut-link { display: block; }
+.site-shell--bs .lead-cut { margin: 4px 0 14px; }
+.site-shell--bs .brief-cut { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; margin: 0 0 10px; background: var(--bs-recess); }
+.site-shell--bs .cut-link:hover img { opacity: .92; }
+.site-shell--bs .story-hero-art { border: 0; background: var(--bs-recess); margin: 20px 0 18px; }
+.site-shell--bs .lead .hl { margin-top: 4px; }
