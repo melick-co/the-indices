@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import StoryChart from '@/components/StoryChart';
-import { Change, DeviationBar, tileReading, ToneChip, Trend, Value, historyChart, isPressure, peersChart, reference, tone } from '@/components/dashboard/DashParts';
+import { Change, DeviationBar, fullReading, tileReading, ToneChip, Trend, Value, historyChart, isPressure, peersChart, reference, tone } from '@/components/dashboard/DashParts';
 import { Icon, indicatorIcon, sectionIcon } from '@/components/dashboard/Icons';
 import { formatReading, periodLabel, type Reading, type SectionReading } from '@/lib/economy-dashboard';
 import { sydneyDay } from '@/lib/dates';
@@ -81,7 +81,7 @@ function SectionCard({ dash, s }: { dash: DashboardRef; s: SectionReading }) {
       <Link href={`${dash.base}/${section.id}/${h.key}`} className="dx-headline">
         <span className="dx-headline-label">{h.indicator.short ?? h.indicator.label}{h.latest && <span className="dx-period">{periodLabel(h.latest.period)}</span>}</span>
         <span className="dx-headline-row">
-          <span className="dx-big">{h.latest ? formatReading(h.latest.value, h.indicator.unit, h.indicator.decimals) : '—'}</span>
+          <span className="dx-big">{fullReading(h)}</span>
           <span className="dx-headline-side"><ToneChip reading={h} /><Change reading={h} /></span>
         </span>
         <Trend points={h.history.slice(-36)} step={h.indicator.step} refValue={b.kind === 'target' ? null : ref?.value} tone={tone(h)}
@@ -148,7 +148,7 @@ export function SectionPanel({ dash, reading, more }: { dash: DashboardRef; read
         </Link>
         <div className="dx-headline static">
           <span className="dx-headline-row">
-            <span className="dx-big">{h.latest ? formatReading(h.latest.value, h.indicator.unit, h.indicator.decimals) : '—'}</span>
+            <span className="dx-big">{fullReading(h)}</span>
             <span className="dx-headline-side"><ToneChip reading={h} /><Change reading={h} /></span>
           </span>
           <Trend points={h.history} step={h.indicator.step} height={110} refValue={b.kind === 'target' ? null : ref?.value} tone={tone(h)}
