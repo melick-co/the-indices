@@ -61,7 +61,7 @@ html:has(.site-shell--ix), html:has(.site-shell--ix) body { background: #fdfcf3;
 }
 .site-shell--ix .ix-by:hover { text-decoration: underline !important; text-underline-offset: 3px; }
 .site-shell--ix .ix-nav {
-  border-top: 1px solid var(--ixb-ink); border-bottom: 1px solid var(--ixb-ink); gap: 0; justify-content: center;
+  border-top: 1px solid var(--ixb-ink); border-bottom: 1px solid var(--ixb-ink); gap: 0; justify-content: safe center; flex-wrap: nowrap;
 }
 .site-shell--ix .ix-nav-link {
   position: relative; font-family: var(--ixb-serif); font-size: 13px; font-weight: 400; letter-spacing: 0.075em; text-transform: uppercase;
@@ -72,7 +72,6 @@ html:has(.site-shell--ix), html:has(.site-shell--ix) body { background: #fdfcf3;
 .site-shell--ix .ix-nav-link.is-active { text-decoration: underline !important; text-underline-offset: 4px; text-decoration-thickness: 1px; }
 @media (max-width: 760px) {
   .site-shell--ix .ix-mast { padding: 0 16px; }
-  .site-shell--ix .ix-nav { justify-content: flex-start; }
 }
 
 /* ---------- dashboard hero: on the page, not a navy band ---------- */
