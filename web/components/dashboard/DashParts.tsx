@@ -38,7 +38,19 @@ export function StatusBadge({ reading }: { reading: Reading }) {
 
 export function Value({ reading, big = false }: { reading: Reading; big?: boolean }) {
   if (!reading.latest) return <span className="dash-value">—</span>;
-  return <span className={big ? 'dash-value big' : 'dash-value'}>{formatReading(reading.latest.value, reading.indicator.unit, reading.indicator.decimals)}</span>;
+  return <span className={big ? 'dash-value big' : 'dash-value'}>{fullReading(reading)}</span>;
+}
+
+/** A growth rate that rounds to zero reads "Flat" ("0.0%" looks like missing data); anything else is shown as is. */
+function flat(r: Reading, text: string): string {
+  const growth = /growth/i.test(r.indicator.label) && r.indicator.unit === 'percent';
+  return growth && /^-?0(\.0+)?%$/.test(text) ? 'Flat' : text;
+}
+
+/** The full reading for a card's big number and the indicator page: the same "Flat" rule as the tiles. */
+export function fullReading(r: Reading): string {
+  if (!r.latest) return '—';
+  return flat(r, formatReading(r.latest.value, r.indicator.unit, r.indicator.decimals));
 }
 
 /** Short forms for tight columns (driver rows, ticker): "22.2/100k", "498 pts". Summaries keep the full wording. */
@@ -50,9 +62,7 @@ export function compactReading(v: number, unit: Reading['indicator']['unit'], de
 /** The tile reading. A growth rate that rounds to zero reads "Flat": "0.0%" looks like missing data. */
 export function tileReading(r: Reading): string {
   if (!r.latest) return '—';
-  const text = compactReading(r.latest.value, r.indicator.unit, r.indicator.decimals);
-  const growth = /growth/i.test(r.indicator.label) && (r.indicator.unit === 'percent');
-  return growth && /^-?0(\.0+)?%$/.test(text) ? 'Flat' : text;
+  return flat(r, compactReading(r.latest.value, r.indicator.unit, r.indicator.decimals));
 }
 const COMPACT_CHANGE: Partial<Record<NonNullable<Reading['indicator']['unit']>, (d: number) => string>> = {
   per_100k: (d) => `${Math.round(d * 10) / 10}/100k`, points: (d) => `${Math.round(d)} pts`,
