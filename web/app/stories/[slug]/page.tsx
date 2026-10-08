@@ -73,8 +73,10 @@ export default async function StoryPage({
             {story.oneNumber?.metric_id && !story.body?.highlights?.items?.length && <HeroStat one={story.oneNumber} />}
           </>
         ) : null}
-        {/* The picture first, then the story in numbers (when it has them). */}
-        {clip ? (
+        {story.body?.highlights?.items?.length ? (
+          <StoryHighlights highlights={story.body.highlights} blocks={story.body.blocks}
+            sources={[...new Set(story.evidence?.sources?.map((s) => s.org) ?? [])]} />
+        ) : clip ? (
           <figure className="story-hero-video">
             <video className="story-hero-art" src={clip.url} poster={art?.url} controls playsInline
               preload="none" aria-label={clip.alt ?? story.title} />
@@ -84,10 +86,6 @@ export default async function StoryPage({
           // eslint-disable-next-line @next/next/no-img-element
           <img className="story-hero-art" src={art.url} alt={art.alt} />
         )}
-        {story.body?.highlights?.items?.length ? (
-          <StoryHighlights highlights={story.body.highlights} blocks={story.body.blocks}
-            sources={[...new Set(story.evidence?.sources?.map((s) => s.org) ?? [])]} />
-        ) : null}
         <div className="byline">
           {new Date(story.published).toLocaleDateString('en-AU',
             { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}

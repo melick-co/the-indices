@@ -266,10 +266,19 @@ body:has(.site-shell--bs) { background: #fdfcf3; }
 .site-shell--bs .archive-list li > p { font-size: 16px; color: var(--bs-caption); margin: 6px 0 0; }
 .site-shell--bs .section-lede { color: var(--bs-caption); }
 
-/* ---------- pictures: every article carries its illustration ---------- */
+/* ---------- story cards: each carries its key number as its picture ---------- */
 .site-shell--bs .cut-link { display: block; }
-.site-shell--bs .lead-cut { margin: 4px 0 14px; }
-.site-shell--bs .brief-cut { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; margin: 0 0 10px; background: var(--bs-recess); }
-.site-shell--bs .cut-link:hover img { opacity: .92; }
-.site-shell--bs .story-hero-art { border: 0; background: var(--bs-recess); margin: 20px 0 18px; }
-.site-shell--bs .lead .hl { margin-top: 4px; }
+.site-shell--bs .hl-thumb {
+  aspect-ratio: 3 / 2; display: flex; flex-direction: column; justify-content: space-between; gap: 4px;
+  padding: 14px 16px 10px; margin: 0 0 10px; background: var(--bs-white); border: 1px solid var(--bs-rule);
+  container-type: inline-size;
+}
+.site-shell--bs .cut-link:hover .hl-thumb { border-color: var(--bs-ink); }
+.site-shell--bs .hl-thumb-fig {
+  display: flex; align-items: baseline; gap: 8px; white-space: nowrap;
+  font-family: var(--bs-serif); font-weight: 400; letter-spacing: -0.02em; line-height: 1; font-size: clamp(1.6rem, 15cqi, 2.8rem);
+}
+.site-shell--bs .hl-thumb-label { font-family: var(--bs-serif); font-weight: 600; font-size: 14px; line-height: 1.25; }
+.site-shell--bs .hl-thumb-note { font-family: var(--bs-serif); font-size: 14px; color: var(--bs-caption); }
+.site-shell--bs .hl-thumb .hl-spark { margin: 4px 0 0; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+.site-shell--bs .hl-thumb .hl-spark svg { height: 100%; min-height: 40px; max-height: 90px; }

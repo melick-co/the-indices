@@ -21,3 +21,9 @@ assert.match(checkHighlights([{ figure: '7.3%', label: 'one two three four five 
 console.log('story-highlights.check: lengths ok');
 assert.match(checkHighlights([{ figure: '7.3%', label: 'a', chart: 0 }, { figure: '-A$34bn', label: 'b', chart: 0 }], story).join(), /used twice/);
 console.log('story-highlights.check: charts ok');
+import { chartFits } from './story-highlights';
+const rank = { type: 'chart', kind: 'bars', series: [{ label: 'United States', value: 1425.1 }, { label: 'Germany', value: 600 }] } as never;
+assert.equal(chartFits({ figure: '1,425.1k', label: 'US permanent migrants' }, rank), true);
+assert.equal(chartFits({ figure: '4.19', label: 'US per 1,000' }, rank), false);
+assert.equal(chartFits({ figure: '-A$34bn', label: 'x' }, { type: 'chart', kind: 'line', series: [] } as never), true);
+console.log('story-highlights.check: chart fit ok');

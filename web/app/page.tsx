@@ -15,7 +15,7 @@ import { loadTrendingPage } from '@/lib/trending-topics';
 import { buildTrendIndex } from '@/lib/trend-weight';
 import { pickRub } from '@/lib/the-rub';
 import { pickExplainer } from '@/lib/explainers';
-import { resolveHeroImage } from '@/lib/story-art';
+import { HighlightThumb } from '@/components/StoryHighlights';
 
 export const revalidate = 900;
 
@@ -57,15 +57,13 @@ export default async function Home() {
         <div className="sheet-row sheet-row-below">
           <div className="sheet-more">
             {more.map((story) => {
-              const art = resolveHeroImage(story);
-              return (
+                    return (
               <article key={story.slug} className="brief brief-wide">
-                {art && (
+                {story.body?.highlights?.items?.length ? (
                   <Link href={`/stories/${story.slug}`} className="cut-link" tabIndex={-1} aria-hidden="true">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img className="brief-cut" src={art.url} alt="" loading="lazy" />
+                    <HighlightThumb highlights={story.body.highlights} blocks={story.body.blocks} />
                   </Link>
-                )}
+                ) : null}
                 <p className="brief-kicker">{story.kicker}</p>
                 <h2 className="brief-headline">
                   <Link href={`/stories/${story.slug}`}>{story.title}</Link>

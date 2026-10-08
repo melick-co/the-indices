@@ -27,6 +27,18 @@ export function storyNumbers(story: Pick<Story, 'title' | 'hook' | 'caveat' | 'o
   return new Set(numbersIn(parts.join(' ').replace(/\[\^\d+\]/g, ' ')));
 }
 
+/**
+ * Whether a chart can stand under a highlight. A ranking (bars, rank swap) must contain the figure's own number, or
+ * it would show a different measure (say, total intake under a per-person figure). Time series pass: their figure is
+ * often a change or a level the line arrives at.
+ */
+export function chartFits(h: StoryHighlight, chart: StoryChartBlock): boolean {
+  if (chart.kind !== 'bars' && chart.kind !== 'rank_swap') return true;
+  const want = numbersIn(h.figure).map(Number);
+  return chart.series.some((p) => want.some((w) => Math.abs(p.value - w) <= Math.max(0.006, Math.abs(w) * 0.001)
+    || Math.abs(p.value / 1000 - w) <= Math.abs(w) * 0.001 || Math.abs(p.value / 1e6 - w) <= Math.abs(w) * 0.001));
+}
+
 /** Problems with a set of highlights; empty when every number is the story's own and every chart exists. */
 export function checkHighlights(items: StoryHighlight[], story: Pick<Story, 'title' | 'hook' | 'caveat' | 'oneNumber' | 'body'>): string[] {
   const have = storyNumbers(story);
@@ -34,10 +46,11 @@ export function checkHighlights(items: StoryHighlight[], story: Pick<Story, 'tit
   const problems: string[] = [];
   const used = items.map((h) => h.chart).filter((c): c is number => c != null);
   if (new Set(used).size < used.length) problems.push('a chart is used twice (each chart at most once; use null instead)');
-  if (items.length < 2 || items.length > 4) problems.push(`${items.length} highlights (want 2 to 4)`);
+  if (items.length < 2 || items.length > 3) problems.push(`${items.length} highlights (want 2 or 3)`);
   for (const h of items) {
     for (const n of numbersIn(`${h.figure} ${h.label} ${h.note ?? ''}`)) if (!have.has(n)) problems.push(`"${n}" in "${h.figure} / ${h.label} / ${h.note ?? ''}" is not in the story`);
     if (h.chart != null && !charts[h.chart]) problems.push(`chart ${h.chart} does not exist`);
+    else if (h.chart != null && !chartFits(h, charts[h.chart])) problems.push(`chart ${h.chart} does not show "${h.figure}" (a ranking must contain the figure)`);
     if (!h.figure?.trim() || !h.label?.trim()) problems.push('a highlight is missing its figure or label');
     const words = (t?: string) => (t ?? '').trim().split(/\s+/).filter(Boolean).length;
     if (words(h.label) > 6) problems.push(`label "${h.label}" is over 6 words`);
@@ -67,7 +80,7 @@ export async function generateHighlights(story: StoryForHighlights, log: (m: str
         model: MODEL, max_tokens: 900,
         system: [
           'You design the graphic at the top of a data-journalism article: "the story in three numbers". A reader should get the gist of the standfirst from it at a glance, then read on.',
-          'Pick 3 highlights (2 to 4 if the story needs it) that follow the standfirst, in its order. Each: figure (compact, as it should appear large, e.g. "A$2,568bn", "4.6%", "-A$34bn"), label (what it is, at most 6 words), note (one line of context, at most 10 words), direction (up, down or flat: the way the figure moved), and chart (the index of the story chart that shows it, or null; each chart at most once).',
+          'Pick 3 highlights (2 if the story only has two) that follow the standfirst, in its order. Each: figure (compact, as it should appear large, e.g. "A$2,568bn", "4.6%", "-A$34bn"), label (what it is, at most 6 words), note (one line of context, at most 10 words), direction (up, down or flat: the way the figure moved), and chart (the index of the story chart that shows that very measure, or null; each chart at most once; a ranking chart only if it contains the figure).',
           'Use only numbers that appear in the story as given; do not compute, round differently or add any. Notes restate what the story says, never a new claim. Write bn for billion, m for million and % for per cent; keep the figure under 11 characters. Australian English, no em dashes.',
           'Reply with JSON only: {"items":[{"figure":"","label":"","note":"","direction":"up","chart":0}]}.',
         ].join(' '),

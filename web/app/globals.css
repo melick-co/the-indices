@@ -5032,3 +5032,10 @@ a.dx-driver:hover { background: #f5f7fb; }
   .hl-item, .hl-item:first-child { padding: 12px 0 0; border-left: 0; border-top: 1px solid rgba(169, 182, 211, .22); }
   .hl-item:first-child { border-top: 0; padding-top: 0; }
 }
+/* Highlights: a ranking chart as five small bars. */
+.hl-bars { display: flex; flex-direction: column; gap: 3px; margin: 6px 0 2px; }
+.hl-bar { display: grid; grid-template-columns: minmax(0, 42%) 1fr; align-items: center; gap: 6px; font-size: .68rem; line-height: 1.2; }
+.hl-bar-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .8; }
+.hl-bar-track span { display: block; height: 8px; background: currentColor; opacity: .35; }
+.hl-bar.is-hl .hl-bar-label { opacity: 1; font-weight: 700; }
+.hl-bar.is-hl .hl-bar-track span { opacity: 1; }

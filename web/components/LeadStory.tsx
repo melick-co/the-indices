@@ -16,18 +16,15 @@ export default function LeadStory({ story, wide = false }: { story: Story; wide?
       <h1 className="lead-headline">
         <Link href={`/stories/${story.slug}`}>{story.title}</Link>
       </h1>
-      {art && (
-        <Link href={`/stories/${story.slug}`} className="cut-link">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="lead-cut" src={art.url} alt={art.alt} />
-        </Link>
-      )}
-      <p className="lead-deck">{story.hook.replace(/\[\^\d+\]/g, '')}</p>
-      {/* The picture draws the reader in; the story in numbers gives the gist before they click. */}
+      {/* The story in numbers, when it has them; otherwise its illustration. */}
       {story.body?.highlights?.items?.length ? (
         <StoryHighlights highlights={story.body.highlights} blocks={story.body.blocks}
           sources={[...new Set(story.evidence?.sources?.map((s) => s.org) ?? [])]} />
-      ) : null}
+      ) : art && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="lead-cut" src={art.url} alt={art.alt} />
+      )}
+      <p className="lead-deck">{story.hook.replace(/\[\^\d+\]/g, '')}</p>
       {!story.body?.highlights?.items?.length && (
         <p className="lead-number">
           <strong>{story.oneNumber.value}</strong>
