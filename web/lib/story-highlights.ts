@@ -62,7 +62,7 @@ export function checkHighlights(items: StoryHighlight[], story: Pick<Story, 'tit
 
 type StoryForHighlights = Pick<Story, 'title' | 'hook' | 'caveat' | 'kicker' | 'oneNumber' | 'body'>;
 
-/** Ask for the highlights, check them, and ask once more with the problems if they fail. Null if they never pass. */
+/** Ask for the highlights, check them, and ask again with the problems if they fail (three tries). Null if they never pass. */
 export async function generateHighlights(story: StoryForHighlights, log: (m: string) => void = () => {}): Promise<StoryHighlights | null> {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
   if (!key) { log('No ANTHROPIC_API_KEY; no highlights.'); return null; }
@@ -72,7 +72,7 @@ export async function generateHighlights(story: StoryForHighlights, log: (m: str
   }));
   const paragraphs = (story.body?.blocks ?? []).filter((b) => b.type === 'paragraph').slice(0, 8).map((b) => (b as { text: string }).text.replace(/\[\^\d+\]/g, ''));
   let feedback = '';
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
