@@ -1,0 +1,165 @@
+/* ============================================================
+   Caveat Indices in the broadsheet's style (Oct 2026): cream
+   page, serif type, tracked capitals, grey hairlines, square
+   corners, no shadows. The dashboards keep their meaning
+   colours (good, watch, bad) because those encode the data;
+   everything that was navy is now ink.
+   ============================================================ */
+
+.site-shell--ix {
+  --ixb-cream: #fdfcf3;
+  --ixb-white: #ffffff;
+  --ixb-margin: #fdfbe4;
+  --ixb-recess: #e7e7e7;
+  --ixb-rule: #d9d9d9;
+  --ixb-ink: #000000;
+  --ixb-charcoal: #211d1c;
+  --ixb-caption: #6e6e6e;
+  --ixb-mute: #b3b3b3;
+  --ixb-serif: var(--font-source-serif, Georgia), 'Times New Roman', serif;
+  --ixb-sans: 'Helvetica Neue', var(--font-source-sans, Helvetica), Helvetica, Arial, sans-serif;
+  background: var(--ixb-cream);
+  font-family: var(--ixb-serif);
+  color: var(--ixb-ink);
+}
+/* The shell also carries the desk's class (site-shell--ops), whose body and button rules would win otherwise. */
+html:has(.site-shell--ix), html:has(.site-shell--ix) body { background: #fdfcf3; color: #000000; }
+.site-shell--ix .ix-tile { font-family: var(--ixb-serif) !important; }
+.site-shell--ix * { box-shadow: none !important; }
+
+/* The dashboards' palette, re-pointed: navy becomes ink, the canvas is the page's cream. */
+.site-shell--ix .dx {
+  --dx-navy: var(--ixb-ink);
+  --dx-navy-2: var(--ixb-charcoal);
+  --dx-navy-3: var(--ixb-ink);
+  --dx-on-navy: #ffffff;
+  --dx-on-navy-muted: var(--ixb-mute);
+  --dx-line: var(--ixb-rule);
+  --dx-surface: var(--ixb-white);
+  --dx-canvas: var(--ixb-cream);
+  --dx-text: var(--ixb-ink);
+  --dx-muted: var(--ixb-caption);
+  --dx-neutral: var(--ixb-caption);
+  --dx-neutral-bg: var(--ixb-recess);
+  font-family: var(--ixb-serif);
+}
+
+/* ---------- masthead ---------- */
+.site-shell--ix .ix-mast { background: var(--ixb-cream); color: var(--ixb-ink); border-bottom: 0; padding: 0 32px; }
+.site-shell--ix .ix-mast-row { padding: 18px 0 14px; align-items: flex-end; }
+.site-shell--ix .ix-brand {
+  color: var(--ixb-ink) !important; font-family: var(--ixb-serif); font-weight: 600; font-size: clamp(26px, 3.4vw, 40px);
+  letter-spacing: -0.02em; gap: 12px;
+}
+.site-shell--ix .ix-brand .ix-mark { height: 26px; gap: 3px; }
+.site-shell--ix .ix-brand .ix-mark i { width: 6px; background: var(--ixb-mute); }
+.site-shell--ix .ix-brand .ix-mark i:nth-child(1) { height: 11px; }
+.site-shell--ix .ix-brand .ix-mark i:nth-child(2) { height: 18px; background: var(--ixb-caption); }
+.site-shell--ix .ix-brand .ix-mark i:nth-child(3) { height: 26px; background: var(--ixb-ink); }
+.site-shell--ix .ix-by {
+  font-family: var(--ixb-sans); font-size: 13px; font-weight: 700; letter-spacing: 0.01em; color: var(--ixb-ink) !important;
+}
+.site-shell--ix .ix-by:hover { text-decoration: underline !important; text-underline-offset: 3px; }
+.site-shell--ix .ix-nav {
+  border-top: 1px solid var(--ixb-ink); border-bottom: 1px solid var(--ixb-ink); gap: 0; justify-content: center;
+}
+.site-shell--ix .ix-nav-link {
+  position: relative; font-family: var(--ixb-serif); font-size: 13px; font-weight: 400; letter-spacing: 0.075em; text-transform: uppercase;
+  color: var(--ixb-ink) !important; padding: 10px 14px; border-bottom: 0;
+}
+.site-shell--ix .ix-nav-link + .ix-nav-link::before { content: '|'; position: absolute; left: -2px; color: var(--ixb-mute); }
+.site-shell--ix .ix-nav-link:hover,
+.site-shell--ix .ix-nav-link.is-active { text-decoration: underline !important; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+@media (max-width: 760px) {
+  .site-shell--ix .ix-mast { padding: 0 16px; }
+  .site-shell--ix .ix-nav { justify-content: flex-start; }
+}
+
+/* ---------- dashboard hero: on the page, not a navy band ---------- */
+.site-shell--ix .dx-hero { background: var(--ixb-cream); color: var(--ixb-ink); border-bottom: 1px solid var(--ixb-rule); padding: 26px 32px 22px; }
+.site-shell--ix .dx-hero a { color: var(--ixb-ink); text-decoration-color: var(--ixb-rule); }
+.site-shell--ix .dx-kicker, .site-shell--ix .dx-asof {
+  font-family: var(--ixb-serif); font-size: 12px; letter-spacing: 0.075em; color: var(--ixb-ink);
+}
+.site-shell--ix .dx-asof { color: var(--ixb-caption); }
+.site-shell--ix .dx-title { font-family: var(--ixb-serif); font-weight: 400; font-size: clamp(30px, 4vw, 44px); letter-spacing: -0.02em; color: var(--ixb-ink); }
+.site-shell--ix .dx-intro { color: var(--ixb-caption); font-size: 17px; line-height: 1.45; }
+.site-shell--ix .dx-ticker { background: var(--ixb-rule); border: 1px solid var(--ixb-rule); border-radius: 0; }
+.site-shell--ix .dx-tick { background: var(--ixb-white); }
+.site-shell--ix .dx-tick:hover { background: var(--ixb-margin); }
+.site-shell--ix .dx-tick.good { border-top-color: var(--dx-good); }
+.site-shell--ix .dx-tick.bad { border-top-color: var(--dx-bad); }
+.site-shell--ix .dx-tick.watch { border-top-color: var(--dx-watch); }
+.site-shell--ix .dx-tick.neutral { border-top-color: var(--ixb-mute); }
+.site-shell--ix .dx-tick-label { font-family: var(--ixb-serif); color: var(--ixb-caption); letter-spacing: 0.075em; }
+.site-shell--ix .dx-tick-value { font-family: var(--ixb-serif); font-weight: 400; color: var(--ixb-ink); letter-spacing: -0.01em; }
+.site-shell--ix .dx-tick-meta, .site-shell--ix .dx-tick .dash-change { color: var(--ixb-caption); }
+.site-shell--ix .dx-tick .dash-change.good { color: var(--dx-good); }
+.site-shell--ix .dx-tick .dash-change.watch { color: var(--dx-bad); }
+
+/* ---------- cards: square, hairline, a black flag strip for the head ---------- */
+.site-shell--ix .dx-card { border-radius: 0; }
+.site-shell--ix .dx-card-head { background: var(--ixb-ink); }
+.site-shell--ix .dx-card-icon { border-radius: 0; background: rgba(255, 255, 255, .14); }
+.site-shell--ix .dx-card-titles h2 { font-family: var(--ixb-serif); font-weight: 600; letter-spacing: -0.01em; }
+.site-shell--ix .dx-pressure, .site-shell--ix .dx-chip, .site-shell--ix .dx-verdict, .site-shell--ix .dx-private-badge { border-radius: 0; }
+.site-shell--ix .dx-headline-label, .site-shell--ix .dx-drivers-head { font-family: var(--ixb-serif); font-weight: 400; letter-spacing: 0.075em; }
+.site-shell--ix .dx-big { font-family: var(--ixb-serif); font-weight: 400; letter-spacing: -0.02em; color: var(--ixb-ink); }
+.site-shell--ix .dx-driver { border-radius: 0; }
+.site-shell--ix .dx-driver-icon { border-radius: 0; }
+.site-shell--ix .dx-driver-value { font-family: var(--ixb-serif); font-weight: 600; }
+/* Driver rows are dense chrome: the narrow sans keeps their labels on one or two lines. */
+.site-shell--ix .dx-driver-label { font-family: var(--ixb-sans); font-size: .82rem; }
+.site-shell--ix .dx-dev, .site-shell--ix .dx-split-bar, .site-shell--ix .dx-party-track, .site-shell--ix .dx-net-track { border-radius: 0; background: var(--ixb-recess); }
+.site-shell--ix .dx-party-track span { border-radius: 0; }
+.site-shell--ix .dx-band { border-radius: 0; background: var(--ixb-ink); }
+.site-shell--ix .dx-band h2 { font-family: var(--ixb-serif); font-weight: 600; }
+.site-shell--ix .dx-band-icon { border-radius: 0; }
+
+/* ---------- Indices home: groups and tiles ---------- */
+.site-shell--ix .ix-group-head { border-bottom: 1px solid var(--ixb-ink); }
+.site-shell--ix .ix-group-head h2 { font-family: var(--ixb-serif); font-weight: 400; font-size: 26px; letter-spacing: -0.02em; color: var(--ixb-ink); }
+.site-shell--ix .ix-group-link { font-family: var(--ixb-serif); font-size: 13px; font-weight: 400; color: var(--ixb-ink) !important; border-bottom: 1px solid var(--ixb-rule); }
+.site-shell--ix .ix-tile { border-radius: 0 !important; border-color: var(--ixb-rule); transform: none !important; } /* the desk's button style would round it */
+.site-shell--ix .ix-tile:hover { border-color: var(--ixb-ink); }
+.site-shell--ix .ix-tile.is-active { border-color: var(--ixb-ink); outline: 1px solid var(--ixb-ink); }
+.site-shell--ix .ix-tile:focus-visible { outline: 1px solid var(--ixb-ink); }
+.site-shell--ix .ix-tile-body { border-radius: 0; border-top-color: var(--ixb-mute); }
+.site-shell--ix .ix-tile-body.good { border-top-color: var(--dx-good); }
+.site-shell--ix .ix-tile-body.bad { border-top-color: var(--dx-bad); }
+.site-shell--ix .ix-tile-body.watch { border-top-color: var(--dx-watch); }
+.site-shell--ix .ix-tile-label { font-family: var(--ixb-serif); font-weight: 400; letter-spacing: 0.075em; color: var(--ixb-caption); }
+.site-shell--ix .ix-tile-label em { border-radius: 0; }
+.site-shell--ix .ix-tile-value { font-family: var(--ixb-serif); font-weight: 400; font-size: 1.7rem; letter-spacing: -0.02em; color: var(--ixb-ink); }
+.site-shell--ix .ix-tile-meta { font-family: var(--ixb-serif); }
+.site-shell--ix .ix-detail-bar { border-radius: 0; background: var(--ixb-ink); font-family: var(--ixb-serif); font-weight: 400; letter-spacing: 0.075em; }
+.site-shell--ix .ix-detail-title h2 { font-family: var(--ixb-serif); font-weight: 400; font-size: 24px; letter-spacing: -0.02em; }
+
+/* ---------- visuals: posters and gallery ---------- */
+.site-shell--ix .vz-crumb a { color: var(--ixb-ink); border-bottom: 1px solid var(--ixb-rule); }
+.site-shell--ix .vz-poster, .site-shell--ix .vz-card { border-radius: 0; border-color: var(--ixb-rule); transform: none !important; }
+.site-shell--ix .vz-card:hover { border-color: var(--ixb-ink); }
+.site-shell--ix .vz-head { background: var(--ixb-ink); }
+.site-shell--ix .vz-brand { font-family: var(--ixb-serif); font-weight: 400; letter-spacing: 0.075em; color: var(--ixb-mute); }
+.site-shell--ix .vz-title { font-family: var(--ixb-serif); font-weight: 400; letter-spacing: -0.02em; }
+.site-shell--ix .vz-takeaways h2 { font-family: var(--ixb-serif); font-weight: 400; letter-spacing: 0.075em; color: var(--ixb-ink); }
+.site-shell--ix .vz-takeaways li { font-family: var(--ixb-serif); }
+.site-shell--ix .vz-foot { background: var(--ixb-margin); border-top-color: var(--ixb-rule); color: var(--ixb-caption); font-family: var(--ixb-serif); }
+.site-shell--ix .vz-foot a { color: var(--ixb-ink); }
+.site-shell--ix .vz-card-kind, .site-shell--ix .vz-card-meta { font-family: var(--ixb-serif); letter-spacing: 0.075em; }
+.site-shell--ix .vz-card-title { font-family: var(--ixb-serif); font-weight: 400; letter-spacing: -0.01em; }
+.site-shell--ix .vz-card-teaser { font-family: var(--ixb-serif); color: var(--ixb-caption); }
+.site-shell--ix .vz-thumb { background: var(--ixb-white); border-bottom-color: var(--ixb-rule); }
+.site-shell--ix .vz-player { border-radius: 0; }
+.site-shell--ix .vz-video-row video { border-radius: 0; }
+.site-shell--ix .vz-row rect { fill: #b3b3b3; }
+.site-shell--ix .vz-row.hl rect { fill: #000000; }
+.site-shell--ix .vz-row.hl text { fill: #000000; }
+.site-shell--ix .vz-svg text { font-family: var(--ixb-serif); fill: #000000; }
+
+/* In a narrow card the fixed bar, value and change columns left the driver's name ~30px; tighten them instead. */
+.site-shell--ix .dx-card { container-type: inline-size; }
+@container (max-width: 420px) {
+  .site-shell--ix .dx-driver { grid-template-columns: 24px minmax(0, 1fr) 44px 68px 64px; gap: 6px; }
+  .site-shell--ix .dx-driver-icon { width: 22px; height: 22px; }
+}

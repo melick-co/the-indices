@@ -1,6 +1,8 @@
 import './globals.css';
 // The public broadsheet's look (scoped to .site-shell--bs), layered over the shared styles.
 import './broadsheet.css';
+// Caveat Indices in the same style (scoped to .site-shell--ix).
+import './indices.css';
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import { SiteShell } from '@/components/SiteShell';
