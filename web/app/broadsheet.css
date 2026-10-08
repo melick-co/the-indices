@@ -82,7 +82,7 @@ body:has(.site-shell--bs) { background: #fdfcf3; }
   font-family: var(--bs-serif); font-size: 13px; letter-spacing: 0.075em; text-transform: uppercase;
 }
 .bs-nav::before, .bs-nav::after { content: ''; flex-basis: 100%; height: 0; border-top: 1px solid var(--bs-ink); }
-.bs-nav a { padding: 10px 14px; color: var(--bs-ink); position: relative; }
+.bs-nav a { padding: 10px 12px; color: var(--bs-ink); position: relative; white-space: nowrap; }
 .bs-nav a + a::before { content: '|'; position: absolute; left: -2px; color: var(--bs-mute); }
 .bs-nav a:hover, .bs-nav a[aria-current='page'] { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
 
@@ -92,7 +92,12 @@ body:has(.site-shell--bs) { background: #fdfcf3; }
   .bs-mast { grid-template-columns: 1fr; text-align: center; padding: 16px; }
   .bs-flag, .bs-motto { align-items: center; text-align: center; }
   .bs-flag { order: 2; } .bs-motto { display: none; }
-  .bs-nav { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scrollbar-width: none; }
+}
+/* Below desktop width the section row scrolls sideways on one line rather than wrapping a word (and its pipe)
+   onto a second. "safe center" centres it when it fits and starts it at the left edge when it doesn't. */
+@media (max-width: 1000px) {
+  .bs-nav { flex-wrap: nowrap; overflow-x: auto; justify-content: safe center; scrollbar-width: none; }
+  .bs-nav::-webkit-scrollbar { display: none; }
   .bs-nav::before, .bs-nav::after { display: none; }
   .bs-nav { border-top: 1px solid var(--bs-ink); border-bottom: 1px solid var(--bs-ink); }
   .bs-nav a { flex: 0 0 auto; padding: 10px 12px; }
