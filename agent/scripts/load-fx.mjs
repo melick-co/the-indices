@@ -12,7 +12,8 @@
  *   node scripts/load-fx.mjs --dry-run   fetch and print, write nothing
  *   node scripts/load-fx.mjs             upsert
  */
-const URL = 'https://sdmx.oecd.org/public/rest/data/OECD.SDD.NAD,DSD_NAMAIN10@DF_TABLE4,/A.AUS..........?startPeriod=2000&dimensionAtObservation=AllDimensions&format=csvfilewithlabels';
+// The four series by their exact key (a wildcard query over the whole table fails from some networks).
+const URL = 'https://sdmx.oecd.org/public/rest/data/OECD.SDD.NAD,DSD_NAMAIN10@DF_TABLE4,/A.AUS.S1.S1.EXC_A+PPP_P41+PPP_P31S14+PPP_B1GQ.._Z._Z.XDC_USD._Z.N.?startPeriod=2000&dimensionAtObservation=AllDimensions&format=csvfilewithlabels';
 const SERIES = {
   EXC_A: ['fx_aud_usd_avg', 'Exchange rate, A$ per US$ (annual average)'],
   PPP_P41: ['ppp_aud_aic', 'Purchasing power parity for actual individual consumption, A$ per US$'],
@@ -34,7 +35,8 @@ export async function loadFx({ dry = false } = {}) {
   let text = null;
   for (let attempt = 1; attempt <= 5 && text == null; attempt++) {
     const res = await fetch(URL, {
-      headers: { accept: 'text/csv', 'user-agent': 'caveat-indices-data-loader (+https://the-indices.vercel.app/methodology)' },
+      // No Accept header: the OECD server answers 500 to Accept: text/csv; the format parameter sets CSV.
+      headers: { 'user-agent': 'caveat-indices-data-loader (+https://the-indices.vercel.app/methodology)' },
       signal: AbortSignal.timeout(120_000),
     }).catch(() => null);
     if (res?.ok) text = await res.text();
