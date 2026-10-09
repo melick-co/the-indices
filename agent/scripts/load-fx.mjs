@@ -12,7 +12,7 @@
  *   node scripts/load-fx.mjs --dry-run   fetch and print, write nothing
  *   node scripts/load-fx.mjs             upsert
  */
-const URL = 'https://sdmx.oecd.org/public/rest/data/OECD.SDD.NAD,DSD_NAMAIN10@DF_TABLE4,/A.AUS..........?startPeriod=1990&dimensionAtObservation=AllDimensions&format=csvfilewithlabels';
+const URL = 'https://sdmx.oecd.org/public/rest/data/OECD.SDD.NAD,DSD_NAMAIN10@DF_TABLE4,/A.AUS..........?startPeriod=2000&dimensionAtObservation=AllDimensions&format=csvfilewithlabels';
 const SERIES = {
   EXC_A: ['fx_aud_usd_avg', 'Exchange rate, A$ per US$ (annual average)'],
   PPP_P41: ['ppp_aud_aic', 'Purchasing power parity for actual individual consumption, A$ per US$'],
@@ -30,12 +30,15 @@ function parseCsv(text) {
 }
 
 export async function loadFx({ dry = false } = {}) {
-  // The OECD API returns the odd 500 or 429; three tries, a pause between.
+  // The OECD API throttles and returns the odd 500 or 429: five tries, with longer pauses between.
   let text = null;
-  for (let attempt = 1; attempt <= 3 && text == null; attempt++) {
-    const res = await fetch(URL, { signal: AbortSignal.timeout(120_000) }).catch(() => null);
+  for (let attempt = 1; attempt <= 5 && text == null; attempt++) {
+    const res = await fetch(URL, {
+      headers: { accept: 'text/csv', 'user-agent': 'caveat-indices-data-loader (+https://the-indices.vercel.app/methodology)' },
+      signal: AbortSignal.timeout(120_000),
+    }).catch(() => null);
     if (res?.ok) text = await res.text();
-    else if (attempt < 3) await new Promise((r) => setTimeout(r, 5000 * attempt));
+    else if (attempt < 5) { console.log(`OECD Table 4: ${res?.status ?? 'no response'}, retrying`); await new Promise((r) => setTimeout(r, 15000 * attempt)); }
     else throw new Error(`OECD Table 4: ${res?.status ?? 'no response'}`);
   }
   const rows = parseCsv(text);
