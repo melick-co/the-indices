@@ -290,8 +290,8 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
       if (b.kind === 'average') verdict = near ? `Near its ${averageLabel}` : `${diff > 0 ? 'Above' : 'Below'} its ${averageLabel}`;
       // For OECD-judged measures the average is context; the verdict comes from the comparison below.
       summary.push(near
-        ? `It is close to its ${averageLabel} of ${fmt(average, u)}.`
-        : `It is ${diff > 0 ? 'above' : 'below'} its ${averageLabel} of ${fmt(average, u)}${ind.higherIsBetter === undefined ? '' : `, which is ${(diff > 0) === ind.higherIsBetter ? 'a better' : 'a worse'} reading than usual`}.`);
+        ? `It is close to its ${averageLabel} of ${fmt(average, u)}${aud ? ` ${aud.basis}` : ''}.`
+        : `It is ${diff > 0 ? 'above' : 'below'} its ${averageLabel} of ${fmt(average, u)}${aud ? ` ${aud.basis}` : ''}${ind.higherIsBetter === undefined ? '' : `, which is ${(diff > 0) === ind.higherIsBetter ? 'a better' : 'a worse'} reading than usual`}.`);
     }
     if (peers) {
       const mid = peers.aus > peers.median ? 'above' : peers.aus < peers.median ? 'below' : 'at';
@@ -303,7 +303,7 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
       // Lower-case the label's first letter only when it is an ordinary word (keeps "GDP", "Treasury").
       const name = /^[A-Z][a-z]/.test(peers.label) ? peers.label.charAt(0).toLowerCase() + peers.label.slice(1) : peers.label;
       const rank = peers.bestFirst ? `${ordinal(peers.rank)} best of ${peers.of}` : `${ordinal(peers.rank)} highest of ${peers.of}`;
-      summary.push(`Across ${peers.of} OECD countries (${periodLabel(peers.period)}), Australia ranks ${rank} on ${name}, ${mid} the median of ${fmt(peers.median, peers.unit)}.`);
+      summary.push(`Across ${peers.of} OECD countries (${periodLabel(peers.period)}), Australia ranks ${rank} on ${name}, ${mid} the median of ${aud?.median != null ? `${formatAud(aud.median)} (${fmt(peers.median, peers.unit)} ${aud.basis})` : fmt(peers.median, peers.unit)}.`);
     }
   }
   return {

@@ -58,7 +58,7 @@ export function fullReading(r: Reading): string {
 export function UsdNote({ reading }: { reading: Reading }) {
   if (!reading.aud) return null;
   return (
-    <span className="dx-usd" title={`Converted at A$${reading.aud.rate.toFixed(3)} per US$ (OECD, ${reading.aud.rateYear})`}>
+    <span className="dx-usd" title={`Converted at A$${reading.aud.rate.toFixed(3)} per US$ (World Bank, ${reading.aud.rateYear})`}>
       {formatReading(reading.aud.usd, reading.indicator.unit, reading.indicator.decimals)} {reading.aud.basis}
     </span>
   );
