@@ -37,6 +37,11 @@ export type Indicator = {
   history?: number;
   /** Cross-country series to compare against, when the Australian series has no peers of its own. */
   peers?: { metric_id: string; label: string; unit?: Indicator['unit'] | 'usd' };
+  /**
+   * Show a US-dollar reading in Australian dollars, converted with the rate it was built on, for its own year:
+   * the annual average exchange rate (market US$), or the OECD purchasing power parity it used (PPP US$).
+   */
+  aud?: 'exchange' | 'ppp_aic' | 'ppp_hfce' | 'ppp_gdp';
   /** Display unit when the stored one is not reader-friendly. */
   unit?: 'percent' | 'pts' | 'aud' | 'aud_bn' | 'persons' | 'per_1000' | 'index' | 'percent_gdp' | 'usd'
     | 'years' | 'points' | 'score' | 'per_100k' | 'ratio';

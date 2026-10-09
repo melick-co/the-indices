@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import StoryChart from '@/components/StoryChart';
-import { Change, DeviationBar, fullReading, tileReading, ToneChip, Trend, Value, historyChart, isPressure, peersChart, reference, tone } from '@/components/dashboard/DashParts';
+import { Change, DeviationBar, UsdNote, fullReading, tileReading, ToneChip, Trend, Value, historyChart, isPressure, peersChart, reference, tone } from '@/components/dashboard/DashParts';
 import { Icon, indicatorIcon, sectionIcon } from '@/components/dashboard/Icons';
 import { formatReading, periodLabel, type Reading, type SectionReading } from '@/lib/economy-dashboard';
 import { sydneyDay } from '@/lib/dates';
@@ -84,6 +84,7 @@ function SectionCard({ dash, s }: { dash: DashboardRef; s: SectionReading }) {
           <span className="dx-big">{fullReading(h)}</span>
           <span className="dx-headline-side"><ToneChip reading={h} /><Change reading={h} /></span>
         </span>
+        <UsdNote reading={h} />
         <Trend points={h.history.slice(-36)} step={h.indicator.step} refValue={b.kind === 'target' ? null : ref?.value} tone={tone(h)}
           band={b.kind === 'target' ? [b.low, b.high] : undefined} refLabel={ref?.label} />
         {ref && <span className="dx-reflabel"><span className={`dx-refkey ${b.kind === 'target' ? 'band' : ''}`} />{ref.label}</span>}
@@ -151,6 +152,7 @@ export function SectionPanel({ dash, reading, more }: { dash: DashboardRef; read
             <span className="dx-big">{fullReading(h)}</span>
             <span className="dx-headline-side"><ToneChip reading={h} /><Change reading={h} /></span>
           </span>
+          <UsdNote reading={h} />
           <Trend points={h.history} step={h.indicator.step} height={110} refValue={b.kind === 'target' ? null : ref?.value} tone={tone(h)}
             band={b.kind === 'target' ? [b.low, b.high] : undefined} />
           {ref && <span className="dx-reflabel"><span className={`dx-refkey ${b.kind === 'target' ? 'band' : ''}`} />{ref.label}</span>}

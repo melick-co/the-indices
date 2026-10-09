@@ -31,7 +31,35 @@ export type Reading = {
   peers: { metric_id: string; label: string; unit: Indicator['unit']; period: string; rank: number; of: number; median: number; aus: number; rows: Obs[]; bestFirst: boolean } | null;
   /** How the average is described: "10-year average" or "average since August 2025". */
   averageLabel: string | null;
+  /** A US-dollar reading in Australian dollars (indicator.aud): the amount, the rate and the year it is for. */
+  aud: AudReading | null;
 };
+
+export type AudReading = {
+  value: number; usd: number; rate: number; rateYear: string;
+  /** "at purchasing power parity" or "at the average exchange rate", for the US$ note. */
+  basis: string;
+  /** Converts any US$ amount of the same kind (an OECD median, say) at the same rate. */
+  median: number | null;
+};
+
+const AUD_RATE: Record<NonNullable<Indicator['aud']>, { metric: string; basis: string }> = {
+  exchange: { metric: 'fx_aud_usd_avg', basis: 'at the average exchange rate' },
+  ppp_aic: { metric: 'ppp_aud_aic', basis: 'at purchasing power parity' },
+  ppp_hfce: { metric: 'ppp_aud_hfce', basis: 'at purchasing power parity' },
+  ppp_gdp: { metric: 'ppp_aud_gdp', basis: 'at purchasing power parity' },
+};
+
+/** The rate for a year, or the nearest earlier year when that year is not out yet (the year used is reported). */
+async function audRate(db: ReturnType<typeof createClient>, kind: NonNullable<Indicator['aud']>, period: string) {
+  const { data } = await db.from('observations').select('period, value').eq('metric_id', AUD_RATE[kind].metric).eq('entity', 'AUS').order('period');
+  const year = period.slice(0, 4);
+  const rows = (data ?? []).map((r) => ({ period: String(r.period), value: Number(r.value) })).filter((r) => r.period <= year);
+  const hit = rows.at(-1);
+  return hit ? { rate: hit.value, year: hit.period } : null;
+}
+
+export const formatAud = (v: number) => `A$${Math.round(v).toLocaleString('en-AU')}`;
 
 export const ordinal = (n: number) => `${n}${[11, 12, 13].includes(n % 100) ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 const round = (n: number, d = 2) => Math.round(n * 10 ** d) / 10 ** d;
@@ -224,13 +252,25 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
   const u = ind.unit;
   let verdict = '';
   const summary: string[] = [];
+  // US-dollar readings in Australian dollars, at the rate the figure was built on, for its own year.
+  let aud: AudReading | null = null;
+  if (latest && ind.aud) {
+    const r = await audRate(db, ind.aud, latest.period).catch(() => null);
+    if (r) aud = {
+      value: latest.value * r.rate, usd: latest.value, rate: r.rate, rateYear: r.year, basis: AUD_RATE[ind.aud].basis,
+      median: peers ? peers.median * r.rate : null,
+    };
+  }
+  // The reading as a sentence states it: A$ first, the source's US$ in brackets.
+  const said = (v: number) => (aud ? `${formatAud(v * aud.rate)} (${fmt(v, u, ind.decimals)} ${aud.basis})` : fmt(v, u, ind.decimals));
   if (latest) {
     const p = latest.period;
     const when = /^\d{4}-Q/.test(p) ? `in the ${periodLabel(p)}` : /^\d{4}-\d{2}$/.test(p) ? `in ${periodLabel(p)}` : /^\d{4}$/.test(p) ? `in ${p}` : null;
     const was = ind.step
-      ? `${ind.subject ?? ind.label} has been ${fmt(latest.value, u, ind.decimals)} since ${periodLabel(p)}`
-      : `${ind.subject ?? ind.label} was ${fmt(latest.value, u, ind.decimals)} ${when ?? `at ${periodLabel(p)}`}`;
-    summary.push(`${was}${previous ? `, ${changeText(latest.value, previous.value, u)} on the previous reading (${fmt(previous.value, u, ind.decimals)})` : ''}.`);
+      ? `${ind.subject ?? ind.label} has been ${said(latest.value)} since ${periodLabel(p)}`
+      : `${ind.subject ?? ind.label} was ${said(latest.value)} ${when ?? `at ${periodLabel(p)}`}`;
+    summary.push(`${was}${previous ? `, ${changeText(latest.value, previous.value, u)} on the previous reading (${fmt(previous.value, u, ind.decimals)}${aud ? `, ${aud.basis}` : ''})` : ''}.`);
+    if (aud) summary.push(`Australian dollars are converted at the OECD's ${aud.basis.replace('at ', '')} rate for ${aud.rateYear}: A$${aud.rate.toFixed(3)} per US$.`);
     if (b.kind === 'target') {
       verdict = status === 'on-target' ? `Within the ${b.low}–${b.high}% target` : `${status === 'above' ? 'Above' : 'Below'} the ${b.low}–${b.high}% target`;
       summary.push(status === 'on-target'
@@ -267,7 +307,7 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
   return {
     key: ind.key, indicator: ind, name: (meta as { name?: string } | null)?.name ?? ind.label,
     source: [(meta as { source_org?: string } | null)?.source_org, (meta as { source_dataset?: string } | null)?.source_dataset].filter(Boolean).join(', ') || null,
-    latest, previous, history: aus.slice(-(ind.history ?? 40)), average, averageYears: average != null ? years : null, averageLabel,
+    latest, previous, history: aus.slice(-(ind.history ?? 40)), average, averageYears: average != null ? years : null, averageLabel, aud,
     status, verdict, summary, peers,
   };
 }

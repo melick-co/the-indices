@@ -5039,3 +5039,5 @@ a.dx-driver:hover { background: #f5f7fb; }
 .hl-bar-track span { display: block; height: 8px; background: currentColor; opacity: .35; }
 .hl-bar.is-hl .hl-bar-label { opacity: 1; font-weight: 700; }
 .hl-bar.is-hl .hl-bar-track span { opacity: 1; }
+/* The source's own US$ figure under an A$ reading (indicator.aud). */
+.dx-usd { display: block; font-size: .74rem; color: var(--dx-muted); margin-top: -2px; }
