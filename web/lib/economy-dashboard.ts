@@ -100,10 +100,16 @@ function fmtBase(n: number, unit: Indicator['unit']): string {
 }
 export { fmt as formatReading };
 
+/** A change to `dp` decimals, or more (up to two extra) when that would round a real move to zero: 0.03, not 0. */
+export function fine(d: number, dp: number): number {
+  for (let k = dp; k <= dp + 2; k++) { const r = round(d, k); if (r !== 0) return r; }
+  return round(d, dp + 2);
+}
+
 /** Units whose changes read as an absolute amount ("up 0.2 years"), not a percentage. */
 const ABSOLUTE: Partial<Record<NonNullable<Indicator['unit']>, (d: number) => string>> = {
-  years: (d) => `${round(d, 1)} years`, points: (d) => `${Math.round(d)} points`, score: (d) => `${round(d, 1)} points`,
-  per_100k: (d) => `${round(d, 1)} per 100,000`, ratio: (d) => `${round(d, 2)}`, index: (d) => `${round(d, 1)} points`,
+  years: (d) => `${fine(d, 1)} years`, points: (d) => `${fine(d, 0)} points`, score: (d) => `${fine(d, 1)} points`,
+  per_100k: (d) => `${fine(d, 1)} per 100,000`, ratio: (d) => `${fine(d, 2)}`, index: (d) => `${fine(d, 1)} points`,
 };
 export { ABSOLUTE as absoluteChange };
 

@@ -1,5 +1,5 @@
 import type { Point, Reading, Status } from '@/lib/economy-dashboard';
-import { absoluteChange, formatAud, formatReading, ordinal } from '@/lib/economy-dashboard';
+import { absoluteChange, fine, formatAud, formatReading, ordinal } from '@/lib/economy-dashboard';
 import type { StoryChartBlock } from '@/lib/story-types';
 
 /** A small trend line for tiles: the recent history, with the latest point marked. */
@@ -77,7 +77,7 @@ export function tileReading(r: Reading): string {
   return flat(r, compactReading(r.latest.value, r.indicator.unit, r.indicator.decimals));
 }
 const COMPACT_CHANGE: Partial<Record<NonNullable<Reading['indicator']['unit']>, (d: number) => string>> = {
-  per_100k: (d) => `${Math.round(d * 10) / 10}/100k`, points: (d) => `${Math.round(d)} pts`,
+  per_100k: (d) => `${fine(d, 1)}/100k`, points: (d) => `${fine(d, 0)} pts`,
 };
 
 export function Change({ reading, compact = false }: { reading: Reading; compact?: boolean }) {
