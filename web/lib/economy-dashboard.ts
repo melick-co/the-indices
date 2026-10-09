@@ -31,7 +31,37 @@ export type Reading = {
   peers: { metric_id: string; label: string; unit: Indicator['unit']; period: string; rank: number; of: number; median: number; aus: number; rows: Obs[]; bestFirst: boolean } | null;
   /** How the average is described: "10-year average" or "average since August 2025". */
   averageLabel: string | null;
+  /** A US-dollar reading in Australian dollars (indicator.aud): the amount, the rate and the year it is for. */
+  aud: AudReading | null;
 };
+
+export type AudReading = {
+  value: number; usd: number; rate: number; rateYear: string;
+  /** "at purchasing power parity" or "at the average exchange rate", for the US$ note. */
+  basis: string;
+  /** The rate's name, for the sentence that says how A$ was worked out. */
+  rateName: string;
+  /** Converts any US$ amount of the same kind (an OECD median, say) at the same rate. */
+  median: number | null;
+};
+
+/** World Bank WDI, Australia's rows (A$ per US$); loaded nightly with the other World Bank series (wb-config.mjs). */
+const AUD_RATE: Record<NonNullable<Indicator['aud']>, { metric: string; basis: string; rateName: string }> = {
+  exchange: { metric: 'fx_lcu_per_usd', basis: 'at the average exchange rate', rateName: 'average exchange rate' },
+  ppp_hfce: { metric: 'ppp_lcu_hfce', basis: 'at purchasing power parity', rateName: 'household-consumption purchasing power parity' },
+  ppp_gdp: { metric: 'ppp_lcu_gdp', basis: 'at purchasing power parity', rateName: 'GDP purchasing power parity' },
+};
+
+/** The rate for a year, or the nearest earlier year when that year is not out yet (the year used is reported). */
+async function audRate(db: ReturnType<typeof createClient>, kind: NonNullable<Indicator['aud']>, period: string) {
+  const { data } = await db.from('observations').select('period, value').eq('metric_id', AUD_RATE[kind].metric).eq('entity', 'AUS').order('period');
+  const year = period.slice(0, 4);
+  const rows = (data ?? []).map((r) => ({ period: String(r.period), value: Number(r.value) })).filter((r) => r.period <= year);
+  const hit = rows.at(-1);
+  return hit ? { rate: hit.value, year: hit.period } : null;
+}
+
+export const formatAud = (v: number) => `A$${Math.round(v).toLocaleString('en-AU')}`;
 
 export const ordinal = (n: number) => `${n}${[11, 12, 13].includes(n % 100) ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 const round = (n: number, d = 2) => Math.round(n * 10 ** d) / 10 ** d;
@@ -224,13 +254,25 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
   const u = ind.unit;
   let verdict = '';
   const summary: string[] = [];
+  // US-dollar readings in Australian dollars, at the rate the figure was built on, for its own year.
+  let aud: AudReading | null = null;
+  if (latest && ind.aud) {
+    const r = await audRate(db, ind.aud, latest.period).catch(() => null);
+    if (r) aud = {
+      value: latest.value * r.rate, usd: latest.value, rate: r.rate, rateYear: r.year, basis: AUD_RATE[ind.aud].basis,
+      rateName: AUD_RATE[ind.aud].rateName, median: peers ? peers.median * r.rate : null,
+    };
+  }
+  // The reading as a sentence states it: A$ first, the source's US$ in brackets.
+  const said = (v: number) => (aud ? `${formatAud(v * aud.rate)} (${fmt(v, u, ind.decimals)} ${aud.basis})` : fmt(v, u, ind.decimals));
   if (latest) {
     const p = latest.period;
     const when = /^\d{4}-Q/.test(p) ? `in the ${periodLabel(p)}` : /^\d{4}-\d{2}$/.test(p) ? `in ${periodLabel(p)}` : /^\d{4}$/.test(p) ? `in ${p}` : null;
     const was = ind.step
-      ? `${ind.subject ?? ind.label} has been ${fmt(latest.value, u, ind.decimals)} since ${periodLabel(p)}`
-      : `${ind.subject ?? ind.label} was ${fmt(latest.value, u, ind.decimals)} ${when ?? `at ${periodLabel(p)}`}`;
-    summary.push(`${was}${previous ? `, ${changeText(latest.value, previous.value, u)} on the previous reading (${fmt(previous.value, u, ind.decimals)})` : ''}.`);
+      ? `${ind.subject ?? ind.label} has been ${said(latest.value)} since ${periodLabel(p)}`
+      : `${ind.subject ?? ind.label} was ${said(latest.value)} ${when ?? `at ${periodLabel(p)}`}`;
+    summary.push(`${was}${previous ? `, ${changeText(latest.value, previous.value, u)} on the previous reading (${fmt(previous.value, u, ind.decimals)}${aud ? `, ${aud.basis}` : ''})` : ''}.`);
+    if (aud) summary.push(`In Australian dollars at the World Bank's ${aud.rateName} for ${aud.rateYear}: A$${aud.rate.toFixed(3)} per US$.${ind.audNote ? ` ${ind.audNote}` : ''}`);
     if (b.kind === 'target') {
       verdict = status === 'on-target' ? `Within the ${b.low}–${b.high}% target` : `${status === 'above' ? 'Above' : 'Below'} the ${b.low}–${b.high}% target`;
       summary.push(status === 'on-target'
@@ -248,8 +290,8 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
       if (b.kind === 'average') verdict = near ? `Near its ${averageLabel}` : `${diff > 0 ? 'Above' : 'Below'} its ${averageLabel}`;
       // For OECD-judged measures the average is context; the verdict comes from the comparison below.
       summary.push(near
-        ? `It is close to its ${averageLabel} of ${fmt(average, u)}.`
-        : `It is ${diff > 0 ? 'above' : 'below'} its ${averageLabel} of ${fmt(average, u)}${ind.higherIsBetter === undefined ? '' : `, which is ${(diff > 0) === ind.higherIsBetter ? 'a better' : 'a worse'} reading than usual`}.`);
+        ? `It is close to its ${averageLabel} of ${fmt(average, u)}${aud ? ` ${aud.basis}` : ''}.`
+        : `It is ${diff > 0 ? 'above' : 'below'} its ${averageLabel} of ${fmt(average, u)}${aud ? ` ${aud.basis}` : ''}${ind.higherIsBetter === undefined ? '' : `, which is ${(diff > 0) === ind.higherIsBetter ? 'a better' : 'a worse'} reading than usual`}.`);
     }
     if (peers) {
       const mid = peers.aus > peers.median ? 'above' : peers.aus < peers.median ? 'below' : 'at';
@@ -261,13 +303,13 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
       // Lower-case the label's first letter only when it is an ordinary word (keeps "GDP", "Treasury").
       const name = /^[A-Z][a-z]/.test(peers.label) ? peers.label.charAt(0).toLowerCase() + peers.label.slice(1) : peers.label;
       const rank = peers.bestFirst ? `${ordinal(peers.rank)} best of ${peers.of}` : `${ordinal(peers.rank)} highest of ${peers.of}`;
-      summary.push(`Across ${peers.of} OECD countries (${periodLabel(peers.period)}), Australia ranks ${rank} on ${name}, ${mid} the median of ${fmt(peers.median, peers.unit)}.`);
+      summary.push(`Across ${peers.of} OECD countries (${periodLabel(peers.period)}), Australia ranks ${rank} on ${name}, ${mid} the median of ${aud?.median != null ? `${formatAud(aud.median)} (${fmt(peers.median, peers.unit)} ${aud.basis})` : fmt(peers.median, peers.unit)}.`);
     }
   }
   return {
     key: ind.key, indicator: ind, name: (meta as { name?: string } | null)?.name ?? ind.label,
     source: [(meta as { source_org?: string } | null)?.source_org, (meta as { source_dataset?: string } | null)?.source_dataset].filter(Boolean).join(', ') || null,
-    latest, previous, history: aus.slice(-(ind.history ?? 40)), average, averageYears: average != null ? years : null, averageLabel,
+    latest, previous, history: aus.slice(-(ind.history ?? 40)), average, averageYears: average != null ? years : null, averageLabel, aud,
     status, verdict, summary, peers,
   };
 }

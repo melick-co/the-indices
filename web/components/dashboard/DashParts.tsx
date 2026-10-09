@@ -1,5 +1,5 @@
 import type { Point, Reading, Status } from '@/lib/economy-dashboard';
-import { absoluteChange, formatReading, ordinal } from '@/lib/economy-dashboard';
+import { absoluteChange, formatAud, formatReading, ordinal } from '@/lib/economy-dashboard';
 import type { StoryChartBlock } from '@/lib/story-types';
 
 /** A small trend line for tiles: the recent history, with the latest point marked. */
@@ -50,7 +50,18 @@ function flat(r: Reading, text: string): string {
 /** The full reading for a card's big number and the indicator page: the same "Flat" rule as the tiles. */
 export function fullReading(r: Reading): string {
   if (!r.latest) return '—';
+  if (r.aud) return formatAud(r.aud.value);
   return flat(r, formatReading(r.latest.value, r.indicator.unit, r.indicator.decimals));
+}
+
+/** The source's own figure under an A$ reading: "US$50,629 at purchasing power parity". */
+export function UsdNote({ reading }: { reading: Reading }) {
+  if (!reading.aud) return null;
+  return (
+    <span className="dx-usd" title={`Converted at A$${reading.aud.rate.toFixed(3)} per US$ (World Bank, ${reading.aud.rateYear})`}>
+      {formatReading(reading.aud.usd, reading.indicator.unit, reading.indicator.decimals)} {reading.aud.basis}
+    </span>
+  );
 }
 
 /** Short forms for tight columns (driver rows, ticker): "22.2/100k", "498 pts". Summaries keep the full wording. */
@@ -62,6 +73,7 @@ export function compactReading(v: number, unit: Reading['indicator']['unit'], de
 /** The tile reading. A growth rate that rounds to zero reads "Flat": "0.0%" looks like missing data. */
 export function tileReading(r: Reading): string {
   if (!r.latest) return '—';
+  if (r.aud) return formatAud(r.aud.value);
   return flat(r, compactReading(r.latest.value, r.indicator.unit, r.indicator.decimals));
 }
 const COMPACT_CHANGE: Partial<Record<NonNullable<Reading['indicator']['unit']>, (d: number) => string>> = {
@@ -136,9 +148,11 @@ export function reference(r: Reading): { value: number; label: string } | null {
   const u = r.indicator.unit;
   if (b.kind === 'target') return { value: (b.low + b.high) / 2, label: `target ${b.low}–${b.high}%` };
   if (b.kind === 'floor') return { value: b.value, label: `${(b.short ?? 'benchmark').replace(/^its /, '')} ${formatReading(b.value, u)}` };
-  if (b.kind === 'oecd' && r.peers) return { value: r.peers.median, label: `OECD median ${formatReading(r.peers.median, r.peers.unit)}` };
+  // An A$ reading's OECD median is converted at the same rate, so the two compare like for like.
+  const median = (p: NonNullable<Reading['peers']>) => (r.aud?.median != null ? formatAud(r.aud.median) : formatReading(p.median, p.unit));
+  if (b.kind === 'oecd' && r.peers) return { value: r.peers.median, label: `OECD median ${median(r.peers)}` };
   if (r.average != null) return { value: r.average, label: `${r.averageLabel ?? 'average'} ${formatReading(r.average, u)}` };
-  if (r.peers) return { value: r.peers.median, label: `OECD median ${formatReading(r.peers.median, r.peers.unit)}` };
+  if (r.peers) return { value: r.peers.median, label: `OECD median ${median(r.peers)}` };
   return null;
 }
 
