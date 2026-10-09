@@ -3,6 +3,7 @@
  * across all entities in the store.
  *
  *   node scripts/watch-wb.mjs load
+ *   WB_METRICS="fx_lcu_per_usd ppp_lcu_hfce" node scripts/watch-wb.mjs load   # only these series
  */
 import { WB_SERIES } from './wb-config.mjs';
 import { createDb, loadEntityCodes, upsertSeries } from './lib/obs-loader.mjs';
@@ -29,7 +30,8 @@ async function load() {
     direction: r.direction, category: r.category, source_id: 'scout_registry',
     source_dataset: `WDI ${r.flow} (added by source scout)`, startYear: 2000,
   }));
-  for (const s of [...WB_SERIES, ...scouted]) {
+  const only = new Set((process.env.WB_METRICS ?? '').split(/[\s,]+/).filter(Boolean));
+  for (const s of [...WB_SERIES, ...scouted].filter((x) => !only.size || only.has(x.metric_id))) {
     try {
       const raw = await fetchIndicator(s.indicator, s.startYear);
       const rows = [];

@@ -4,6 +4,45 @@
  * API: https://api.worldbank.org/v2/
  */
 export const WB_SERIES = [
+  // Rates for showing US-dollar figures in national currency (the dashboards read Australia's: A$ per US$). Each
+  // US$ figure is converted with the rate of its own year: the average exchange rate for market US$ (IMF, World
+  // Bank), the household-consumption PPP for OECD How's Life? money figures, the GDP PPP for GDP at PPP.
+  {
+    metric_id: 'fx_lcu_per_usd',
+    indicator: 'PA.NUS.FCRF',
+    name: 'Official exchange rate, national currency per US$ (annual average)',
+    unit: 'national currency per USD',
+    basis: 'Official exchange rate, period average, annual',
+    direction: 'neutral',
+    category: 'exchange_rates',
+    source_id: 'worldbank_wdi',
+    source_dataset: 'WDI PA.NUS.FCRF',
+    startYear: 1990,
+  },
+  {
+    metric_id: 'ppp_lcu_hfce',
+    indicator: 'PA.NUS.PRVT.PP',
+    name: 'Purchasing power parity for household final consumption, national currency per international $',
+    unit: 'national currency per international dollar',
+    basis: 'PPP conversion factor, households and NPISHs final consumption expenditure, annual',
+    direction: 'neutral',
+    category: 'exchange_rates',
+    source_id: 'worldbank_wdi',
+    source_dataset: 'WDI PA.NUS.PRVT.PP',
+    startYear: 1990,
+  },
+  {
+    metric_id: 'ppp_lcu_gdp',
+    indicator: 'PA.NUS.PPP',
+    name: 'Purchasing power parity for GDP, national currency per international $',
+    unit: 'national currency per international dollar',
+    basis: 'PPP conversion factor, GDP, annual',
+    direction: 'neutral',
+    category: 'exchange_rates',
+    source_id: 'worldbank_wdi',
+    source_dataset: 'WDI PA.NUS.PPP',
+    startYear: 1990,
+  },
   // Full history for the GDP-per-person bar race (The Indices). The dashboards keep the IMF WEO figure (gdp_per_capita).
   {
     metric_id: 'gdp_per_capita_usd_wb',

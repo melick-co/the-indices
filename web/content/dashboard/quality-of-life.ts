@@ -13,7 +13,7 @@ export const QOL_SECTIONS: Section[] = [
     title: 'Income & wealth',
     question: 'Do households have enough, and how evenly is it shared?',
     headline: {
-      metric_id: 'hsl_1_1', aud: 'ppp_aic', subject: 'Household disposable income per person, including public services,', label: 'Household disposable income per person (incl. public services)', short: 'Household income',
+      metric_id: 'hsl_1_1', aud: 'ppp_hfce', audNote: 'The OECD builds this figure with the PPP for all individual consumption (including public services such as health and education), which the World Bank does not publish; the household-consumption rate used here differs from it by about 2%.', subject: 'Household disposable income per person, including public services,', label: 'Household disposable income per person (incl. public services)', short: 'Household income',
       why: 'Income after tax and transfers, including the value of public services such as health and education: the OECD\'s main measure of material living standards.',
       benchmark: OECD_MEDIAN, higherIsBetter: true, history: 15, unit: 'usd',
     },

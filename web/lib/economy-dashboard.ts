@@ -39,15 +39,17 @@ export type AudReading = {
   value: number; usd: number; rate: number; rateYear: string;
   /** "at purchasing power parity" or "at the average exchange rate", for the US$ note. */
   basis: string;
+  /** The rate's name, for the sentence that says how A$ was worked out. */
+  rateName: string;
   /** Converts any US$ amount of the same kind (an OECD median, say) at the same rate. */
   median: number | null;
 };
 
-const AUD_RATE: Record<NonNullable<Indicator['aud']>, { metric: string; basis: string }> = {
-  exchange: { metric: 'fx_aud_usd_avg', basis: 'at the average exchange rate' },
-  ppp_aic: { metric: 'ppp_aud_aic', basis: 'at purchasing power parity' },
-  ppp_hfce: { metric: 'ppp_aud_hfce', basis: 'at purchasing power parity' },
-  ppp_gdp: { metric: 'ppp_aud_gdp', basis: 'at purchasing power parity' },
+/** World Bank WDI, Australia's rows (A$ per US$); loaded nightly with the other World Bank series (wb-config.mjs). */
+const AUD_RATE: Record<NonNullable<Indicator['aud']>, { metric: string; basis: string; rateName: string }> = {
+  exchange: { metric: 'fx_lcu_per_usd', basis: 'at the average exchange rate', rateName: 'average exchange rate' },
+  ppp_hfce: { metric: 'ppp_lcu_hfce', basis: 'at purchasing power parity', rateName: 'household-consumption purchasing power parity' },
+  ppp_gdp: { metric: 'ppp_lcu_gdp', basis: 'at purchasing power parity', rateName: 'GDP purchasing power parity' },
 };
 
 /** The rate for a year, or the nearest earlier year when that year is not out yet (the year used is reported). */
@@ -258,7 +260,7 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
     const r = await audRate(db, ind.aud, latest.period).catch(() => null);
     if (r) aud = {
       value: latest.value * r.rate, usd: latest.value, rate: r.rate, rateYear: r.year, basis: AUD_RATE[ind.aud].basis,
-      median: peers ? peers.median * r.rate : null,
+      rateName: AUD_RATE[ind.aud].rateName, median: peers ? peers.median * r.rate : null,
     };
   }
   // The reading as a sentence states it: A$ first, the source's US$ in brackets.
@@ -270,7 +272,7 @@ async function readIndicator(db: ReturnType<typeof createClient>, ind: Indicator
       ? `${ind.subject ?? ind.label} has been ${said(latest.value)} since ${periodLabel(p)}`
       : `${ind.subject ?? ind.label} was ${said(latest.value)} ${when ?? `at ${periodLabel(p)}`}`;
     summary.push(`${was}${previous ? `, ${changeText(latest.value, previous.value, u)} on the previous reading (${fmt(previous.value, u, ind.decimals)}${aud ? `, ${aud.basis}` : ''})` : ''}.`);
-    if (aud) summary.push(`Australian dollars are converted at the OECD's ${aud.basis.replace('at ', '')} rate for ${aud.rateYear}: A$${aud.rate.toFixed(3)} per US$.`);
+    if (aud) summary.push(`In Australian dollars at the World Bank's ${aud.rateName} for ${aud.rateYear}: A$${aud.rate.toFixed(3)} per US$.${ind.audNote ? ` ${ind.audNote}` : ''}`);
     if (b.kind === 'target') {
       verdict = status === 'on-target' ? `Within the ${b.low}–${b.high}% target` : `${status === 'above' ? 'Above' : 'Below'} the ${b.low}–${b.high}% target`;
       summary.push(status === 'on-target'
