@@ -53,7 +53,7 @@ assert.match(prompt, /LOCKED SCRIPT/);
 assert.match(prompt, /Do not invent/);
 assert.doesNotMatch(prompt, /9\.1/);
 
-// A picture prompt carries the direction and the presenter, and none of the words or figures.
+// A picture prompt carries the direction, never a presenter (even from an older stored style), and none of the words or figures.
 // Tested against the house style as generate-reel.ts writes it, since that is the text being filtered.
 const house: ReelStyle = {
   presenter:
@@ -73,20 +73,20 @@ const pictureScene: ReelScene = {
   narration: 'The RBA hiked. Rents were not mentioned. Rents are already falling.',
   on_screen: 'RBA hiked. Rents not mentioned.',
   lower_third: 'RBA rate decision, 29 September 2026',
-  visual_prompt: 'Presenter centre frame in a warm-white studio, looking to camera.',
+  visual_prompt: 'Presenter centre frame in a warm-white studio, looking to camera. A suburban street of rental houses at dusk.',
 };
 for (const kind of ['still', 'clip'] as const) {
   const picture = compactRunwayPrompt({ scene: pictureScene, storyTitle: 'RBA hikes', style: house, kind });
   assert.ok(picture.length <= RUNWAY_PROMPT_MAX, `${kind} prompt is ${picture.length} utf-16 units`);
   assert.match(picture, /NO TEXT OF ANY KIND/);
-  assert.match(picture, /Presenter centre frame/);
+  assert.doesNotMatch(picture, /Presenter centre frame/);
+  assert.match(picture, /A suburban street of rental houses at dusk/);
   assert.doesNotMatch(picture, /LOCKED SCRIPT|ON SCREEN|LOWER THIRD|VO:/);
   assert.doesNotMatch(picture, /Rents not mentioned|29 September/);
   assert.doesNotMatch(picture, /Plex Mono|tabular|Charts drawn|burned-in text|charts move/);
-  assert.match(picture, /PRESENTER: Single presenter, piece to camera, framed centre\. Plain warm-white/);
-  assert.match(picture, /Presenter holds still\./);
+  assert.match(picture, /ON CAMERA: No presenter, host or anyone speaking to camera/);
+  assert.doesNotMatch(picture, /PRESENTER:|Single presenter|Presenter holds/);
   assert.match(picture, /LOOK: Swiss editorial grid.*no 3D\./);
-  assert.doesNotMatch(picture, /Single presenter.*Single presenter/);
 }
 // A chart scene asked for a picture still gets no chart in it: the cut draws the chart.
 const chartPicture = compactRunwayPrompt({ scene: chartScene, storyTitle: 'Rank', style, kind: 'still' });

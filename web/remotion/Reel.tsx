@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AbsoluteFill, Audio, Sequence, cancelRender, continueRender, delayRender, staticFile } from 'remotion';
+import { AbsoluteFill, Audio, Sequence, cancelRender, continueRender, delayRender, interpolate, staticFile, useVideoConfig } from 'remotion';
 import { VOICE_LEAD_SECONDS, framesFor, type CutProps } from '../lib/reel-cut-types';
 import { loadFonts } from './fonts';
 import { Scene } from './scenes';
@@ -16,9 +16,14 @@ export const Reel: React.FC<CutProps> = (props) => {
     loadFonts().then(() => continueRender(handle)).catch((e) => cancelRender(e));
   }, [handle]);
 
+  const { durationInFrames } = useVideoConfig();
   let from = 0;
   return (
     <AbsoluteFill style={{ background: PAPER }}>
+      {/* The house track, low under the voiceover, faded in and out. */}
+      {props.music && (
+        <Audio src={staticFile(props.music)} loop volume={(f) => interpolate(f, [0, 20, durationInFrames - 40, durationInFrames], [0, 0.16, 0.16, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })} />
+      )}
       {props.scenes.map((scene, i) => {
         const frames = framesFor(scene.seconds);
         const start = from;

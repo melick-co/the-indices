@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const PRIMARY = [
+  { href: '/foundry/make', label: 'Make' },
   { href: '/foundry', label: 'Foundry' },
   { href: '/foundry/desk', label: 'Desk' },
   { href: '/foundry/work', label: 'Work' },
@@ -23,7 +24,8 @@ function isActive(pathname: string, href: string) {
     return pathname === '/foundry' || (pathname.startsWith('/foundry/')
       && !pathname.startsWith('/foundry/desk')
       && !pathname.startsWith('/foundry/work')
-      && !pathname.startsWith('/foundry/queue'));
+      && !pathname.startsWith('/foundry/queue')
+      && !pathname.startsWith('/foundry/make'));
   }
   if (href === '/indices') {
     return pathname === '/indices' || pathname.startsWith('/indices/')

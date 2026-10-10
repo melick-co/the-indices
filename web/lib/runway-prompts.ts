@@ -1,4 +1,5 @@
 import type { ReelChartFrame, ReelScene, ReelStyle } from '@/lib/reel-types';
+import { NO_PRESENTER } from '@/lib/reel-types';
 
 /** Runway promptText cap (UTF-16 code units) on gen4_image / gen4.5. */
 export const RUNWAY_PROMPT_MAX = 1000;
@@ -72,8 +73,17 @@ export function madeWithoutText(row: { prompt_text: string | null }): boolean {
 /**
  * Style notes without the clauses about type, straps and charts, which a generator reads as things
  * to draw. Split on sentence and clause ends so "the charts move, not the camera" goes while
- * "Presenter holds still" stays.
+ * "the camera holds" stays.
  */
+/** A scene's direction without any presenter or host (older reels were written with one). */
+export function withoutPresenter(text: string): string {
+  return text
+    .split(/(?<=[.;])\s+/)
+    .filter((clause) => !/presenter|host\b|anchor\b|to camera|piece to camera|talking head/i.test(clause))
+    .join(' ')
+    .trim();
+}
+
 function pictureNotes(text: string): string {
   return text
     .split(/(?<=[.;])\s+/)
@@ -84,7 +94,7 @@ function pictureNotes(text: string): string {
 
 /**
  * A prompt for the picture behind a scene (a still, or a clip animated from it). It carries the
- * visual direction, the presenter and the palette, and none of the script: the words are not the
+ * visual direction (never a presenter) and the palette, and none of the script: the words are not the
  * generator's to draw.
  */
 function picturePrompt(
@@ -98,13 +108,11 @@ function picturePrompt(
     `Shot ${scene.kind.replace('_', ' ')} · ${scene.seconds}s`,
   ].join(' ');
   const motion = opts.kind === 'clip'
-    ? 'Animate this first frame. Subtle motion only: the presenter holds, the camera holds, nothing is added to the frame.'
+    ? 'Animate this first frame. Subtle motion only: the camera holds, nothing is added to the frame.'
     : 'STILL FRAME, photographic, raw off-white paper tones.';
-  const presenterNotes = pictureNotes(opts.style.presenter);
-  const presenter = /^single presenter/i.test(presenterNotes)
-    ? `PRESENTER: ${presenterNotes}`
-    : `PRESENTER: Single presenter, piece to camera, framed centre. ${presenterNotes}`;
-  const keep = pack(header, [NO_TEXT_RULE, `SCENE: ${scene.visual_prompt}`], max);
+  // Never a presenter, whatever an older stored style says (NO_PRESENTER).
+  const presenter = `ON CAMERA: ${NO_PRESENTER}`;
+  const keep = pack(header, [NO_TEXT_RULE, `SCENE: ${withoutPresenter(scene.visual_prompt)}`], max);
   return clipUtf16(
     pack(keep, [motion, presenter, `LOOK: ${pictureNotes(opts.style.look)}`], max),
     max,
@@ -148,27 +156,27 @@ export function compactRunwayPrompt(opts: {
   if (opts.kind === 'chart') {
     motion = [
       'STILL FRAME of the chart on Swiss editorial grid, raw off-white paper, charcoal ink, IBM Plex Mono tabular figures, hairline rules, source caption burned in. No 3D, no gradients, no invented labels.',
-      scene.visual_prompt,
+      withoutPresenter(scene.visual_prompt),
     ].filter(Boolean).join(' ');
   } else if (opts.kind === 'chart_video') {
     motion = [
-      'Animate THIS chart only. Camera holds. Bars or rank rows reveal to the values already printed. Do not change, redraw, or invent numbers. Soft transient on each reveal. Presenter still if visible.',
+      'Animate THIS chart only. Camera holds. Bars or rank rows reveal to the values already printed. Do not change, redraw, or invent numbers. Soft transient on each reveal. No people speaking to camera.',
       `Reveal: ${chart?.reveal ?? 'sequential'}.`,
-      scene.visual_prompt,
+      withoutPresenter(scene.visual_prompt),
     ].filter(Boolean).join(' ');
   } else if (opts.kind === 'clip') {
     motion = [
-      'Hold this first frame. Subtle motion only. Presenter still; charts move, not the camera. Do not change burned-in text or figures.',
-      scene.visual_prompt,
+      'Hold this first frame. Subtle motion only. No presenter; charts move, not the camera. Do not change burned-in text or figures.',
+      withoutPresenter(scene.visual_prompt),
     ].filter(Boolean).join(' ');
   } else {
     motion = [
       'STILL FRAME. Swiss editorial grid on raw off-white paper, charcoal ink, IBM Plex Mono, headroom for burned-in text, lower third at the bottom.',
-      scene.visual_prompt,
+      withoutPresenter(scene.visual_prompt),
     ].filter(Boolean).join(' ');
   }
 
-  const look = `LOOK: ${opts.style.look} PRESENTER: ${opts.style.presenter}`;
+  const look = `LOOK: ${opts.style.look} ON CAMERA: ${NO_PRESENTER}`;
 
   const keep = pack(
     header,

@@ -51,6 +51,8 @@ export type CutProps = {
   oneNumber: { value: string; label: string } | null;
   sources: CutSource[];
   scenes: CutScene[];
+  /** The house track under the voiceover (public-dir file), or none. */
+  music?: string | null;
 };
 
 export function framesFor(seconds: number): number {

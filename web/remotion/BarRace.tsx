@@ -78,7 +78,7 @@ export const BarRace: React.FC<RaceProps> = ({ race, format, musicFile }) => {
     // Quoted: an unquoted family name ending in a number (Source Sans 3) is invalid CSS and falls back to a serif.
     <AbsoluteFill style={{ background: NAVY, color: ON, fontFamily: `'${FONT.ui}', 'Helvetica Neue', Arial, sans-serif` }}>
       {musicFile && (
-        <Audio src={staticFile(musicFile)} volume={(f) => interpolate(f, [0, 20, durationInFrames - 45, durationInFrames], [0, 0.55, 0.55, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })} />
+        <Audio src={staticFile(musicFile)} loop volume={(f) => interpolate(f, [0, 20, durationInFrames - 45, durationInFrames], [0, 0.55, 0.55, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })} />
       )}
       {/* Header */}
       <div style={{ position: 'absolute', left: pad, right: pad, top: tall ? 200 : 60 }}>

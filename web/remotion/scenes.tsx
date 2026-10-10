@@ -127,7 +127,7 @@ type SceneProps = { scene: CutScene; index: number; total: number; props: CutPro
 
 /**
  * The cold open. On paper the headline sits mid-frame; over a picture it drops to the bottom third,
- * where the backdrop wash is strongest and the subject (a presenter, centre frame) is not under it.
+ * where the backdrop wash is strongest and the subject of the footage, centre frame, is not under it.
  */
 function ColdOpen({ scene, props }: SceneProps) {
   const headline = <OnScreen text={scene.on_screen} size={scene.on_screen.length > 36 ? 76 : 92} at={0.3} />;

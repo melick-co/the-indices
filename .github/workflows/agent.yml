@@ -1,4 +1,6 @@
 name: insight-agent
+# Shown as each run's title (Foundry's Make tab lists them): the task and its input, or the schedule.
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('{0} {1}', inputs.task, inputs.pitch) || format('scheduled {0}', github.event.schedule) }}
 
 on:
   schedule:

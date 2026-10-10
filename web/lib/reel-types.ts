@@ -109,8 +109,14 @@ export type ReelScene = {
   visual_prompt: string;
 };
 
+/** Every reel picture is presenter-free: voiceover over documentary footage or charts. */
+export const NO_PRESENTER = 'No presenter, host or anyone speaking to camera. Pictures are documentary footage of the places, people at work and things in the story, or the charts themselves; the words are a voiceover.';
+
 export type ReelStyle = {
-  /** Presenter framing and delivery, e.g. a piece to camera in a spare studio. */
+  /**
+   * Kept for stored styles only: reels no longer use a presenter. Prompts always use NO_PRESENTER, whatever this
+   * says (Oct 2026: on-camera presenters from the video model were unreliable).
+   */
   presenter: string;
   /** Palette, typography and grid, so the reel reads as ours. */
   look: string;
@@ -404,7 +410,7 @@ export function buildShotList(scenes: ReelScene[], style: ReelStyle, story: Stor
     `Story: ${story.title}`,
     `Total runtime: ${scenes.reduce((s, x) => s + x.seconds, 0)}s across ${scenes.length} scenes`,
     '',
-    `PRESENTER: ${style.presenter}`,
+    `ON CAMERA: ${NO_PRESENTER}`,
     `LOOK: ${style.look}`,
     `VOICE: ${style.voice}`,
     `AUDIO: ${style.audio}`,
@@ -494,7 +500,7 @@ export function buildScenePrompt(
   lines.push(
     '',
     'HOUSE LOOK',
-    `PRESENTER: ${style.presenter}`,
+    `ON CAMERA: ${NO_PRESENTER}`,
     `LOOK: ${style.look}`,
     `VOICE: ${style.voice}`,
     `AUDIO: ${style.audio}`,
