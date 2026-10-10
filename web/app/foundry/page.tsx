@@ -6,6 +6,7 @@ import { loadReelStatusBySlug } from '@/lib/generate-reel';
 import FoundryBoard from './FoundryBoard';
 import type { SourceSuggestion } from './SourceSuggestionsPanel';
 import type { TopicSuggestion } from './TopicSuggestionsPanel';
+import type { EconomistNote } from './EconomistsPanel';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Foundry — Caveat' };
@@ -24,7 +25,7 @@ export default async function FoundryPage({
 
   const [{ data: pitches }, { data: runs }, { data: inbox }, { data: feedback },
     { data: events }, { data: metrics }, { data: news }, { data: trends },
-    { data: sourceSuggestions }, storyByPitch, reelStatusBySlug, trendingData, { data: topicSuggestions }] =
+    { data: sourceSuggestions }, storyByPitch, reelStatusBySlug, trendingData, { data: topicSuggestions }, { data: economistNotes }] =
     await Promise.all([
       supabase.from('pitches').select('*')
         .order('state').order('rank_value', { ascending: false, nullsFirst: false })
@@ -54,6 +55,11 @@ export default async function FoundryPage({
       supabase.from('topic_suggestions')
         .select('suggestion_id, source_kind, source_id, action, status, summary, payload, created_at')
         .order('created_at', { ascending: false })
+        .limit(30),
+      supabase.from('economist_notes')
+        .select('id, source_id, source_kind, org, author, title, url, published_at, status, summary, angle, claims')
+        .in('status', ['new', 'reviewed'])
+        .order('published_at', { ascending: false, nullsFirst: false })
         .limit(30),
     ]);
 
@@ -86,6 +92,7 @@ export default async function FoundryPage({
       events={events ?? []} metrics={metrics ?? []} news={news ?? []}
       trends={trends ?? []} sourceSuggestions={suggestionRows}
       topicSuggestions={(topicSuggestions ?? []) as TopicSuggestion[]}
+      economistNotes={(economistNotes ?? []) as EconomistNote[]}
       storyByPitch={storyByPitch}
       reelStatusBySlug={reelStatusBySlug}
     />

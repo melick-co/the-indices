@@ -209,3 +209,33 @@ export async function rejectSuggestion(suggestionId: string, note?: string) {
   revalidatePath('/foundry');
   return { ok: true as const };
 }
+
+/** Send an economist's piece to the inbox as an idea: the next daily run weighs it as a pitch, with the claims
+ *  and the data checks attached. The economist's view stays attributed context; the pitch must stand on the data. */
+export async function pitchNote(noteId: string) {
+  await requireAdmin();
+  const supabase = createClient();
+  const { data: n } = await supabase.from('economist_notes')
+    .select('org, author, title, url, summary, claims, angle').eq('id', noteId).single();
+  if (!n) return { ok: false as const };
+  const who = [n.author, n.org].filter(Boolean).join(', ');
+  const claims = ((n.claims ?? []) as { text: string; verdict?: string; data_note?: string }[])
+    .map((c) => `- ${c.text}${c.verdict && c.verdict !== 'no series' ? ` [data: ${c.verdict}${c.data_note ? `; ${c.data_note}` : ''}]` : ''}`);
+  const body = [
+    n.angle ? `Angle: ${n.angle}` : null,
+    `From ${who}: "${n.title}". ${n.summary ?? ''}`.trim(),
+    claims.length ? `Claims (attributed views, tier-3 context; check against official data):\n${claims.join('\n')}` : null,
+  ].filter(Boolean).join('\n\n');
+  await supabase.from('inbox').insert({ kind: 'idea', title: n.angle ?? n.title, body, url: n.url ?? null });
+  await supabase.from('economist_notes').update({ status: 'pitched' }).eq('id', noteId);
+  revalidatePath('/foundry');
+  return { ok: true as const };
+}
+
+export async function dismissNote(noteId: string) {
+  await requireAdmin();
+  const supabase = createClient();
+  await supabase.from('economist_notes').update({ status: 'dismissed' }).eq('id', noteId);
+  revalidatePath('/foundry');
+  return { ok: true as const };
+}
