@@ -1,4 +1,5 @@
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { fetchHouseTrack } from '@/lib/house-track';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { bundle } from '@remotion/bundler';
@@ -309,7 +310,10 @@ export async function cutReel(slug: string, opts: { log?: CutLog } = {}): Promis
     log('Voice…');
     const voices = await voiceScenes(slug, row.render_id, scenes, publicDir, ffmpeg, log);
 
+    const music = await fetchHouseTrack(publicDir);
+    if (music) log('House track under the voiceover.');
     const props: CutProps = {
+      music,
       story: { slug: story.slug, title: story.title, kicker: story.kicker, caveat: story.caveat, published: story.published },
       oneNumber: story.oneNumber?.value ? { value: story.oneNumber.value, label: story.oneNumber.label } : null,
       sources: cutSources(story.evidence?.sources ?? []),

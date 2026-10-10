@@ -1,4 +1,5 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { fetchHouseTrack } from '@/lib/house-track';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -93,7 +94,8 @@ export async function generateHeroVideo(
     if (!audioFile) log('  No voiceover fits; publishing the clip without narration.');
     if (await hasFfmpeg()) {
       outFile = join(dir, 'hero.mp4');
-      await webVideo(videoFile, audioFile, outFile);
+      const music = await fetchHouseTrack(dir);
+      await webVideo(videoFile, audioFile, outFile, music ? join(dir, music) : null);
     } else if (audioFile) {
       log('  ffmpeg unavailable; publishing the clip without narration.');
       audioFile = null;

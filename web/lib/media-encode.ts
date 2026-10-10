@@ -42,15 +42,26 @@ export async function webImage(input: Buffer, contentType: string): Promise<{ da
  * H.264 MP4 at WEB_WIDTH with fast start, optionally muxing a voiceover
  * (padded with silence to the video's length, never cutting the picture).
  */
-export async function webVideo(videoFile: string, audioFile: string | null, outFile: string): Promise<void> {
+export async function webVideo(videoFile: string, audioFile: string | null, outFile: string, musicFile: string | null = null): Promise<void> {
   // Pin the output to the picture's length. `apad` with `-shortest` alone produced a
   // 47-minute file (8s of video, endless silence) with a real voiceover.
   const length = await mediaDuration(videoFile);
   if (!(length > 0)) throw new Error(`could not read the clip's duration from ${videoFile}`);
+  const L = length.toFixed(3);
+  const fadeOut = Math.max(0, length - 1).toFixed(3);
   const args = ['-y', '-i', videoFile];
-  if (audioFile) {
+  // The house track sits under the voiceover (or alone, a little louder), faded in and out, cut to the picture.
+  const bed = (input: number, vol: number) => `[${input}:a]atrim=0:${L},volume=${vol},afade=t=in:d=0.5,afade=t=out:st=${fadeOut}:d=1[m]`;
+  if (audioFile && musicFile) {
+    args.push('-i', audioFile, '-i', musicFile, '-filter_complex',
+      `${bed(2, 0.18)};[1:a]apad=whole_dur=${L}[v];[v][m]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[a]`,
+      '-map', '0:v:0', '-map', '[a]', '-c:a', 'aac', '-b:a', '128k');
+  } else if (audioFile) {
     args.push('-i', audioFile, '-map', '0:v:0', '-map', '1:a:0',
-      '-af', `apad=whole_dur=${length.toFixed(3)}`, '-c:a', 'aac', '-b:a', '128k');
+      '-af', `apad=whole_dur=${L}`, '-c:a', 'aac', '-b:a', '128k');
+  } else if (musicFile) {
+    args.push('-i', musicFile, '-filter_complex', `${bed(1, 0.4)};[m]apad=whole_dur=${L}[a]`,
+      '-map', '0:v:0', '-map', '[a]', '-c:a', 'aac', '-b:a', '128k');
   } else {
     args.push('-an');
   }

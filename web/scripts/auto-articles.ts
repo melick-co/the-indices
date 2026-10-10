@@ -4,8 +4,9 @@
  *   npx tsx --import ./scripts/node-shims.mjs scripts/auto-articles.ts            # run (from web/)
  *   npx tsx --import ./scripts/node-shims.mjs scripts/auto-articles.ts --dry-run  # list only, change nothing
  *   ... --no-publish   # write and check everything, but leave articles as drafts
- *   ... --pitch=<id>   # only these pitches (repeatable, or AUTO_ARTICLE_PITCHES); ignores the retry window and
- *                      # rewrites an existing draft, but never touches a published story
+ *   ... --pitch=<id>   # the editor's choice (repeatable, or AUTO_ARTICLE_PITCHES; Foundry's Make tab sends these):
+ *                      # written whatever the pitch scores, outside the daily cap and the retry window, rewriting an
+ *                      # existing draft but never a published story. The fact check still decides if it goes out.
  *
  * Policy (agreed Oct 2026):
  * - Only pitches scoring 5 on every rubric dimension.
@@ -106,7 +107,8 @@ async function candidates(today: string) {
   }).length;
 
   const cutoff = Date.now() - RETRY_DAYS * 864e5;
-  const fives = pitches.filter((p) => allFives(p.score));
+  // Named pitches are the editor's choice, so the all-5s score gate is theirs to waive.
+  const fives = onlyPitches.length ? pitches.filter((p) => onlyPitches.includes(p.id)) : pitches.filter((p) => allFives(p.score));
   const eligible = fives
     .filter((p) => !onlyPitches.length || onlyPitches.includes(p.id))
     .filter((p) => !hasStory.has(p.id))
@@ -118,7 +120,7 @@ async function candidates(today: string) {
     const why = hasStory.has(p.id) ? 'already has a story' : m ? `tried ${m.day} (${m.outcome})` : 'filtered by --pitch';
     log(`  skip  ${why.padEnd(30)} id ${p.id}  ${p.headline.slice(0, 70)}`);
   }
-  return { fives: fives.length, eligible, slots: Math.max(0, MAX_PER_DAY - publishedToday), publishedToday };
+  return { fives: fives.length, eligible, slots: onlyPitches.length ? eligible.length : Math.max(0, MAX_PER_DAY - publishedToday), publishedToday };
 }
 
 /** True for the first article published today: it gets the paid hero video. */
@@ -139,7 +141,7 @@ async function runOne(p: Pitch, today: string): Promise<AutoMark> {
   }
 
   const { data: after } = await db.from('pitches').select('score, state').eq('id', p.id).single();
-  if (!allFives(after?.score as Pitch['score'])) {
+  if (!onlyPitches.length && !allFives(after?.score as Pitch['score'])) {
     log(`  Score after strengthening is ${JSON.stringify(after?.score)}; not all 5s, so no article.`);
     return { ...started, outcome: 'downgraded' };
   }
