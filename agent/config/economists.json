@@ -1,0 +1,19 @@
+{
+  "_about": "Economists' commentary the reviewer reads (agent/scripts/run-economist-review.mjs). Feeds are fetched twice a day; email is accepted only from the senders listed here (anything else that arrives at the economists' address is held). Views are tier-3 context, never headline figures. Edit this list by PR.",
+  "feeds": [
+    { "id": "e61", "name": "e61 Institute", "org": "e61 Institute", "url": "https://e61.in/feed/" },
+    { "id": "grattan", "name": "Grattan Institute", "org": "Grattan Institute", "url": "https://grattan.edu.au/feed/",
+      "keywords": ["economy", "economic", "budget", "tax", "housing", "wages", "productivity", "migration", "inflation", "interest rate", "super", "energy price", "debt", "deficit"] },
+    { "id": "indeed", "name": "Indeed Hiring Lab Australia", "org": "Indeed", "url": "https://www.hiringlab.org/au/feed/" },
+    { "id": "conversation", "name": "The Conversation: Business + Economy", "org": "The Conversation", "url": "https://theconversation.com/au/business/articles.atom",
+      "keywords": ["economist", "economy", "RBA", "Reserve Bank", "inflation", "interest rate", "wages", "productivity", "budget", "housing", "unemployment", "GDP", "migration", "tax"] }
+  ],
+  "senders": [
+    { "id": "amp", "name": "AMP Insights (Shane Oliver and team)", "org": "AMP", "match": "@amp.com.au" },
+    { "id": "corinna", "name": "Corinna Economic Advisory (Saul Eslake)", "org": "Corinna Economic Advisory", "match": "corinnaeconomics" },
+    { "id": "westpac", "name": "Westpac Economics", "org": "Westpac", "match": "@westpac.com.au" },
+    { "id": "cba", "name": "CommBank Economics", "org": "Commonwealth Bank", "match": "@cba.com.au" },
+    { "id": "anz", "name": "ANZ Research", "org": "ANZ", "match": "@anz.com" },
+    { "id": "nab", "name": "NAB Economics", "org": "NAB", "match": "@nab.com.au" }
+  ]
+}
