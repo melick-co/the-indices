@@ -32,11 +32,15 @@ const args = process.argv.slice(2);
 const dry = args.includes('--dry-run');
 const list = args.includes('--list');
 const forced = process.env.VISUAL_KEY?.trim() || null;
+/** Re-render a published race in place (same page, new videos and poster), e.g. after the house track changed. */
+const replace = args.includes('--replace') || process.env.RACE_REPLACE === 'true';
+
+let musicIsHouse = false;
 
 /** The house track; before one is chosen, a licence-cleared bed from ElevenLabs Music; else null (captions only). */
 async function music(seconds: number, publicDir: string): Promise<string | null> {
   const house = await fetchHouseTrack(publicDir, 'music.mp3');
-  if (house) { console.log('Music: the house track.'); return house; }
+  if (house) { console.log('Music: the house track.'); musicIsHouse = true; return house; }
   const key = process.env.ELEVENLABS_API_KEY;
   if (!key) { console.log('No ELEVENLABS_API_KEY: captions only.'); return null; }
   try {
@@ -128,7 +132,14 @@ async function main() {
       if (error) throw new Error(`create bucket: ${error.message}`);
     }
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' });
-    const slug = `${slugify(race.title)}-${today}`;
+    let slug = `${slugify(race.title)}-${today}`;
+    if (replace) {
+      const { data: live } = await db.from('visuals').select('slug').eq('dataset_key', race.key).eq('status', 'published')
+        .order('published_at', { ascending: false }).limit(1).maybeSingle();
+      if (!live) throw new Error(`--replace: no published race for ${race.key}`);
+      slug = live.slug;
+      console.log(`Replacing the videos of /indices/visuals/${slug}`);
+    }
     // A dry run uploads to drafts/ (to be watched) and publishes nothing.
     const prefix = dry ? `drafts/${slug}` : slug;
     const videos: Record<string, string> = {};
@@ -145,15 +156,16 @@ async function main() {
     const rows = Object.entries(lastFrame.values).sort((a, b) => b[1] - a[1]).slice(0, race.topN).map(([code, value]) => ({ label: race.labels[code] ?? code, code, value }));
     // With the production queue on, a new race is a draft until its slot. A re-render of one already published the
     // same day just replaces its videos and stays published.
-    const { data: existing } = await db.from('visuals').select('status').eq('slug', slug).maybeSingle();
+    const { data: existing } = await db.from('visuals').select('status, published_at').eq('slug', slug).maybeSingle();
     const queueOn = existing?.status !== 'published' && await queueEnabled(db);
     // Upsert: re-rendering a race the same day replaces that day's visual (and its videos, uploaded with upsert).
     const { error } = await db.from('visuals').upsert({
       slug, dataset_key: race.key, template: 'race', title: race.title, subtitle: race.subtitle, takeaways: race.takeaways,
       alt: `Animated bar chart race: ${race.title}. Final standings in ${lastFrame.period}.`,
       spec: { template: 'race', unit: race.unit, measure: race.subtitle, rows, period: lastFrame.period, priorPeriod: race.frames[0].period },
-      sources: [race.source], videos, checks: { captions: 'derived from the data, not written by a model', music: musicFile ? 'ElevenLabs Music' : 'none' },
-      status: queueOn ? 'draft' : 'published', published_at: queueOn ? null : new Date().toISOString(),
+      sources: [race.source], videos, checks: { captions: 'derived from the data, not written by a model', music: musicFile ? (musicIsHouse ? 'Caveat house track' : 'ElevenLabs Music') : 'none' },
+      // A re-render of a published race keeps its publication date.
+      status: queueOn ? 'draft' : 'published', published_at: queueOn ? null : (existing?.status === 'published' && existing.published_at ? existing.published_at : new Date().toISOString()),
     }, { onConflict: 'slug' });
     if (error) throw new Error(`visuals upsert: ${error.message}`);
     const made = `${Object.keys(videos).filter((k) => k !== 'poster').length} videos and a poster`;
