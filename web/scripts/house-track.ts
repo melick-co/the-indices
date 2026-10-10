@@ -9,7 +9,14 @@
  * Candidates go to the visual-videos bucket under house/candidates/ and their links are printed. The chosen one is
  * then copied to house/caveat-theme.mp3 (see --choose).
  *   ... house-track.ts --choose=<n>                                              # make candidate n the house track
+ *   HOUSE_TRACK_CHOOSE="1@15" ... house-track.ts                                  # candidate 1, starting 15s in
+ *     (trimmed with ffmpeg, with a 0.25s fade-in so the cut doesn't click)
  */
+import { execFile } from 'node:child_process';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { createClient } from '@/lib/supabase-server';
 import { ELEVEN_API_BASE } from '@/lib/elevenlabs-client';
 
@@ -36,16 +43,36 @@ async function generate(n: number): Promise<Buffer> {
   return Buffer.from(await res.arrayBuffer());
 }
 
+/** The track from `start` seconds on, with a short fade-in so the cut lands cleanly. */
+async function trim(audio: Buffer, start: number): Promise<Buffer> {
+  const ffmpeg = process.env.FFMPEG_PATH || 'ffmpeg';
+  const dir = await mkdtemp(join(tmpdir(), 'house-'));
+  try {
+    await writeFile(join(dir, 'in.mp3'), audio);
+    await promisify(execFile)(ffmpeg, ['-y', '-loglevel', 'error', '-ss', String(start), '-i', join(dir, 'in.mp3'),
+      '-af', 'afade=t=in:d=0.25', '-c:a', 'libmp3lame', '-b:a', '192k', join(dir, 'out.mp3')]);
+    return await readFile(join(dir, 'out.mp3'));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
 async function main() {
   const db = createClient();
-  const choose = process.argv.find((a) => a.startsWith('--choose='))?.slice(9) ?? process.env.HOUSE_TRACK_CHOOSE?.trim();
-  if (choose) {
+  const spec = process.argv.find((a) => a.startsWith('--choose='))?.slice(9) ?? process.env.HOUSE_TRACK_CHOOSE?.trim();
+  if (spec) {
+    // "<n>" or "<n>@<seconds>": a candidate, optionally starting that far in.
+    const [choose, startAt] = spec.split('@');
+    const start = Number(startAt ?? 0);
+    if (!/^\d+$/.test(choose) || !(start >= 0 && start < SECONDS)) throw new Error(`Choose as <n> or <n>@<seconds>, not "${spec}".`);
     const from = `house/candidates/theme-${choose}.mp3`;
     const { data, error } = await db.storage.from(BUCKET).download(from);
     if (error || !data) throw new Error(`No candidate ${choose}: ${error?.message}`);
-    const { error: up } = await db.storage.from(BUCKET).upload('house/caveat-theme.mp3', Buffer.from(await data.arrayBuffer()), { contentType: 'audio/mpeg', upsert: true });
+    let audio: Buffer = Buffer.from(await data.arrayBuffer());
+    if (start > 0) audio = await trim(audio, start);
+    const { error: up } = await db.storage.from(BUCKET).upload('house/caveat-theme.mp3', audio, { contentType: 'audio/mpeg', upsert: true });
     if (up) throw new Error(up.message);
-    console.log(`Candidate ${choose} is now the house track: ${db.storage.from(BUCKET).getPublicUrl('house/caveat-theme.mp3').data.publicUrl}`);
+    console.log(`Candidate ${choose}${start ? ` from ${start}s` : ''} is now the house track: ${db.storage.from(BUCKET).getPublicUrl('house/caveat-theme.mp3').data.publicUrl}`);
     return;
   }
   const count = Number(process.env.HOUSE_TRACK_COUNT ?? 3);
