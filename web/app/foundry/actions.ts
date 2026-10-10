@@ -49,7 +49,6 @@ export async function act(pitchId: string, action: Action, comment?: string) {
   }
 
   revalidatePath('/foundry');
-  revalidatePath('/studio');
 }
 
 export async function addToInbox(kind: string, title: string, body: string, url: string) {
@@ -59,7 +58,6 @@ export async function addToInbox(kind: string, title: string, body: string, url:
     kind, title: title || null, body: body || null, url: url || null,
   });
   revalidatePath('/foundry');
-  revalidatePath('/studio');
 }
 
 /** Mark a news item for the public ticker, with an optional label. */
@@ -72,7 +70,6 @@ export async function curate(itemId: string, curated: boolean, note?: string) {
     curated_at: curated ? new Date().toISOString() : null,
   }).eq('item_id', itemId);
   revalidatePath('/foundry');
-  revalidatePath('/studio');
   revalidatePath('/');
 }
 
@@ -133,8 +130,6 @@ export async function approveSuggestion(suggestionId: string, note?: string) {
     linked_pitch: linkedPitch,
   }).eq('suggestion_id', suggestionId);
 
-  revalidatePath('/studio');
-  revalidatePath('/studio/ask');
   return { ok: true as const };
 }
 
@@ -194,6 +189,19 @@ export async function rejectSourceSuggestion(suggestionId: string, note?: string
   await requireAdmin();
   const supabase = createClient();
   await supabase.from('source_suggestions').update({
+    status: 'rejected',
+    reviewed_at: new Date().toISOString(),
+    review_note: note?.trim() || null,
+  }).eq('suggestion_id', suggestionId).eq('status', 'pending');
+  revalidatePath('/foundry');
+  return { ok: true as const };
+}
+
+/** Turn down a topic suggestion (ideas from forwarded newsletters and alerts). */
+export async function rejectSuggestion(suggestionId: string, note?: string) {
+  await requireAdmin();
+  const supabase = createClient();
+  await supabase.from('topic_suggestions').update({
     status: 'rejected',
     reviewed_at: new Date().toISOString(),
     review_note: note?.trim() || null,

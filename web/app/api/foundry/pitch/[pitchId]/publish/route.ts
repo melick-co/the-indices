@@ -38,7 +38,6 @@ export async function POST(
         revalidatePath(`/foundry/desk/${result.slug}`);
         revalidatePath('/foundry/desk');
         revalidatePath('/foundry');
-        revalidatePath('/studio');
         send('done', result);
       } catch (e) {
         send('error', { message: e instanceof Error ? e.message : String(e) });

@@ -46,7 +46,6 @@ export async function POST(
         revalidatePath(`/stories/${params.slug}/reel`);
         revalidatePath(`/stories/${params.slug}`);
         revalidatePath('/foundry');
-        revalidatePath('/studio');
         send('done', result);
       } catch (e) {
         send('error', { message: e instanceof Error ? e.message : String(e) });
