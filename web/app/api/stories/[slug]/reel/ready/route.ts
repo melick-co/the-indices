@@ -12,7 +12,6 @@ export async function POST(
     const result = await markReelReady(params.slug);
     revalidatePath(`/stories/${params.slug}/reel`);
     revalidatePath('/foundry');
-    revalidatePath('/studio');
     return Response.json(result);
   } catch (e) {
     return Response.json(

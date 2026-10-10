@@ -3,14 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+/** The Foundry: one tool, five tabs (Studio and Brainstorm were folded in; their old links redirect here). */
 const PRIMARY = [
   { href: '/foundry/make', label: 'Make' },
-  { href: '/foundry', label: 'Foundry' },
+  { href: '/foundry', label: 'Pitches' },
+  { href: '/foundry/work', label: 'Research' },
   { href: '/foundry/desk', label: 'Desk' },
-  { href: '/foundry/work', label: 'Work' },
   { href: '/foundry/queue', label: 'Queue' },
   { href: '/indices', label: 'Caveat Indices' },
-  { href: '/studio', label: 'Studio' },
 ] as const;
 
 const SECONDARY = [
