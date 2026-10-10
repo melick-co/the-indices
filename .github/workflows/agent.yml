@@ -352,6 +352,11 @@ jobs:
       - uses: actions/setup-node@v5
         with: { node-version: 22 }
       - run: npm ci --silent
+      - name: ffmpeg (to trim a chosen track)
+        if: inputs.task == 'house-track-choose'
+        run: |
+          npm install --no-save --silent ffmpeg-static@5.3.0
+          echo "FFMPEG_PATH=$(node -p "require('ffmpeg-static')")" >> "$GITHUB_ENV"
       - name: House track
         run: npx tsx --import ./scripts/node-shims.mjs scripts/house-track.ts
         env:
