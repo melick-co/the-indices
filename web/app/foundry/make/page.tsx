@@ -40,6 +40,7 @@ export default async function MakePage() {
         }))}
         stories={(stories ?? []).map((s) => ({ slug: s.slug as string, title: s.title as string, status: s.status as string }))}
         runs={runs}
+        trackBase={`${(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '')}/storage/v1/object/public/visual-videos/house`}
       />
     </main>
   );

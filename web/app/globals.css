@@ -5069,3 +5069,7 @@ a.dx-driver:hover { background: #f5f7fb; }
 .mk-dot.ok { background: #2f9e44; } .mk-dot.err { background: #c2372d; } .mk-dot.run { background: #e0a020; }
 .mk-meta { font-size: .76rem; color: #777; }
 @media (max-width: 900px) { .mk-grid { grid-template-columns: 1fr; } }
+.mk-tracks { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.mk-tracks figure { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.mk-tracks figcaption { font-size: .78rem; font-weight: 600; }
+.mk-tracks audio { width: 100%; }

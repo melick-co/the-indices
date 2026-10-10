@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/auth';
 import { dispatchTask, recentRuns } from '@/lib/github-dispatch';
 import { buildDatasets } from '@/lib/visuals-data';
 
-export type MakeKind = 'article' | 'graphic' | 'race' | 'picture' | 'clip' | 'highlights' | 'brief';
+export type MakeKind = 'article' | 'graphic' | 'race' | 'picture' | 'clip' | 'highlights' | 'brief' | 'house-track';
 
 /**
  * Start one piece of work on the runner. Every pipeline keeps its own checks (fact check, number check, picture
@@ -21,6 +21,7 @@ export async function make(kind: MakeKind, target: string, brief?: string) {
     case 'clip': return dispatchTask('hero-media', { pitch: t, ...(brief?.trim() ? { edits: brief.trim() } : {}) });
     case 'highlights': return dispatchTask('story-highlights', { pitch: t });
     case 'brief': return dispatchTask('hero-brief', { pitch: t });
+    case 'house-track': return dispatchTask('house-track-choose', { pitch: t });
   }
 }
 

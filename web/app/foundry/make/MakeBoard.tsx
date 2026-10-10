@@ -13,8 +13,8 @@ const ago = (iso: string) => {
   return m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
 };
 
-export default function MakeBoard({ ready, races, pitches, stories, runs }: {
-  ready: boolean; races: { key: string; label: string }[]; pitches: Pitch[]; stories: Story[]; runs: RunSummary[];
+export default function MakeBoard({ ready, races, pitches, stories, runs, trackBase }: {
+  ready: boolean; races: { key: string; label: string }[]; pitches: Pitch[]; stories: Story[]; runs: RunSummary[]; trackBase: string;
 }) {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -99,6 +99,20 @@ export default function MakeBoard({ ready, races, pitches, stories, runs }: {
           <div className="mk-row">
             <button type="button" className="mk-btn" disabled={pending || !pick.story} onClick={() => go('picture', pick.story, pick.brief)}>Draw the picture</button>
             <button type="button" className="mk-btn" disabled={pending || !pick.story} onClick={() => go('clip', pick.story, pick.brief)}>Picture and 8-second clip</button>
+          </div>
+        </section>
+        <section className="mk-card mk-wide">
+          <h2>House track</h2>
+          <p>The one theme every video uses (races, explainers and clips), under the voiceover. Listen, then choose; the next renders use it.</p>
+          <div className="mk-tracks">
+            <figure><figcaption>In use</figcaption><audio controls preload="none" src={`${trackBase}/caveat-theme.mp3`} /></figure>
+            {[1, 2, 3].map((n) => (
+              <figure key={n}>
+                <figcaption>Candidate {n}</figcaption>
+                <audio controls preload="none" src={`${trackBase}/candidates/theme-${n}.mp3`} />
+                <button type="button" className="mk-link" disabled={pending} onClick={() => go('house-track', String(n))}>Use this one</button>
+              </figure>
+            ))}
           </div>
         </section>
       </div>
