@@ -36,7 +36,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, wb, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, races-replace, house-track, house-track-choose, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, hero-review, story-highlights, story-highlights-dry-run, reel-cut, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, economists, economists-dry-run, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, wb, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, races-replace, house-track, house-track-choose, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, hero-review, story-highlights, story-highlights-dry-run, reel-cut, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, story-refresh(-apply): story slug(s). Space separated.'
@@ -152,11 +152,11 @@ jobs:
   email:
     if: >-
       github.event_name == 'workflow_dispatch' &&
-      (inputs.task == 'email' || inputs.task == 'both') ||
+      (inputs.task == 'email' || inputs.task == 'economists' || inputs.task == 'economists-dry-run' || inputs.task == 'both') ||
       github.event_name == 'schedule' &&
       (github.event.schedule == '30 21 * * *' || github.event.schedule == '30 9 * * *')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     defaults:
       run: { working-directory: agent }
     steps:
@@ -165,7 +165,15 @@ jobs:
         with: { node-version: 22 }
       - run: npm install @supabase/supabase-js --no-save --silent
       - name: Editorial email review
+        if: ${{ !startsWith(inputs.task, 'economists') }}
         run: node scripts/run-email-review.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: Economists' commentary, read against the data
+        if: ${{ inputs.task != 'email' }}
+        run: node scripts/run-economist-review.mjs ${{ inputs.task == 'economists-dry-run' && '--dry-run' || '' }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

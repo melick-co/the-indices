@@ -7,6 +7,7 @@ import { describeDerivation } from './derivation';
 import { trendInvestigatePrompts } from '@/lib/trend-prompts';
 import SourceSuggestionsPanel, { type SourceSuggestion } from './SourceSuggestionsPanel';
 import TopicSuggestionsPanel, { type TopicSuggestion } from './TopicSuggestionsPanel';
+import EconomistsPanel, { type EconomistNote } from './EconomistsPanel';
 import ApproveAndWrite from '@/components/ApproveAndWrite';
 import StoryPublishControls, { type StoryLink } from '@/components/StoryPublishControls';
 import ReelControls from '@/components/ReelControls';
@@ -35,10 +36,10 @@ const LABEL: Record<string, string> = {
   watchlist: 'Watchlist', dormant: 'Dormant', rejected: 'Rejected', published: 'Published',
 };
 
-export default function FoundryBoard({ pitches, runs, inbox, feedback, events, metrics, news, trends, sourceSuggestions, topicSuggestions = [], storyByPitch = {}, reelStatusBySlug = {}, initialTab = 'pitched' }:
+export default function FoundryBoard({ pitches, runs, inbox, feedback, events, metrics, news, trends, sourceSuggestions, topicSuggestions = [], economistNotes = [], storyByPitch = {}, reelStatusBySlug = {}, initialTab = 'pitched' }:
   { pitches: Pitch[]; runs: any[]; inbox: any[]; feedback: any[];
     events: PitchEvent[]; metrics: Metric[]; news: any[]; trends: any[];
-    sourceSuggestions: SourceSuggestion[]; topicSuggestions?: TopicSuggestion[]; storyByPitch?: Record<string, StoryLink>;
+    sourceSuggestions: SourceSuggestion[]; topicSuggestions?: TopicSuggestion[]; economistNotes?: EconomistNote[]; storyByPitch?: Record<string, StoryLink>;
     reelStatusBySlug?: Record<string, { status: string; stage: string }>; initialTab?: string }) {
   const metricById = new Map(metrics.map((m) => [m.metric_id, m]));
   const eventsFor = (id: string) => events.filter((e) => e.pitch_id === id);
@@ -312,6 +313,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
           );
         })}
 
+        <EconomistsPanel notes={economistNotes} />
         <TopicSuggestionsPanel suggestions={topicSuggestions} />
         <SourceSuggestionsPanel suggestions={sourceSuggestions} />
 
