@@ -53,7 +53,7 @@ function parseFeed(xml) {
 }
 
 async function fetchText(url) {
-  const res = await fetch(url, { headers: { 'user-agent': 'caveat-economist-reader (+https://the-indices.vercel.app/methodology)' }, signal: AbortSignal.timeout(30_000) });
+  const res = await fetch(url, { headers: { 'user-agent': 'caveat-economist-reader (+https://caveat.news/methodology)' }, signal: AbortSignal.timeout(30_000) });
   if (!res.ok) throw new Error(`${res.status}`);
   return res.text();
 }

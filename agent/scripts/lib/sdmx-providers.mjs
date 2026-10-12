@@ -7,7 +7,7 @@
  */
 import { parseSdmxSeries } from './sdmx-json.mjs';
 
-const UA = 'caveat-indices/0.1 (+https://the-indices.vercel.app)';
+const UA = 'caveat-indices/0.1 (+https://caveat.news)';
 
 // ISO 3166 alpha-2 to alpha-3 for the countries BIS reports. Aggregates (5R, XM...) are dropped.
 const ISO2_TO_3 = {

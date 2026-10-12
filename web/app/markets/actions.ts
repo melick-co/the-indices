@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase-server';
 import { looksLikeCsv, parseCsvSeries } from '@/lib/market-quotes';
 import { fetchQuote, type MarketKind, type MarketProvider } from '@/lib/markets-loader';
 
-const UA = 'Caveat-Markets/0.1 (+https://the-indices.vercel.app)';
+const UA = 'Caveat-Markets/0.1 (+https://caveat.news)';
 
 export type InspectedSource = {
   url: string;

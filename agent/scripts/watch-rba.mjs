@@ -9,7 +9,7 @@ import { createDb, upsertSeries } from './lib/obs-loader.mjs';
 import { loadRegistry } from './lib/registry.mjs';
 
 const BASE = 'https://www.rba.gov.au/statistics/tables/csv';
-const UA = 'caveat-indices/0.1 (+https://the-indices.vercel.app)';
+const UA = 'caveat-indices/0.1 (+https://caveat.news)';
 const ENTITY = 'AUS';
 
 async function fetchCsv(file) {

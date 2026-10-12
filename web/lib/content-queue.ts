@@ -51,7 +51,7 @@ export type QueueItem = {
 };
 export type QueuePost = { id: string; queue_id: string; channel: Channel; status: string; scheduled_at: string | null; posted_at: string | null; caption: string | null; external_url: string | null; error: string | null };
 
-const SITE = (process.env.NEXT_PUBLIC_SITE_URL || 'https://the-indices.vercel.app').replace(/\/$/, '');
+const SITE = (process.env.NEXT_PUBLIC_SITE_URL || 'https://caveat.news').replace(/\/$/, '');
 export const itemUrl = (i: { kind: QueueKind; ref_slug: string }) =>
   `${SITE}${i.kind === 'visual' || i.kind === 'race' ? `/indices/visuals/${i.ref_slug}` : `/stories/${i.ref_slug}`}`;
 

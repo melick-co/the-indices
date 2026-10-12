@@ -7,7 +7,7 @@
 import { parseRbaCsv } from './rba-csv.mjs';
 
 const SITE = 'https://www.rba.gov.au';
-const UA = 'Mozilla/5.0 (compatible; caveat-indices/0.1; +https://the-indices.vercel.app)';
+const UA = 'Mozilla/5.0 (compatible; caveat-indices/0.1; +https://caveat.news)';
 
 async function getText(url) {
   const res = await fetch(url, { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(60000) });

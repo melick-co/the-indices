@@ -3,7 +3,7 @@ import { loadYoutube, normalizeHttpUrl, youtubeVideoId } from './youtube-transcr
 
 export { appendContextTakeaways, formatYoutubeTakeaways } from './context-takeaways';
 
-const PAGE_UA = 'Caveat-Foundry/0.1 (+https://the-indices.vercel.app)';
+const PAGE_UA = 'Caveat-Foundry/0.1 (+https://caveat.news)';
 const TRANSCRIPT_LIMIT = 16000;
 const PAGE_LIMIT = 12000;
 

@@ -60,6 +60,7 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://caveat.news'),
   title: 'The Caveat — the detail that changes the story',
   description:
     'The Caveat reads the same data as everyone else and finds the detail that changes the story. Every claim resolves to a named source you can check.',

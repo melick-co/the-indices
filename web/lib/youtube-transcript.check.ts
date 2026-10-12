@@ -9,7 +9,7 @@ assert.equal(youtubeVideoId('https://www.youtube.com/shorts/dQw4w9WgXcQ'), 'dQw4
 assert.equal(youtubeVideoId('https://www.youtube.com/embed/dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
 assert.equal(youtubeVideoId('https://www.youtube.com/live/dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
 assert.equal(youtubeVideoId('https://m.youtube.com/watch?v=dQw4w9WgXcQ&t=12s'), 'dQw4w9WgXcQ');
-assert.equal(youtubeVideoId('https://the-indices.vercel.app/foundry'), null);
+assert.equal(youtubeVideoId('https://caveat.news/foundry'), null);
 assert.equal(youtubeVideoId('not a url'), null);
 assert.equal(youtubeVideoId('youtu.be/dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
 assert.equal(youtubeVideoId('www.youtube.com/watch?v=dQw4w9WgXcQ'), 'dQw4w9WgXcQ');

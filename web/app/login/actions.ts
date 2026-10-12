@@ -7,7 +7,7 @@ import { cookies, headers } from 'next/headers';
 function siteOrigin() {
   return headers().get('origin')
     || process.env.NEXT_PUBLIC_SITE_URL
-    || 'https://the-indices.vercel.app';
+    || 'https://caveat.news';
 }
 
 function cookieClient() {

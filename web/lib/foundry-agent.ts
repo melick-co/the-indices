@@ -32,7 +32,7 @@ export type FoundryEvent =
   | { type: 'done'; messageId: string }
   | { type: 'error'; message: string };
 
-const UA = 'Caveat-Foundry/0.1 (+https://the-indices.vercel.app)';
+const UA = 'Caveat-Foundry/0.1 (+https://caveat.news)';
 
 export const INTENT_INSTRUCTIONS: Record<FoundryIntent, string> = {
   investigate: ASK_INSTRUCTIONS,

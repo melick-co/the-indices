@@ -15,7 +15,7 @@ import { createDb, loadEntityCodes, upsertSeries } from './lib/obs-loader.mjs';
 import { loadRegistry } from './lib/registry.mjs';
 
 const BASE = 'https://sdmx.oecd.org/public/rest';
-const UA = 'caveat-indices/0.1 (+https://the-indices.vercel.app)';
+const UA = 'caveat-indices/0.1 (+https://caveat.news)';
 const STRUCTURE = 'application/vnd.sdmx.structure+json;version=1.0';
 const DATA = 'application/vnd.sdmx.data+json;version=1.0';
 
