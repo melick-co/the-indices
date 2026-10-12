@@ -103,8 +103,10 @@ async function catalogue() {
 }
 
 async function latest(metricId) {
-  const { data } = await db.from('observations').select('entity, period, value').eq('metric_id', metricId).eq('entity', 'AUS').order('period', { ascending: false }).limit(6);
-  return (data ?? []).reverse();
+  const { data } = await db.from('observations').select('entity, period, value').eq('metric_id', metricId).eq('entity', 'AUS').order('period', { ascending: false }).limit(9);
+  const rows = (data ?? []).reverse();
+  // Each reading with its change from the one before, worked out here so the model doesn't have to count.
+  return rows.slice(1).map((r, k) => ({ ...r, change: +(Number(r.value) - Number(rows[k].value)).toPrecision(6) }));
 }
 
 function extractPrompt(note, cat) {
@@ -139,7 +141,7 @@ ${cat}`;
 }
 
 function verdictPrompt(claims, published) {
-  return `For each claim (made ${published ? `on ${published.slice(0, 10)}` : 'recently'}), compare it with the official readings given (latest last).
+  return `For each claim (made ${published ? `on ${published.slice(0, 10)}` : 'recently'}), compare it with the official readings given (latest last; each with its change from the reading before, so count rises and falls from those).
 Reply with JSON only, writing the note first and choosing the verdict that the note supports:
 {"verdicts": [{"i": index, "note": "at most 25 words, citing the figures shown", "verdict": "agrees" | "disagrees" | "partly" | "too early" | "unclear"}]}
 agrees: the readings bear out the claim's figures. disagrees: the readings contradict them. partly: some parts hold, some don't.
@@ -159,7 +161,7 @@ async function review(note, cat) {
     if (!c.metric_id) { c.verdict = 'no series'; continue; }
     const rows = await latest(c.metric_id);
     if (!rows.length) { c.verdict = 'no series'; continue; }
-    checkable.push({ i, claim: c.text, kind: c.kind, horizon: c.horizon, series: c.metric_id, readings: rows.map((r) => `${r.period}: ${r.value}`) });
+    checkable.push({ i, claim: c.text, kind: c.kind, horizon: c.horizon, series: c.metric_id, readings: rows.map((r) => `${r.period}: ${r.value} (change ${r.change >= 0 ? '+' : ''}${r.change})`) });
   }
   if (checkable.length) {
     const v = await callClaudeJson(verdictPrompt(checkable, note.published_at), { label: `economist verdicts ${note.id}`, maxTokens: 2000 }).catch(() => ({ verdicts: [] }));
