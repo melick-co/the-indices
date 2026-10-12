@@ -137,7 +137,7 @@ async function quoteStore(metricId: string): Promise<Quote | null> {
 
 async function quoteUrl(url: string): Promise<Quote | null> {
   const res = await fetch(url, {
-    headers: { 'user-agent': 'Caveat-Markets/0.1 (+https://the-indices.vercel.app)' },
+    headers: { 'user-agent': 'Caveat-Markets/0.1 (+https://caveat.news)' },
     signal: AbortSignal.timeout(15000),
     redirect: 'follow',
   });

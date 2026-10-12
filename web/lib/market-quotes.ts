@@ -7,7 +7,7 @@ export type Quote = {
   history: HistoryPoint[];
 };
 
-const UA = 'Caveat-Markets/0.1 (+https://the-indices.vercel.app)';
+const UA = 'Caveat-Markets/0.1 (+https://caveat.news)';
 const HISTORY = 90;
 
 async function getText(url: string, timeoutMs = 12000): Promise<string> {

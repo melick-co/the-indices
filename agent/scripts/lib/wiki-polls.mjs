@@ -7,7 +7,7 @@
  */
 export const POLL_PAGE = 'Opinion_polling_for_the_next_Australian_federal_election';
 const API = 'https://en.wikipedia.org/w/api.php';
-const UA = 'CaveatBot/1.0 (https://the-indices.vercel.app; polling tables for a public dashboard)';
+const UA = 'CaveatBot/1.0 (https://caveat.news; polling tables for a public dashboard)';
 
 async function api(params) {
   const url = `${API}?${new URLSearchParams({ format: 'json', formatversion: '2', ...params })}`;

@@ -116,11 +116,11 @@ Migration: `13_email_suggestions.sql`. Schedule: `:30` after RSS/trends in
 `.github/workflows/agent.yml`.
 
 **Resend setup:** add domain → enable Inbound → route to
-`https://the-indices.vercel.app/api/inbox/email` with bearer auth.
+`https://caveat.news/api/inbox/email` with bearer auth.
 
 **Test without email:**
 ```bash
-curl -X POST https://the-indices.vercel.app/api/inbox/email \
+curl -X POST https://caveat.news/api/inbox/email \
   -H "Authorization: Bearer $INBOUND_EMAIL_SECRET" \
   -H "Content-Type: application/json" \
   -d '{"from":"you@example.com","subject":"Stamp duty story","text":"NSW budget pressure from falling stamp duty receipts..."}'
