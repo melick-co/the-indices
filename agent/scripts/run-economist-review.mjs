@@ -2,6 +2,7 @@
  * Economists' commentary, read against the data.
  *
  *   node scripts/run-economist-review.mjs            fetch the feeds, review what's new
+ *   node scripts/run-economist-review.mjs --again    also re-review the last 14 days' reviewed notes
  *   node scripts/run-economist-review.mjs --dry-run  fetch the feeds and list what is new; store and review nothing
  *
  * 1. Feeds in config/economists.json are fetched; new items from the last 14 days go into economist_notes
@@ -19,6 +20,7 @@ import './lib/load-env.mjs';
 import { callClaudeJson } from './lib/claude.mjs';
 
 const dry = process.argv.includes('--dry-run');
+const again = process.argv.includes('--again'); // re-review what was reviewed in the last 14 days
 const CONFIG = JSON.parse(readFileSync(new URL('../config/economists.json', import.meta.url), 'utf8'));
 const MAX_NEW_PER_FEED = 6;
 const MAX_REVIEWS = 14;
@@ -101,8 +103,10 @@ async function catalogue() {
 }
 
 async function latest(metricId) {
-  const { data } = await db.from('observations').select('entity, period, value').eq('metric_id', metricId).eq('entity', 'AUS').order('period', { ascending: false }).limit(6);
-  return (data ?? []).reverse();
+  const { data } = await db.from('observations').select('entity, period, value').eq('metric_id', metricId).eq('entity', 'AUS').order('period', { ascending: false }).limit(9);
+  const rows = (data ?? []).reverse();
+  // Each reading with its change from the one before, worked out here so the model doesn't have to count.
+  return rows.slice(1).map((r, k) => ({ ...r, change: +(Number(r.value) - Number(rows[k].value)).toPrecision(6) }));
 }
 
 function extractPrompt(note, cat) {
@@ -124,19 +128,25 @@ Return:
     "kind": "forecast" | "view" | "figure",
     "figure": "the number it states, as written, or null",
     "horizon": "for forecasts: when it is meant to be true, else null",
-    "metric_id": "the stored series this claim can be checked against, from the catalogue below, or null"}],
- "angle": "a possible Caveat story in one sentence (where the data could confirm, complicate or contradict the claims), or null"}
+    "metric_id": "the stored series that measures exactly the quantity the claim is about, from the catalogue below, or null"}],
+ "angle": "a possible Caveat story in at most 30 words: what our data could confirm, complicate or contradict. Null if none"}
 
-Rules: attribute every view to its author or organisation; never state a view as fact. Use only metric_ids from the catalogue; null when none fits exactly. Australian English, no em dashes.
+Rules: attribute every view to its author or organisation; never state a view as fact. Use only metric_ids from the catalogue.
+A metric_id must measure the claim's own quantity (the cash rate for a claim about the cash rate, CPI for a claim about
+inflation). A related or broader series does not count: a company's valuation is not market capitalisation to GDP, fuel
+excise is not total tax revenue. When in doubt, null. Australian English, no em dashes.
 
 Catalogue of stored series:
 ${cat}`;
 }
 
-function verdictPrompt(claims) {
-  return `For each claim, compare it with the official readings given (latest last). Reply with JSON only:
-{"verdicts": [{"i": index, "verdict": "agrees" | "disagrees" | "partly" | "too early" | "unclear", "note": "one sentence citing the figures shown"}]}
-"too early" is for forecasts whose period has not arrived. Use only the figures given; no outside knowledge. Australian English.
+function verdictPrompt(claims, published) {
+  return `For each claim (made ${published ? `on ${published.slice(0, 10)}` : 'recently'}), compare it with the official readings given (latest last; each with its change from the reading before, so count rises and falls from those).
+Reply with JSON only, writing the note first and choosing the verdict that the note supports:
+{"verdicts": [{"i": index, "note": "at most 25 words, citing the figures shown", "verdict": "agrees" | "disagrees" | "partly" | "too early" | "unclear"}]}
+agrees: the readings bear out the claim's figures. disagrees: the readings contradict them. partly: some parts hold, some don't.
+too early: a forecast whose period has not arrived. unclear: the readings don't measure what the claim is about.
+Use only the figures given; no outside knowledge. Australian English, no em dashes.
 
 ${JSON.stringify(claims, null, 1)}`;
 }
@@ -151,16 +161,24 @@ async function review(note, cat) {
     if (!c.metric_id) { c.verdict = 'no series'; continue; }
     const rows = await latest(c.metric_id);
     if (!rows.length) { c.verdict = 'no series'; continue; }
-    checkable.push({ i, claim: c.text, kind: c.kind, horizon: c.horizon, series: c.metric_id, readings: rows.map((r) => `${r.period}: ${r.value}`) });
+    checkable.push({ i, claim: c.text, kind: c.kind, horizon: c.horizon, series: c.metric_id, readings: rows.map((r) => `${r.period}: ${r.value} (change ${r.change >= 0 ? '+' : ''}${r.change})`) });
   }
   if (checkable.length) {
-    const v = await callClaudeJson(verdictPrompt(checkable), { label: `economist verdicts ${note.id}`, maxTokens: 2000 }).catch(() => ({ verdicts: [] }));
-    for (const r of v.verdicts ?? []) if (claims[r.i]) { claims[r.i].verdict = r.verdict; claims[r.i].data_note = r.note; }
+    const v = await callClaudeJson(verdictPrompt(checkable, note.published_at), { label: `economist verdicts ${note.id}`, maxTokens: 2000 }).catch(() => ({ verdicts: [] }));
+    for (const r of v.verdicts ?? []) {
+      if (!claims[r.i]) continue;
+      // A series that turned out not to measure the claim is no check at all: show the claim without a verdict.
+      if (r.verdict === 'unclear') { claims[r.i].verdict = 'no series'; claims[r.i].metric_id = null; continue; }
+      claims[r.i].verdict = r.verdict; claims[r.i].data_note = r.note;
+    }
   }
   return { status: 'reviewed', relevant: true, summary: out.summary ?? null, claims, angle: out.angle ?? null, author: out.author ?? note.author };
 }
 
 async function main() {
+  if (again && !dry) {
+    await db.from('economist_notes').update({ status: 'new' }).eq('status', 'reviewed').gte('created_at', new Date(Date.now() - DAYS * 864e5).toISOString());
+  }
   const added = await collectFeeds();
   console.log(`${added} new note(s).`);
   const cat = await catalogue();
