@@ -29,7 +29,12 @@ export async function POST(request: Request) {
   // Resend inbound: { type: 'email.received', data: { email_id, from, to, subject, message_id, … } }; the body may
   // need fetching. A manual POST carries { from, subject, text|html }.
   const data = { ...((body.data ?? body) as Record<string, unknown>) };
-  if (!data.text && !data.html && data.email_id) Object.assign(data, await receivedEmail(String(data.email_id)));
+  let fetchNote: string | null = null;
+  if (!data.text && !data.html && data.email_id) {
+    const got = await receivedEmail(String(data.email_id));
+    if (got.error) { fetchNote = got.error; console.error('inbound email body fetch failed', got.error); }
+    Object.assign(data, got.text || got.html ? { text: got.text, html: got.html } : {});
+  }
 
   const from = addressOf(data.from ?? data.from_address);
   const subject = String(data.subject ?? '').trim() || '(no subject)';
@@ -38,9 +43,11 @@ export async function POST(request: Request) {
   const messageId = String(data.message_id ?? data.messageId ?? data.email_id ?? '').trim() || null;
   const link = extractFirstUrl(text || html);
 
-  const plain = text || html.replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-  if (!plain && !link) {
-    return NextResponse.json({ ok: false, error: 'empty email body' }, { status: 400 });
+  const stripped = text || html.replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  // Keep the email even when its text couldn't be read, so a failure shows in the inbox rather than vanishing.
+  const plain = stripped || `(The text of this email could not be read${fetchNote ? `: ${fetchNote}` : ''}.)`;
+  if (!stripped && !link && !data.subject && !from) {
+    return NextResponse.json({ ok: false, error: 'empty email' }, { status: 400 });
   }
 
   const supabase = createClient(url, service, { auth: { persistSession: false } });
@@ -106,17 +113,20 @@ function authorised(request: Request, raw: string): boolean {
 }
 
 /** The text and html of a received email, which Resend's webhook leaves out. */
-async function receivedEmail(id: string): Promise<{ text?: string; html?: string }> {
+async function receivedEmail(id: string): Promise<{ text?: string; html?: string; error?: string }> {
   const key = process.env.RESEND_API_KEY;
-  if (!key) return {};
+  if (!key) return { error: 'RESEND_API_KEY is not set' };
   try {
     const res = await fetch(`https://api.resend.com/emails/receiving/${encodeURIComponent(id)}`, {
       headers: { authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(10_000),
     });
-    if (!res.ok) return {};
+    if (!res.ok) {
+      const why = res.status === 401 || res.status === 403 ? ' (the API key needs full access, not sending only)' : '';
+      return { error: `Resend returned ${res.status}${why}` };
+    }
     const j = await res.json();
     return { text: j.text ?? undefined, html: j.html ?? undefined };
-  } catch { return {}; }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'fetch failed' }; }
 }
 
 /** "Name <a@b.com>", { email, name } or a bare address, as the address. */
