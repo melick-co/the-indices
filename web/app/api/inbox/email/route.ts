@@ -116,17 +116,25 @@ function authorised(request: Request, raw: string): boolean {
 async function receivedEmail(id: string): Promise<{ text?: string; html?: string; error?: string }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { error: 'RESEND_API_KEY is not set' };
-  try {
-    const res = await fetch(`https://api.resend.com/emails/receiving/${encodeURIComponent(id)}`, {
-      headers: { authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(10_000),
-    });
-    if (!res.ok) {
+  let error = 'fetch failed';
+  // The webhook can fire before the email is ready to read: try again once after a short pause.
+  for (const wait of [0, 3000]) {
+    if (wait) await new Promise((r) => setTimeout(r, wait));
+    try {
+      const res = await fetch(`https://api.resend.com/emails/receiving/${encodeURIComponent(id)}`, {
+        headers: { authorization: `Bearer ${key}`, 'user-agent': 'caveat-inbox/1.0 (+https://caveat.news)' },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (res.ok) {
+        const j = await res.json();
+        return { text: j.text ?? undefined, html: j.html ?? undefined };
+      }
+      const detail = (await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 200);
       const why = res.status === 401 || res.status === 403 ? ' (the API key needs full access, not sending only)' : '';
-      return { error: `Resend returned ${res.status}${why}` };
-    }
-    const j = await res.json();
-    return { text: j.text ?? undefined, html: j.html ?? undefined };
-  } catch (e) { return { error: e instanceof Error ? e.message : 'fetch failed' }; }
+      error = `Resend returned ${res.status}${why}${detail ? `: ${detail}` : ''}`;
+    } catch (e) { error = e instanceof Error ? e.message : 'fetch failed'; }
+  }
+  return { error };
 }
 
 /** "Name <a@b.com>", { email, name } or a bare address, as the address. */
