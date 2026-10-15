@@ -198,7 +198,8 @@ export function fitSecondsToWords(seconds: number, narration: string): number {
 
 function numbersIn(text: string): number[] {
   // Strips grouping commas so "1,234.5" reads as one number rather than two.
-  const matches = text.replace(/(\d),(?=\d{3}\b)/g, '$1').match(/-?\d+(?:\.\d+)?/g);
+  // A minus sign only when it is not a hyphen joined to a word: "mid-2025" is 2025, not -2025.
+  const matches = text.replace(/(\d),(?=\d{3}\b)/g, '$1').match(/(?:(?<![A-Za-z0-9])-)?\d+(?:\.\d+)?/g);
   return (matches ?? []).map(Number).filter((n) => Number.isFinite(n));
 }
 
@@ -363,7 +364,8 @@ export function validateReel(
       );
     }
 
-    if (visualsRequired && !scene.visual_prompt?.trim()) {
+    // The sources card sits on plain paper, so it needs no picture direction.
+    if (visualsRequired && scene.kind !== 'sources' && !scene.visual_prompt?.trim()) {
       warnings.push(`${ref}: no visual direction`);
     }
 
