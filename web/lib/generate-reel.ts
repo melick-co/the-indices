@@ -13,6 +13,7 @@ import {
   REEL_FORMAT,
   REEL_SECONDS,
   REEL_WORDS_MAX,
+  VOICE_WORDS_PER_SECOND,
   SCENE_SECONDS,
   fitSecondsToWords,
   validateReel,
@@ -274,16 +275,21 @@ function parseModelJson<T>(raw: string, label: string): T {
  * Whole seconds, and never fewer than the narration needs at the house pace: the words decide the
  * length. The writer's own figure stands when it is the longer.
  */
+/** The charter rules out em dashes; a model still writes them, so they become commas before anything is checked. */
+function withoutEmDash(text: string): string {
+  return text.replace(/\s*—\s*/g, ', ').replace(/,\s*([.,;:])/g, '$1');
+}
+
 function normaliseScene(scene: Omit<ReelScene, 'id'> & { id?: string }, i: number): ReelScene {
-  const narration = String(scene.narration ?? '').trim();
+  const narration = withoutEmDash(String(scene.narration ?? '').trim());
   const seconds = fitSecondsToWords(Number(scene.seconds) || SCENE_SECONDS.min, narration);
   return {
     ...scene,
     id: scene.id || `s${i + 1}`,
     seconds,
     narration,
-    on_screen: String(scene.on_screen ?? '').trim(),
-    lower_third: scene.lower_third ? String(scene.lower_third).trim() : undefined,
+    on_screen: withoutEmDash(String(scene.on_screen ?? '').trim()),
+    lower_third: scene.lower_third ? withoutEmDash(String(scene.lower_third).trim()) : undefined,
     visual_prompt: String(scene.visual_prompt ?? '').trim(),
   };
 }
@@ -365,12 +371,13 @@ async function generateScript(
   };
   const spoken = (m: ScriptModel) => (m.scenes ?? []).reduce((sum, s) => sum + wordCount(String(s.narration ?? '')), 0);
   let model = await write('');
-  // One rewrite when the draft cannot fit 75 seconds; the check below flags anything still over.
-  if (Array.isArray(model.scenes) && spoken(model) > REEL_WORDS_MAX) {
+  // Up to two rewrites when the draft cannot fit 75 seconds; the check below flags anything still over.
+  for (let tries = 0; tries < 2 && Array.isArray(model.scenes) && spoken(model) > REEL_WORDS_MAX; tries++) {
     const over = spoken(model);
+    const target = REEL_WORDS_MAX - 10 * (tries + 1);
     onProgress(`The draft ran ${over} words, over the ${REEL_WORDS_MAX} that fit ${REEL_SECONDS.max}s: tightening it`);
-    model = await write(`\n\nA previous draft ran ${over} words of narration, about ${Math.round(over / WORDS_PER_SECOND)}s. `
-      + `Write it again at no more than ${REEL_WORDS_MAX} words in total and no more than 8 scenes: cut whole `
+    model = await write(`\n\nA previous draft ran ${over} words of narration, about ${Math.round(over / VOICE_WORDS_PER_SECOND)}s once voiced. `
+      + `Write it again at no more than ${target} words in total and no more than 8 scenes: cut whole `
       + 'sentences and merge layers; keep the cold open, the one number, the caveat and the sources.');
   }
 

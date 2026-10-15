@@ -38,11 +38,18 @@ export const SCENE_SECONDS = { min: 3, max: 9 };
 export const REEL_SECONDS = { min: 20, max: 75 };
 
 /**
+ * The pace the voice actually reads a whole reel at, pauses between scenes included. Measured 15 October 2026 on
+ * the spending-sentiment cut: 168 words read in 81 seconds. Budgets for the whole reel use this, not the
+ * per-scene target above, or a script that fits on paper runs long once voiced.
+ */
+export const VOICE_WORDS_PER_SECOND = 2.0;
+
+/**
  * The most narration a reel can carry and still fit REEL_SECONDS.max at the measured pace. A scene
  * may run past SCENE_SECONDS.max when its words need it, but the reel may not run past 75 seconds
  * (Marcel, 15 October 2026, after a 96-second board cut to 1:41).
  */
-export const REEL_WORDS_MAX = Math.floor(REEL_SECONDS.max * WORDS_PER_SECOND);
+export const REEL_WORDS_MAX = Math.floor(REEL_SECONDS.max * VOICE_WORDS_PER_SECOND);
 
 /** Burned-in text has to survive a phone screen with platform chrome over it. */
 export const ON_SCREEN_CHARS = 70;

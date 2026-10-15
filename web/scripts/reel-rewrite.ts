@@ -30,7 +30,9 @@ async function main() {
 
   if (pictures) {
     log('\npictures');
-    await startRenders(slug, { scope: 'reel', kind: 'auto' });
+    const before = new Set((await listRenders(slug)).map((r) => r.renderId));
+    const started = (await startRenders(slug, { scope: 'reel', kind: 'auto' })).filter((r) => !before.has(r.renderId));
+    log(started.length ? `  started: ${started.map((r) => `${r.sceneId} ${r.kind}`).join(', ')}` : '  nothing started');
     // Stills land first and chain into clips; poll until nothing is queued or running.
     const deadline = Date.now() + PICTURE_MINUTES * 60_000;
     for (;;) {
