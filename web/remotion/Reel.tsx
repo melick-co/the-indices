@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { AbsoluteFill, Audio, Sequence, cancelRender, continueRender, delayRender, interpolate, staticFile, useVideoConfig } from 'remotion';
-import { VOICE_LEAD_SECONDS, framesFor, type CutProps } from '../lib/reel-cut-types';
+import { END_CARD_SECONDS, VOICE_LEAD_SECONDS, framesFor, type CutProps } from '../lib/reel-cut-types';
 import { loadFonts } from './fonts';
-import { Scene } from './scenes';
+import { EndCard, Scene } from './scenes';
 import { PAPER } from './theme';
 
 /**
@@ -17,6 +17,7 @@ export const Reel: React.FC<CutProps> = (props) => {
   }, [handle]);
 
   const { durationInFrames } = useVideoConfig();
+  const sceneFrames = props.scenes.reduce((sum, s) => sum + framesFor(s.seconds), 0);
   let from = 0;
   return (
     <AbsoluteFill style={{ background: PAPER }}>
@@ -39,6 +40,9 @@ export const Reel: React.FC<CutProps> = (props) => {
           </Sequence>
         );
       })}
+      <Sequence from={sceneFrames} durationInFrames={framesFor(END_CARD_SECONDS)} name="end card">
+        <EndCard props={props} />
+      </Sequence>
     </AbsoluteFill>
   );
 };
