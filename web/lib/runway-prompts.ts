@@ -58,7 +58,9 @@ function pack(keep: string, optional: string[], max: number): string {
 export const NO_TEXT_RULE =
   'NO TEXT OF ANY KIND in the frame: no lettering, captions, titles, straps, numbers, charts, graphs, '
   + 'logos, screens or interface. Titles and charts are added afterwards over this picture. '
-  + 'Keep the top third and bottom quarter of the frame quiet (plain wall, soft background).';
+  + 'FULL BLEED: one photograph fills the whole vertical frame edge to edge, with no borders, margins, '
+  + 'blank or blurred strips, split panels or collage. Calmer areas (sky, wall, soft background) near the '
+  + 'top and bottom are part of the same photograph.';
 
 /**
  * Whether a picture was made under the no-text rule. Earlier pictures were prompted with the
@@ -85,9 +87,11 @@ export function withoutPresenter(text: string): string {
 }
 
 function pictureNotes(text: string): string {
+  // Paper, grid and margin notes describe the cut's page, not the photograph; a generator given them
+  // draws a photo inside a paper frame (the spending-sentiment reel, 15 October 2026).
   return text
     .split(/(?<=[.;])\s+/)
-    .filter((clause) => !/mono|figure|label|strap|chart|caption|tabular|letter|text|third/i.test(clause))
+    .filter((clause) => !/mono|figure|label|strap|chart|caption|tabular|letter|text|third|paper|grid|margin|hairline|ink/i.test(clause))
     .map((clause) => clause.replace(/;$/, '.'))
     .join(' ');
 }
@@ -109,7 +113,7 @@ function picturePrompt(
   ].join(' ');
   const motion = opts.kind === 'clip'
     ? 'Animate this first frame. Subtle motion only: the camera holds, nothing is added to the frame.'
-    : 'STILL FRAME, photographic, raw off-white paper tones.';
+    : 'STILL FRAME, documentary photograph, natural muted colour, soft daylight.';
   // Never a presenter, whatever an older stored style says (NO_PRESENTER).
   const presenter = `ON CAMERA: ${NO_PRESENTER}`;
   const keep = pack(header, [NO_TEXT_RULE, `SCENE: ${withoutPresenter(scene.visual_prompt)}`], max);

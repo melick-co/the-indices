@@ -20,6 +20,17 @@ function filename(render: StoryReelRender): string {
   return `${render.storySlug}-${render.sceneId}-${render.kind}.${ext}`;
 }
 
+/** A response body as JSON, or a readable error when the server sent text (a timeout page, say). */
+async function readJson(res: Response): Promise<any> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    const gist = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+    throw new Error(`The server did not finish (${res.status})${gist ? `: ${gist}` : ''}. Try again in a minute.`);
+  }
+}
+
 function Preview({ render }: { render: StoryReelRender }) {
   if (render.status !== 'succeeded' || !render.outputUrl) return null;
   if (render.kind === 'reel' && render.outputManifest?.clips.length) {
@@ -96,7 +107,7 @@ export default function ReelRenderer({
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/stories/${slug}/reel/render`);
-    const data = await res.json();
+    const data = await readJson(res);
     if (!res.ok) throw new Error(data.message || `Failed (${res.status})`);
     apply(data);
   }, [apply, slug]);
@@ -112,7 +123,7 @@ export default function ReelRenderer({
     const tick = async () => {
       try {
         const res = await fetch(`/api/stories/${slug}/reel/render/poll`, { method: 'POST' });
-        const data = await res.json();
+        const data = await readJson(res);
         if (cancelled) return;
         if (!res.ok) {
           setNote(data.message || `Poll failed (${res.status})`);
@@ -141,7 +152,7 @@ export default function ReelRenderer({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok) throw new Error(data.message || `Failed (${res.status})`);
       apply(data);
       setNote(data.configured === false
@@ -159,7 +170,7 @@ export default function ReelRenderer({
     setNote(null);
     try {
       const res = await fetch(`/api/stories/${slug}/reel/cut`, { method: 'POST' });
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok) throw new Error(data.message || `Failed (${res.status})`);
       setNote(data.message);
       await load();
@@ -205,10 +216,10 @@ export default function ReelRenderer({
     <section className="runway-block">
       <h2 className="reel-h2">ElevenLabs pictures</h2>
       <p className="reel-lede">
-        After the prompt pack, ElevenLabs draws the stills and animates the clips that the cut
-        places behind its text. Chart scenes send the locked series and caption; the model is not
-        asked for new figures, and the cut draws charts itself. Jobs are async: we poll ElevenLabs
-        until each task lands, then copy the file into our storage before the download link expires.
+        ElevenLabs draws the photographs and animates the clips that the cut places behind its text.
+        It never draws charts: chart scenes are drawn by the cut from the locked series, so they have
+        nothing to generate here. Jobs are async: we poll ElevenLabs until each task lands, then copy
+        the file into our storage before the download link expires.
       </p>
 
       {missingKey && (
@@ -225,59 +236,57 @@ export default function ReelRenderer({
           disabled={busy !== null}
           onClick={() => start({ scope: 'reel', kind: 'auto' }, 'reel')}
         >
-          {busy === 'reel' ? 'Starting…' : 'Generate whole reel'}
+          {busy === 'reel' ? 'Starting…' : 'Generate every picture'}
         </button>
         {reel && <Status render={reel} />}
         {note && <span className="reel-action-note">{note}</span>}
       </div>
 
-      {reel?.status === 'succeeded' && <Preview render={reel} />}
 
       <div className="runway-scenes">
         {scenes.map((scene, i) => {
-          const stillKind: RenderKind = scene.chart ? 'chart' : 'still';
-          const videoKind: RenderKind = scene.chart ? 'chart_video' : 'clip';
-          const still = byKey.get(`${scene.id}:${stillKind}`) ?? byKey.get(`${scene.id}:still`) ?? byKey.get(`${scene.id}:chart`);
-          const video = byKey.get(`${scene.id}:${videoKind}`) ?? byKey.get(`${scene.id}:clip`) ?? byKey.get(`${scene.id}:chart_video`);
-          const stillLabel = scene.chart ? 'Generate chart still' : 'Generate still';
-          const videoLabel = scene.chart ? 'Animate chart' : 'Generate clip';
+          const still = byKey.get(`${scene.id}:still`);
+          const video = byKey.get(`${scene.id}:clip`);
           return (
             <article key={scene.id} className="runway-scene">
               <header className="runway-scene-head">
                 <span className="reel-scene-n">{String(i + 1).padStart(2, '0')}</span>
                 <span className="reel-scene-kind">{scene.kind.replace('_', ' ')}</span>
-                {scene.chart && <span className="runway-chart-flag">locked chart</span>}
+                {scene.chart && <span className="runway-chart-flag">chart drawn by the cut</span>}
                 <span className="reel-scene-secs">{scene.seconds}s</span>
               </header>
-              {scene.chart && (
+              {scene.chart ? (
                 <p className="runway-series">
                   {scene.chart.caption}: {scene.chart.series.map((p) => `${p.label} ${p.value}`).join('; ')}
                 </p>
+              ) : (
+                <>
+                  <div className="runway-scene-actions">
+                    <button
+                      type="button"
+                      className="reel-action-quiet"
+                      disabled={busy !== null}
+                      onClick={() => start({ scope: 'scene', sceneId: scene.id, kind: 'still' }, `${scene.id}-still`)}
+                    >
+                      {busy === `${scene.id}-still` ? 'Starting…' : 'Generate still'}
+                    </button>
+                    <Status render={still} />
+                    <button
+                      type="button"
+                      className="reel-action-quiet"
+                      disabled={busy !== null}
+                      onClick={() => start({ scope: 'scene', sceneId: scene.id, kind: 'clip' }, `${scene.id}-video`)}
+                    >
+                      {busy === `${scene.id}-video` ? 'Starting…' : 'Generate clip'}
+                    </button>
+                    <Status render={video} />
+                  </div>
+                  <div className="runway-previews">
+                    {still && <Preview render={still} />}
+                    {video && <Preview render={video} />}
+                  </div>
+                </>
               )}
-              <div className="runway-scene-actions">
-                <button
-                  type="button"
-                  className="reel-action-quiet"
-                  disabled={busy !== null}
-                  onClick={() => start({ scope: 'scene', sceneId: scene.id, kind: stillKind }, `${scene.id}-still`)}
-                >
-                  {busy === `${scene.id}-still` ? 'Starting…' : stillLabel}
-                </button>
-                <Status render={still} />
-                <button
-                  type="button"
-                  className="reel-action-quiet"
-                  disabled={busy !== null}
-                  onClick={() => start({ scope: 'scene', sceneId: scene.id, kind: videoKind }, `${scene.id}-video`)}
-                >
-                  {busy === `${scene.id}-video` ? 'Starting…' : videoLabel}
-                </button>
-                <Status render={video} />
-              </div>
-              <div className="runway-previews">
-                {still && <Preview render={still} />}
-                {video && <Preview render={video} />}
-              </div>
             </article>
           );
         })}

@@ -12,10 +12,12 @@ import {
   LOWER_THIRD_CHARS,
   REEL_FORMAT,
   REEL_SECONDS,
+  REEL_WORDS_MAX,
   SCENE_SECONDS,
   fitSecondsToWords,
   validateReel,
   wordBudget,
+  wordCount,
   WORDS_PER_SECOND,
   type ReelScene,
   type ReelSpec,
@@ -85,7 +87,10 @@ Rules that are checked mechanically after you answer, so breaking them wastes th
 - Narration is a spoken read at about ${WORDS_PER_SECOND} words per second. Each scene's seconds
   are set from its word count at that pace after you answer, so every extra word lengthens the
   reel. Say what the beat needs and no more.
-- Aim for scenes of ${SCENE_SECONDS.min}-${SCENE_SECONDS.max}s and a reel of ${REEL_SECONDS.min}-${REEL_SECONDS.max}s; a scene with more to say may run longer.
+- Aim for scenes of ${SCENE_SECONDS.min}-${SCENE_SECONDS.max}s; a scene with more to say may run longer.
+- HARD LIMIT: the whole reel runs ${REEL_SECONDS.min}-${REEL_SECONDS.max}s, so the narration across ALL scenes is at most
+  ${REEL_WORDS_MAX} words, and at most 8 scenes. Count the words before you answer. Cut whole sentences
+  from the layers rather than trimming the caveat.
 - on_screen is burned in: at most ${ON_SCREEN_CHARS} characters. lower_third at most ${LOWER_THIRD_CHARS}.
 - Australian English. No em dashes or en dashes anywhere. No hype adjectives.
 - Headlines and on-screen text state the finding, not the topic.`;
@@ -352,12 +357,22 @@ async function generateScript(
   const story = await loadStoryForVideo(slug);
 
   onProgress('Writing the script from the findings');
-  const { text: raw, usage } = await callAnthropic(structureSystem(), scriptUserPrompt(story), 4000);
-  await recordStage(slug, 'script', usage);
-  const model = parseModelJson<{
-    scenes: Array<Omit<ReelScene, 'id' | 'visual_prompt'>>;
-    generation_note?: string;
-  }>(raw, 'Script generator');
+  type ScriptModel = { scenes: Array<Omit<ReelScene, 'id' | 'visual_prompt'>>; generation_note?: string };
+  const write = async (extra: string) => {
+    const { text, usage } = await callAnthropic(structureSystem(), scriptUserPrompt(story) + extra, 4000);
+    await recordStage(slug, 'script', usage);
+    return parseModelJson<ScriptModel>(text, 'Script generator');
+  };
+  const spoken = (m: ScriptModel) => (m.scenes ?? []).reduce((sum, s) => sum + wordCount(String(s.narration ?? '')), 0);
+  let model = await write('');
+  // One rewrite when the draft cannot fit 75 seconds; the check below flags anything still over.
+  if (Array.isArray(model.scenes) && spoken(model) > REEL_WORDS_MAX) {
+    const over = spoken(model);
+    onProgress(`The draft ran ${over} words, over the ${REEL_WORDS_MAX} that fit ${REEL_SECONDS.max}s: tightening it`);
+    model = await write(`\n\nA previous draft ran ${over} words of narration, about ${Math.round(over / WORDS_PER_SECOND)}s. `
+      + `Write it again at no more than ${REEL_WORDS_MAX} words in total and no more than 8 scenes: cut whole `
+      + 'sentences and merge layers; keep the cold open, the one number, the caveat and the sources.');
+  }
 
   if (!Array.isArray(model.scenes) || !model.scenes.length) {
     throw new Error('Script generator returned no scenes');
