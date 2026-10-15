@@ -60,6 +60,15 @@ const HOUSE_STYLE: ReelStyle = {
     'dry. Soft transient on each chart reveal. No stings, no whooshes.',
 };
 
+/**
+ * Narration words per scene kind, summing (with two layers) to under REEL_WORDS_MAX. A model keeps to a
+ * per-scene budget far better than to a total: asked only for a total, the 15 October 2026 drafts ran 153,
+ * then 176, then 183 words.
+ */
+const SCENE_WORD_BUDGET: Record<string, number> = {
+  cold_open: 10, frame: 22, layer: 28, turn: 18, one_number: 5, caveat: 22, sources: 10,
+};
+
 function structureSystem(): string {
   return `${CHARTER}
 
@@ -90,8 +99,9 @@ Rules that are checked mechanically after you answer, so breaking them wastes th
   reel. Say what the beat needs and no more.
 - Aim for scenes of ${SCENE_SECONDS.min}-${SCENE_SECONDS.max}s; a scene with more to say may run longer.
 - HARD LIMIT: the whole reel runs ${REEL_SECONDS.min}-${REEL_SECONDS.max}s, so the narration across ALL scenes is at most
-  ${REEL_WORDS_MAX} words, and at most 8 scenes. Count the words before you answer. Cut whole sentences
-  from the layers rather than trimming the caveat.
+  ${REEL_WORDS_MAX} words, and at most 8 scenes. Write to these budgets per scene and count the words before you
+  answer: ${Object.entries(SCENE_WORD_BUDGET).map(([k, n]) => `${k} ${n}`).join(', ')} (each layer; at most two layers).
+  Cut whole sentences from the layers rather than trimming the caveat.
 - on_screen is burned in: at most ${ON_SCREEN_CHARS} characters. lower_third at most ${LOWER_THIRD_CHARS}.
 - Australian English. No em dashes or en dashes anywhere. No hype adjectives.
 - Headlines and on-screen text state the finding, not the topic.`;
@@ -410,14 +420,21 @@ async function generateScript(
   };
   const spoken = (m: ScriptModel) => (m.scenes ?? []).reduce((sum, s) => sum + wordCount(String(s.narration ?? '')), 0);
   let model = await write('');
-  // Up to two rewrites when the draft cannot fit 75 seconds; the check below flags anything still over.
+  // Over budget: the draft is cut down, not written again (a fresh rewrite came back longer each time), and the
+  // shortest version wins. Two tries; generateScript refuses below if it is still over.
   for (let tries = 0; tries < 2 && Array.isArray(model.scenes) && spoken(model) > REEL_WORDS_MAX; tries++) {
     const over = spoken(model);
-    const target = REEL_WORDS_MAX - 10 * (tries + 1);
-    onProgress(`The draft ran ${over} words, over the ${REEL_WORDS_MAX} that fit ${REEL_SECONDS.max}s: tightening it`);
-    model = await write(`\n\nA previous draft ran ${over} words of narration, about ${Math.round(over / VOICE_WORDS_PER_SECOND)}s once voiced. `
-      + `Write it again at no more than ${target} words in total and no more than 8 scenes: cut whole `
-      + 'sentences and merge layers; keep the cold open, the one number, the caveat and the sources.');
+    const target = REEL_WORDS_MAX - 10;
+    onProgress(`The draft ran ${over} words, over the ${REEL_WORDS_MAX} that fit ${REEL_SECONDS.max}s: cutting it down`);
+    const cut = await write(`\n\nThis draft runs ${over} words of narration, about ${Math.round(over / VOICE_WORDS_PER_SECOND)}s once voiced:\n`
+      + `${JSON.stringify(model.scenes)}\n\nReturn the same scenes, in the same order with the same kinds, cut to no more than `
+      + `${target} narration words in total. Only delete words and sentences: add nothing, change no figure, keep every `
+      + 'scene. Take the cuts from the frame, layers and turn first.');
+    if (Array.isArray(cut.scenes) && cut.scenes.length && spoken(cut) < spoken(model)) model = cut;
+  }
+  if (Array.isArray(model.scenes) && spoken(model) > REEL_WORDS_MAX) {
+    throw new Error(`The script is still ${spoken(model)} words after cutting, over the ${REEL_WORDS_MAX} that fit `
+      + `${REEL_SECONDS.max}s. Write it again.`);
   }
 
   if (!Array.isArray(model.scenes) || !model.scenes.length) {
