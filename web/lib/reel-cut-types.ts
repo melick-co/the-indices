@@ -59,12 +59,18 @@ export function framesFor(seconds: number): number {
   return Math.max(1, Math.round(seconds * CUT_FPS));
 }
 
+/** The closing card after the storyboard: masthead, headline, the one number and the address. Silent. */
+export const END_CARD_SECONDS = 3.5;
+
+/** The sources card holds this long whatever the board says: it is read on screen, not aloud. */
+export const SOURCES_SECONDS = 4;
+
 export function totalFrames(props: { scenes: Array<{ seconds: number }> }): number {
-  return props.scenes.reduce((sum, s) => sum + framesFor(s.seconds), 0);
+  return props.scenes.reduce((sum, s) => sum + framesFor(s.seconds), 0) + framesFor(END_CARD_SECONDS);
 }
 
 export function totalSeconds(props: { scenes: Array<{ seconds: number }> }): number {
-  return Math.round(props.scenes.reduce((sum, s) => sum + s.seconds, 0) * 10) / 10;
+  return Math.round((props.scenes.reduce((sum, s) => sum + s.seconds, 0) + END_CARD_SECONDS) * 10) / 10;
 }
 
 /**
@@ -87,7 +93,7 @@ export function planScene(
   const planned: CutScene = {
     id: scene.id,
     kind: scene.kind,
-    seconds: fitSceneSeconds(scene.seconds, extras.voice?.seconds),
+    seconds: scene.kind === 'sources' ? SOURCES_SECONDS : fitSceneSeconds(scene.seconds, extras.voice?.seconds),
     storyboardSeconds: scene.seconds,
     narration: scene.narration,
     on_screen: scene.on_screen,

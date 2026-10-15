@@ -27,26 +27,33 @@ const mono: React.CSSProperties = {
   fontFamily: FONT.mono, fontSize: 24, letterSpacing: '0.1em', textTransform: 'uppercase', color: FOSSIL,
 };
 
-function Kicker({ left, index, total }: { left: string; index: number; total: number }) {
+/** The header on every scene: the masthead, so the brand holds throughout, then the section and the count. */
+function Kicker({ label, index, total }: { label?: string; index: number; total: number }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const drawn = clamp(frame, [0, fps * 0.6], [0, 1], Easing.out(Easing.cubic));
   return (
     <div style={{ width: CONTENT_WIDTH }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingBottom: 14 }}>
-        <span style={mono}>{left}</span>
-        <span style={mono}>{String(index + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}</span>
+        <span style={{ fontFamily: FONT.masthead, fontSize: 48, lineHeight: 1, color: INK }}>The Caveat</span>
+        <span style={mono}>{label ? `${label} · ` : ''}{String(index + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}</span>
       </div>
       <div style={{ height: 2, width: `${drawn * 100}%`, background: RULE, opacity: 0.6 }} />
     </div>
   );
 }
 
-function OnScreen({ text, size, italic, at = 0.15 }: { text: string; size?: number; italic?: boolean; at?: number }) {
+/** Paper behind text that sits over a picture, so a busy frame never fights the words. */
+const PANEL: React.CSSProperties = {
+  background: 'rgba(243, 239, 228, 0.88)', padding: '22px 28px', margin: '0 -28px',
+  width: CONTENT_WIDTH + 56, boxSizing: 'border-box',
+};
+
+function OnScreen({ text, size, italic, at = 0.15, panel }: { text: string; size?: number; italic?: boolean; at?: number; panel?: boolean }) {
   const px = size ?? (text.length > 44 ? 64 : 76);
   return (
     <div style={{
-      ...useArrival(at), width: CONTENT_WIDTH,
+      ...useArrival(at), width: CONTENT_WIDTH, ...(panel ? PANEL : {}),
       fontFamily: FONT.display, fontStyle: italic ? 'italic' : 'normal', fontWeight: 400,
       fontSize: px, lineHeight: 1.08, letterSpacing: '-0.018em', color: INK, textWrap: 'balance' as never,
     }}>
@@ -80,20 +87,25 @@ function Backdrop({ media, seconds }: { media: CutMedia; seconds: number }) {
   const total = framesFor(seconds);
   const scale = 1 + (frame / Math.max(1, total)) * 0.06;
   const clipFrames = media.seconds && media.seconds > 0 ? framesFor(media.seconds) : null;
+  // A clip shorter than its scene plays slower (down to half speed) rather than looping: a loop showed the same
+  // footage twice in one scene. Only a clip too short even at half speed loops.
+  const rate = clipFrames && clipFrames < total ? Math.max(0.5, clipFrames / total) : 1;
+  const stretched = clipFrames ? Math.floor(clipFrames / rate) : null;
   const src = media.file ? staticFile(media.file) : media.url;
-  const video = <OffthreadVideo src={src} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
+  const video = <OffthreadVideo src={src} muted playbackRate={rate} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
   return (
     <AbsoluteFill>
       <AbsoluteFill style={{ transform: media.kind === 'image' ? `scale(${scale})` : undefined }}>
         {media.kind === 'image'
           ? <Img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : clipFrames && clipFrames < total
-            ? <Loop durationInFrames={clipFrames}>{video}</Loop>
+          : stretched && stretched < total
+            ? <Loop durationInFrames={stretched}>{video}</Loop>
             : video}
       </AbsoluteFill>
-      <AbsoluteFill style={{ background: `rgba(243, 239, 228, 0.28)` }} />
+      <AbsoluteFill style={{ background: `rgba(243, 239, 228, 0.12)` }} />
+      {/* Only the header and the lower third need the paper; the text itself sits on its own panel. */}
       <AbsoluteFill style={{
-        background: `linear-gradient(to bottom, ${PAPER} 0%, rgba(243,239,228,0.9) ${SAFE.top + 420}px, rgba(243,239,228,0) ${SAFE.top + 720}px, rgba(243,239,228,0) 68%, rgba(243,239,228,0.92) 84%, ${PAPER} 100%)`,
+        background: `linear-gradient(to bottom, rgba(243,239,228,0.92) 0%, rgba(243,239,228,0.6) ${SAFE.top + 120}px, rgba(243,239,228,0) ${SAFE.top + 300}px, rgba(243,239,228,0) 82%, rgba(243,239,228,0.85) 93%, ${PAPER} 100%)`,
       }} />
     </AbsoluteFill>
   );
@@ -130,18 +142,16 @@ type SceneProps = { scene: CutScene; index: number; total: number; props: CutPro
  * where the backdrop wash is strongest and the subject of the footage, centre frame, is not under it.
  */
 function ColdOpen({ scene, props }: SceneProps) {
-  const headline = <OnScreen text={scene.on_screen} size={scene.on_screen.length > 36 ? 76 : 92} at={0.3} />;
+  const headline = <OnScreen text={scene.on_screen} size={scene.on_screen.length > 36 ? 76 : 92} at={0.3} panel={Boolean(scene.media)} />;
   return (
     <Frame scene={scene}>
       <div>
         <Nameplate />
         <div style={{ ...mono, marginTop: 22 }}>{props.story.kicker}</div>
+        {scene.media && <div style={{ marginTop: 44 }}>{headline}</div>}
       </div>
       {scene.media ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
-          {headline}
-          <LowerThird text={scene.lower_third} />
-        </div>
+        <LowerThird text={scene.lower_third} />
       ) : (
         <>
           {headline}
@@ -156,16 +166,16 @@ function Standard({ scene, index, total }: SceneProps) {
   const centred = !scene.chart && !scene.media;
   return (
     <Frame scene={scene}>
-      <Kicker left="The Caveat" index={index} total={total} />
+      <Kicker index={index} total={total} />
       {scene.chart ? (
         <>
           <OnScreen text={scene.on_screen} size={scene.on_screen.length > 40 ? 52 : 60} />
           <Chart chart={scene.chart} />
         </>
       ) : (
-        // Over a picture the headline sits low, in the strongest part of the wash, clear of the subject.
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: centred ? 'center' : 'flex-end', flex: 1, paddingBottom: centred ? 0 : 40 }}>
-          <OnScreen text={scene.on_screen} size={centred ? (scene.on_screen.length > 40 ? 72 : 88) : 68} />
+        // Over a picture the headline sits in the top third, where the frame is emptiest, on its own paper panel.
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: centred ? 'center' : 'flex-start', flex: 1, paddingTop: centred ? 0 : 44 }}>
+          <OnScreen text={scene.on_screen} size={centred ? (scene.on_screen.length > 40 ? 72 : 88) : 66} panel={!centred} />
         </div>
       )}
       <LowerThird text={scene.lower_third} />
@@ -186,8 +196,12 @@ function OneNumber({ scene, index, total, props }: SceneProps) {
   const headline = scene.on_screen.trim() === value.trim() ? null : scene.on_screen;
   return (
     <Frame scene={scene}>
-      <Kicker left="One number" index={index} total={total} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 36, flex: 1, justifyContent: 'center' }}>
+      <Kicker label="One number" index={index} total={total} />
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: 36, flex: 1,
+        ...(scene.media ? { justifyContent: 'flex-start', marginTop: 44 } : { justifyContent: 'center' }),
+      }}>
+        <div style={scene.media ? { ...PANEL, display: 'flex', flexDirection: 'column', gap: 30 } : { display: 'flex', flexDirection: 'column', gap: 36 }}>
         {headline && <OnScreen text={headline} size={headline.length > 40 ? 50 : 58} />}
         {number && (
           <div style={useArrival(0.5)}>
@@ -199,6 +213,7 @@ function OneNumber({ scene, index, total, props }: SceneProps) {
             </div>
           </div>
         )}
+        </div>
         {scene.chart && <Chart chart={scene.chart} />}
       </div>
       <LowerThird text={scene.lower_third} />
@@ -212,13 +227,13 @@ function Caveat({ scene, index, total }: SceneProps) {
   const drawn = clamp(frame, [fps * 0.1, fps * 0.9], [0, 1], Easing.out(Easing.cubic));
   return (
     <Frame scene={scene}>
-      <Kicker left="Caveat lector" index={index} total={total} />
-      <div style={{ display: 'flex', gap: 36, flex: 1, alignItems: 'center' }}>
+      <Kicker label="Caveat lector" index={index} total={total} />
+      <div style={{ display: 'flex', gap: 36, flex: 1, alignItems: scene.media ? 'flex-start' : 'center', paddingTop: scene.media ? 44 : 0 }}>
         <div style={{ width: 8, alignSelf: 'stretch', position: 'relative' }}>
           <div style={{ position: 'absolute', top: '20%', height: `${drawn * 60}%`, width: 8, background: CHARCOAL }} />
         </div>
         <div style={{ flex: 1 }}>
-          <OnScreen text={scene.on_screen} size={scene.on_screen.length > 44 ? 58 : 68} italic at={0.35} />
+          <OnScreen text={scene.on_screen} size={scene.on_screen.length > 44 ? 58 : 68} italic at={0.35} panel={Boolean(scene.media)} />
         </div>
       </div>
       <LowerThird text={scene.lower_third} />
@@ -231,7 +246,7 @@ function Sources({ scene, index, total, props }: SceneProps) {
   const { fps } = useVideoConfig();
   return (
     <Frame scene={scene}>
-      <Kicker left="Sources" index={index} total={total} />
+      <Kicker label="Sources" index={index} total={total} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 40 }}>
         <OnScreen text={scene.on_screen} size={scene.on_screen.length > 44 ? 48 : 56} />
         {props.sources.length > 0 && (
@@ -256,6 +271,48 @@ function Sources({ scene, index, total, props }: SceneProps) {
         <span style={mono}>{props.story.published}</span>
       </div>
     </Frame>
+  );
+}
+
+/**
+ * The closing card after the storyboard: the masthead, the headline the reel has argued, the one number and
+ * where to read the full story. Silent; the house track carries it out.
+ */
+export function EndCard({ props }: { props: CutProps }) {
+  const title = noDash(props.story.title);
+  const number = props.oneNumber;
+  const numberIn = useArrival(0.7);
+  const footIn = useArrival(1.0);
+  return (
+    <AbsoluteFill style={{
+      background: PAPER, padding: `${SAFE.top}px ${SAFE.x}px ${SAFE.bottom}px`,
+      display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+    }}>
+      <div>
+        <Nameplate size={104} />
+        <div style={{ ...mono, marginTop: 20 }}>{props.story.kicker}</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 44 }}>
+        <OnScreen text={title} size={title.length > 60 ? 66 : 78} at={0.25} />
+        {number && (
+          <div style={numberIn}>
+            <div style={{ fontFamily: FONT.mono, fontWeight: 500, fontSize: 112, lineHeight: 1, color: NAVY, fontVariantNumeric: 'tabular-nums' }}>
+              {number.value}
+            </div>
+            <div style={{ fontFamily: FONT.ui, fontSize: 32, lineHeight: 1.3, color: CHARCOAL, marginTop: 16, maxWidth: CONTENT_WIDTH }}>
+              {noDash(number.label)}
+            </div>
+          </div>
+        )}
+      </div>
+      <div style={{
+        ...footIn, width: CONTENT_WIDTH, borderTop: `2px solid ${RULE}`, paddingTop: 22,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+      }}>
+        <span style={{ fontFamily: FONT.ui, fontWeight: 600, fontSize: 44, color: INK }}>caveat.news</span>
+        <span style={mono}>The full story, sourced</span>
+      </div>
+    </AbsoluteFill>
   );
 }
 

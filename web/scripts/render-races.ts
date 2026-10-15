@@ -20,7 +20,7 @@ import { ELEVEN_API_BASE } from '@/lib/elevenlabs-client';
 import { buildRaces, type Race } from '@/lib/visuals-race';
 import { HOLD_SECONDS, INTRO_SECONDS, RACE_COMPOSITION_ID, RACE_FPS, raceSeconds, stepSeconds, type RaceFormat, type RaceProps } from '@/lib/race-video-types';
 import { FONT_FILES } from '@/remotion/fonts';
-import { fetchHouseTrack } from '@/lib/house-track';
+import { houseTrackFor } from '@/lib/house-track';
 import { enqueue, queueEnabled, scheduleContent } from '@/lib/content-queue';
 import { postSocial } from '@/lib/social-post';
 
@@ -39,7 +39,8 @@ let musicIsHouse = false;
 
 /** The house track; before one is chosen, a licence-cleared bed from ElevenLabs Music; else null (captions only). */
 async function music(seconds: number, publicDir: string): Promise<string | null> {
-  const house = await fetchHouseTrack(publicDir, 'music.mp3');
+  // Long enough for the whole race, so the theme never audibly restarts.
+  const house = await houseTrackFor(seconds + 2, publicDir, 'music.mp3');
   if (house) { console.log('Music: the house track.'); musicIsHouse = true; return house; }
   const key = process.env.ELEVENLABS_API_KEY;
   if (!key) { console.log('No ELEVENLABS_API_KEY: captions only.'); return null; }

@@ -1,5 +1,5 @@
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { fetchHouseTrack } from '@/lib/house-track';
+import { houseTrackFor } from '@/lib/house-track';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { bundle } from '@remotion/bundler';
@@ -256,7 +256,8 @@ async function voiceScenes(
   const voice = await narrationVoiceId();
   await mkdir(join(publicDir, 'voice'), { recursive: true });
   for (const scene of scenes) {
-    const text = scene.narration.trim();
+    // The sources card is read on screen, not aloud.
+    const text = scene.kind === 'sources' ? '' : scene.narration.trim();
     if (!text) continue;
     try {
       const file = `voice/${scene.id}.mp3`;
@@ -321,10 +322,8 @@ export async function cutReel(slug: string, opts: { log?: CutLog } = {}): Promis
     log('Voice…');
     const voices = await voiceScenes(slug, row.render_id, scenes, publicDir, ffmpeg, log);
 
-    const music = await fetchHouseTrack(publicDir);
-    if (music) log('House track under the voiceover.');
     const props: CutProps = {
-      music,
+      music: null,
       story: { slug: story.slug, title: story.title, kicker: story.kicker, caveat: story.caveat, published: story.published },
       oneNumber: story.oneNumber?.value ? { value: story.oneNumber.value, label: story.oneNumber.label } : null,
       sources: cutSources(story.evidence?.sources ?? []),
@@ -333,6 +332,9 @@ export async function cutReel(slug: string, opts: { log?: CutLog } = {}): Promis
         voice: voices.get(scene.id) ?? null,
       })),
     };
+    // Long enough for the whole cut, end card included, so the theme never audibly restarts.
+    props.music = await houseTrackFor(totalSeconds(props) + 2, publicDir);
+    if (props.music) log(`House track under the voiceover${props.music.startsWith('long-') ? ', extended to fit' : ''}.`);
     for (const s of props.scenes) {
       if (s.seconds !== s.storyboardSeconds) log(`  ${s.id}: ${s.storyboardSeconds}s on the board, ${s.seconds}s to fit the read`);
     }

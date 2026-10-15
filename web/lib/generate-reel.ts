@@ -66,7 +66,7 @@ const HOUSE_STYLE: ReelStyle = {
  * then 176, then 183 words.
  */
 const SCENE_WORD_BUDGET: Record<string, number> = {
-  cold_open: 10, frame: 22, layer: 28, turn: 18, one_number: 5, caveat: 22, sources: 10,
+  cold_open: 10, frame: 22, layer: 28, turn: 18, one_number: 5, caveat: 22, sources: 0,
 };
 
 function structureSystem(): string {
@@ -87,7 +87,8 @@ Structure follows the layered reveal from EDITORIAL:
 5. one_number — the single number that holds the story, alone on screen.
 6. caveat — the objection a hostile viewer would raise first, in the story's own words. Never skip
    this and never soften it. It is the reason the audience trusts the rest.
-7. sources — the receipt card naming the publishers and periods.
+7. sources — the receipt card naming the publishers and periods, on screen only: its narration is an empty
+   string, because the card is read on screen, not aloud.
 
 Rules that are checked mechanically after you answer, so breaking them wastes the run:
 - Use ONLY figures that already appear in the story's chart series, evidence table, headline number

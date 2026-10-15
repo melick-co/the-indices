@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   CUT_FPS,
+  END_CARD_SECONDS,
   DEMO_PROPS,
   cutSources,
   describeCut,
@@ -25,8 +26,9 @@ assert.equal(fitSceneSeconds(3, 2.45), 3.1);
 // Frames round to the nearest whole frame and never reach zero.
 assert.equal(framesFor(6), 6 * CUT_FPS);
 assert.equal(framesFor(0.01), 1);
-assert.equal(totalFrames({ scenes: [{ seconds: 4 }, { seconds: 6 }] }), 10 * CUT_FPS);
-assert.equal(totalSeconds({ scenes: [{ seconds: 4.1 }, { seconds: 6 }] }), 10.1);
+// The end card follows the storyboard, so it counts toward the cut's length.
+assert.equal(totalFrames({ scenes: [{ seconds: 4 }, { seconds: 6 }] }), (10 + END_CARD_SECONDS) * CUT_FPS);
+assert.equal(totalSeconds({ scenes: [{ seconds: 4.1 }, { seconds: 6 }] }), 10.1 + END_CARD_SECONDS);
 
 // Sources are named once each, with their period, six at most.
 const sources = cutSources([

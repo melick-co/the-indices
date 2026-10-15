@@ -336,7 +336,7 @@ export function validateReel(
         `${ref}: narration is ${words} words but ${scene.seconds}s only carries about ${budget}`,
       );
     }
-    if (!words) warnings.push(`${ref}: no narration`);
+    if (!words && scene.kind !== 'sources') warnings.push(`${ref}: no narration`);
 
     if (scene.on_screen.length > ON_SCREEN_CHARS) {
       warnings.push(
