@@ -23,7 +23,7 @@ import {
   type CutProps,
   type CutVoice,
 } from '@/lib/reel-cut-types';
-import { madeWithoutText } from '@/lib/runway-prompts';
+import { drawnForScene, madeWithoutText } from '@/lib/runway-prompts';
 import { FONT_FILES } from '@/remotion/fonts';
 
 /**
@@ -170,7 +170,10 @@ async function settleOpenRenders(slug: string, log: CutLog): Promise<void> {
 }
 
 /** Newest succeeded ElevenLabs clip, else still, per scene. Chart renders are not pictures and are skipped. */
-async function latestMedia(slug: string, publicDir: string, canProbe: boolean, log: CutLog): Promise<Map<string, CutMedia>> {
+async function latestMedia(
+  slug: string, scenes: ReelScene[], publicDir: string, canProbe: boolean, log: CutLog,
+): Promise<Map<string, CutMedia>> {
+  const byId = new Map(scenes.map((s) => [s.id, s]));
   const supabase = createClient();
   const { data, error } = await supabase
     .from('story_reel_renders')
@@ -192,8 +195,13 @@ async function latestMedia(slug: string, publicDir: string, canProbe: boolean, l
     const why = row.status === 'failed' && row.error ? `: ${row.error.slice(0, 120)}` : '';
     log(`    ${row.scene_id} ${row.kind} ${row.created_at.slice(0, 16)} ${row.status} ${prompt}${why}`);
   }
+  const stale = new Set<string>();
   for (const row of rows) {
     if (!row.output_url) continue;
+    if (!drawnForScene(row.prompt_text, byId.get(row.scene_id))) {
+      stale.add(row.scene_id);
+      continue;
+    }
     if (!madeWithoutText(row)) {
       skipped.add(row.scene_id);
       continue;
@@ -221,6 +229,9 @@ async function latestMedia(slug: string, publicDir: string, canProbe: boolean, l
       else log(`  Could not fetch the still for ${row.scene_id}; the render will stream it.`);
       out.set(row.scene_id, media);
     }
+  }
+  for (const id of stale) {
+    if (!out.has(id)) log(`  ${id}: its pictures were drawn for an earlier version of the scene; generate them again. Scene goes without.`);
   }
   for (const id of skipped) {
     if (!out.has(id)) log(`  ${id}: its pictures were made under the old prompt, with text in them; generate them again. Scene goes without.`);
@@ -304,7 +315,7 @@ export async function cutReel(slug: string, opts: { log?: CutLog } = {}): Promis
     await settleOpenRenders(slug, log);
 
     log('Pictures from the ledger…');
-    const media = await latestMedia(slug, publicDir, ffmpeg, log);
+    const media = await latestMedia(slug, scenes, publicDir, ffmpeg, log);
     log(`  ${media.size} scene${media.size === 1 ? '' : 's'} with a generated picture`);
 
     log('Voice…');
@@ -318,7 +329,7 @@ export async function cutReel(slug: string, opts: { log?: CutLog } = {}): Promis
       oneNumber: story.oneNumber?.value ? { value: story.oneNumber.value, label: story.oneNumber.label } : null,
       sources: cutSources(story.evidence?.sources ?? []),
       scenes: scenes.map((scene) => planScene(scene, {
-        media: scene.chart ? null : media.get(scene.id) ?? null,
+        media: scene.chart || scene.kind === 'sources' ? null : media.get(scene.id) ?? null,
         voice: voices.get(scene.id) ?? null,
       })),
     };

@@ -57,7 +57,8 @@ function pack(keep: string, optional: string[], max: number): string {
  */
 export const NO_TEXT_RULE =
   'NO TEXT OF ANY KIND in the frame: no lettering, captions, titles, straps, numbers, charts, graphs, '
-  + 'logos, screens or interface. Titles and charts are added afterwards over this picture. '
+  + 'logos, screens or interface. No documents, papers, statements, books, newspapers, phones or computer screens '
+  + 'with anything on them. Titles and charts are added afterwards over this picture. '
   + 'FULL BLEED: one photograph fills the whole vertical frame edge to edge, with no borders, margins, '
   + 'blank or blurred strips, split panels or collage. Calmer areas (sky, wall, soft background) near the '
   + 'top and bottom are part of the same photograph.';
@@ -70,6 +71,18 @@ export const NO_TEXT_RULE =
  */
 export function madeWithoutText(row: { prompt_text: string | null }): boolean {
   return Boolean(row.prompt_text && row.prompt_text.includes(NO_TEXT_RULE.slice(0, 24)));
+}
+
+/**
+ * Whether a picture was drawn for the scene as it stands. Pictures are filed by scene id, and a rewritten
+ * storyboard reuses the ids, so without this a rewrite puts the old scene 2's picture behind the new scene 2
+ * (the spending-sentiment reel, 15 October 2026). The picture prompt carries the scene's visual direction.
+ */
+export function drawnForScene(promptText: string | null, scene: Pick<ReelScene, 'visual_prompt'> | undefined): boolean {
+  if (!scene) return false;
+  const direction = withoutPresenter(scene.visual_prompt ?? '').trim();
+  if (!direction) return false;
+  return Boolean(promptText?.includes(direction.slice(0, 80)));
 }
 
 /**

@@ -253,13 +253,14 @@ export default function ReelRenderer({
                 <span className="reel-scene-n">{String(i + 1).padStart(2, '0')}</span>
                 <span className="reel-scene-kind">{scene.kind.replace('_', ' ')}</span>
                 {scene.chart && <span className="runway-chart-flag">chart drawn by the cut</span>}
+                {!scene.chart && scene.kind === 'sources' && <span className="runway-chart-flag">plain paper, no picture</span>}
                 <span className="reel-scene-secs">{scene.seconds}s</span>
               </header>
               {scene.chart ? (
                 <p className="runway-series">
                   {scene.chart.caption}: {scene.chart.series.map((p) => `${p.label} ${p.value}`).join('; ')}
                 </p>
-              ) : (
+              ) : scene.kind === 'sources' ? null : (
                 <>
                   <div className="runway-scene-actions">
                     <button

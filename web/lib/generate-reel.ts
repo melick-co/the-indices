@@ -13,6 +13,7 @@ import {
   REEL_FORMAT,
   REEL_SECONDS,
   REEL_WORDS_MAX,
+  VOICE_WORDS_PER_SECOND,
   SCENE_SECONDS,
   fitSecondsToWords,
   validateReel,
@@ -200,6 +201,7 @@ Return JSON only, matching this schema exactly:
       "chart": {
         "kind": "bars|rank_swap|timeline",
         "title": "optional",
+        "unit": "what the values are in, e.g. $ billion, per cent, per cent of income, index points",
         "caption": "publisher and period, e.g. ABS, June quarter 2025",
         "reveal": "all_at_once|sequential|swap",
         "series": [{ "label": "Australia", "value": 8.8, "highlight": true }],
@@ -214,12 +216,15 @@ Return JSON only, matching this schema exactly:
 Notes:
 - visual_prompt describes a picture only. The cut draws every chart from the series below and burns
   on_screen and lower_third itself, so a picture that carries its own lettering or chart comes out
-  with two versions on top of each other. Never ask the generator for text, figures or a chart.
+  with two versions on top of each other. Never ask the generator for text, figures or a chart, and never
+  point the camera at anything a viewer would try to read: documents, statements, spreadsheets, newspapers,
+  screens, phones or signs. Show places, people and things instead.
+- The sources scene takes no picture: the cut sets the receipt card on plain paper so it reads.
 - Omit "chart" on scenes that are voiceover over footage, such as cold_open, caveat, and usually turn. Never a presenter or host on camera.
 - Use reveal "sequential" when the chart builds point by point under the narration, "swap" for a
   rank_swap flipping between bases, "all_at_once" when the frame is already on screen.
 - Layer scenes should usually carry a chart built from the story's own series.
-- Every chart frame needs a caption naming the publisher and the period.
+- Every chart frame needs a caption naming the publisher and the period, and a unit.
 - Include every locked scene id. Do not add scenes.`;
 }
 
@@ -274,16 +279,21 @@ function parseModelJson<T>(raw: string, label: string): T {
  * Whole seconds, and never fewer than the narration needs at the house pace: the words decide the
  * length. The writer's own figure stands when it is the longer.
  */
+/** The charter rules out em dashes; a model still writes them, so they become commas before anything is checked. */
+function withoutEmDash(text: string): string {
+  return text.replace(/\s*—\s*/g, ', ').replace(/,\s*([.,;:])/g, '$1');
+}
+
 function normaliseScene(scene: Omit<ReelScene, 'id'> & { id?: string }, i: number): ReelScene {
-  const narration = String(scene.narration ?? '').trim();
+  const narration = withoutEmDash(String(scene.narration ?? '').trim());
   const seconds = fitSecondsToWords(Number(scene.seconds) || SCENE_SECONDS.min, narration);
   return {
     ...scene,
     id: scene.id || `s${i + 1}`,
     seconds,
     narration,
-    on_screen: String(scene.on_screen ?? '').trim(),
-    lower_third: scene.lower_third ? String(scene.lower_third).trim() : undefined,
+    on_screen: withoutEmDash(String(scene.on_screen ?? '').trim()),
+    lower_third: scene.lower_third ? withoutEmDash(String(scene.lower_third).trim()) : undefined,
     visual_prompt: String(scene.visual_prompt ?? '').trim(),
   };
 }
@@ -350,6 +360,41 @@ function toResult(
   };
 }
 
+/**
+ * Burned-in lines that run past what fits a phone screen are rewritten shorter, one small call for just those
+ * lines, rather than cut off mid-phrase. A line still too long after that is left for the check to flag.
+ */
+async function fitBurnedInText<T extends { scenes: Array<{ on_screen?: string; lower_third?: string }> }>(
+  slug: string,
+  model: T,
+  onProgress: ReelProgress,
+): Promise<T> {
+  const long: Array<{ i: number; field: 'on_screen' | 'lower_third'; text: string; max: number }> = [];
+  (model.scenes ?? []).forEach((s, i) => {
+    if ((s.on_screen ?? '').length > ON_SCREEN_CHARS) long.push({ i, field: 'on_screen', text: s.on_screen!, max: ON_SCREEN_CHARS });
+    if ((s.lower_third ?? '').length > LOWER_THIRD_CHARS) long.push({ i, field: 'lower_third', text: s.lower_third!, max: LOWER_THIRD_CHARS });
+  });
+  if (!long.length) return model;
+  onProgress(`Shortening ${long.length} on-screen line${long.length === 1 ? '' : 's'} to fit`);
+  const { text, usage } = await callAnthropic(
+    'You shorten burned-in captions for a vertical news video. Keep the meaning and every figure exactly; '
+      + 'drop words, never add facts. Australian English, no em dashes. Reply with JSON only.',
+    `Rewrite each line to at most its max characters (count them):\n${JSON.stringify(long.map(({ i, field, text: t, max }) => ({ i, field, text: t, max })))}\n`
+      + 'Return {"lines": [{"i": number, "field": "on_screen" | "lower_third", "text": "shorter line"}]}',
+    800,
+  );
+  await recordStage(slug, 'script', usage);
+  const out = parseModelJson<{ lines: Array<{ i: number; field: 'on_screen' | 'lower_third'; text: string }> }>(text, 'Caption fitter');
+  const next = { ...model, scenes: model.scenes.map((s) => ({ ...s })) };
+  for (const l of out.lines ?? []) {
+    const want = long.find((x) => x.i === l.i && x.field === l.field);
+    if (want && typeof l.text === 'string' && l.text.trim() && l.text.trim().length <= want.max) {
+      (next.scenes[l.i] as Record<string, unknown>)[l.field] = l.text.trim();
+    }
+  }
+  return next;
+}
+
 async function generateScript(
   slug: string,
   onProgress: ReelProgress,
@@ -365,18 +410,21 @@ async function generateScript(
   };
   const spoken = (m: ScriptModel) => (m.scenes ?? []).reduce((sum, s) => sum + wordCount(String(s.narration ?? '')), 0);
   let model = await write('');
-  // One rewrite when the draft cannot fit 75 seconds; the check below flags anything still over.
-  if (Array.isArray(model.scenes) && spoken(model) > REEL_WORDS_MAX) {
+  // Up to two rewrites when the draft cannot fit 75 seconds; the check below flags anything still over.
+  for (let tries = 0; tries < 2 && Array.isArray(model.scenes) && spoken(model) > REEL_WORDS_MAX; tries++) {
     const over = spoken(model);
+    const target = REEL_WORDS_MAX - 10 * (tries + 1);
     onProgress(`The draft ran ${over} words, over the ${REEL_WORDS_MAX} that fit ${REEL_SECONDS.max}s: tightening it`);
-    model = await write(`\n\nA previous draft ran ${over} words of narration, about ${Math.round(over / WORDS_PER_SECOND)}s. `
-      + `Write it again at no more than ${REEL_WORDS_MAX} words in total and no more than 8 scenes: cut whole `
+    model = await write(`\n\nA previous draft ran ${over} words of narration, about ${Math.round(over / VOICE_WORDS_PER_SECOND)}s once voiced. `
+      + `Write it again at no more than ${target} words in total and no more than 8 scenes: cut whole `
       + 'sentences and merge layers; keep the cold open, the one number, the caveat and the sources.');
   }
 
   if (!Array.isArray(model.scenes) || !model.scenes.length) {
     throw new Error('Script generator returned no scenes');
   }
+
+  model = await fitBurnedInText(slug, model, onProgress);
 
   onProgress('Checking every spoken figure against the evidence');
   const normalised = model.scenes.map((scene, i) => normaliseScene({ ...scene, visual_prompt: '' }, i));

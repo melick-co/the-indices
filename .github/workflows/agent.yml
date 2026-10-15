@@ -36,10 +36,10 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, economists, economists-again, economists-dry-run, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, wb, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, races-replace, house-track, house-track-choose, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, hero-review, story-highlights, story-highlights-dry-run, reel-cut, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, economists, economists-again, economists-dry-run, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, wb, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, races-replace, house-track, house-track-choose, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, hero-review, story-highlights, story-highlights-dry-run, reel-cut, reel-rewrite, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
         default: both
       pitch:
-        description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, story-refresh(-apply): story slug(s). Space separated.'
+        description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, reel-rewrite, story-refresh(-apply): story slug(s). Space separated.'
         required: false
         default: ''
       edits:
@@ -617,9 +617,11 @@ jobs:
     # Cuts one story's reel (pitch input = slug): Remotion renders the locked storyboard, charts and
     # burned-in text drawn from the traced figures, ElevenLabs reads each scene, and the MP4 is
     # recorded on story_reel_renders. The reel page's "Cut the reel" button dispatches this.
-    if: github.event_name == 'workflow_dispatch' && inputs.task == 'reel-cut'
+    # reel-rewrite writes the script, storyboard and prompt pack again from the story's current copy, draws a fresh
+    # picture for every non-chart scene, then cuts (web/scripts/reel-rewrite.ts).
+    if: github.event_name == 'workflow_dispatch' && (inputs.task == 'reel-cut' || inputs.task == 'reel-rewrite')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     defaults:
       run: { working-directory: web }
     steps:
@@ -634,7 +636,18 @@ jobs:
         run: |
           npm install --no-save --silent ffmpeg-static@5.3.0
           echo "FFMPEG_PATH=$(node -p "require('ffmpeg-static')")" >> "$GITHUB_ENV"
+      - name: Rewrite, draw and cut the reel for one story (pitch input = story slug)
+        if: inputs.task == 'reel-rewrite'
+        run: npx tsx --import ./scripts/node-shims.mjs scripts/reel-rewrite.ts
+        env:
+          REEL_SLUG: ${{ inputs.pitch }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       - name: Cut the reel for one story (pitch input = story slug)
+        if: inputs.task == 'reel-cut'
         run: npx tsx --import ./scripts/node-shims.mjs scripts/reel-cut.ts
         env:
           REEL_SLUG: ${{ inputs.pitch }}

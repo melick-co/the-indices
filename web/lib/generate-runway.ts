@@ -17,7 +17,7 @@ import {
   type MediaTask,
   type MediaTaskStatus,
 } from '@/lib/elevenlabs-client';
-import { compactRunwayPrompt, madeWithoutText } from '@/lib/runway-prompts';
+import { compactRunwayPrompt, drawnForScene, madeWithoutText } from '@/lib/runway-prompts';
 import { recordCost, SKU } from '@/lib/story-costs';
 import { clipDuration } from '@/lib/elevenlabs-client';
 import {
@@ -308,10 +308,13 @@ async function allRows(slug: string): Promise<RenderRow[]> {
  * animated the old stills and no scene had a clean picture). Model-drawn charts never count: the cut
  * draws every chart from the data.
  */
-function latestStillUrl(rows: RenderRow[], sceneId: string): string | null {
+function latestStillUrl(rows: RenderRow[], scene: ReelScene | undefined): string | null {
+  if (!scene) return null;
   const latest = latestByKey(rows);
-  const still = latest.get(`${sceneId}:still`);
-  if (still?.status === 'succeeded' && still.output_url && madeWithoutText(still)) return still.output_url;
+  const still = latest.get(`${scene.id}:still`);
+  // A still drawn for an earlier version of the scene (a rewrite reuses scene ids) is not this scene's picture.
+  if (still?.status === 'succeeded' && still.output_url && madeWithoutText(still)
+    && drawnForScene(still.prompt_text, scene)) return still.output_url;
   return null;
 }
 
@@ -395,7 +398,7 @@ async function refreshReelAssembly(slug: string, scenes: ReelScene[]): Promise<v
   const latest = latestByKey(rows);
   const reel = latest.get(`${REEL_SCENE_ID}:reel`);
   if (!reel || reel.status === 'succeeded' || reel.status === 'failed') return;
-  const pictures = scenes.filter((s) => !s.chart);
+  const pictures = scenes.filter((s) => !s.chart && s.kind !== 'sources');
 
   const clips: Array<{ sceneId: string; kind: RenderKind; url: string }> = [];
   let waiting = false;
@@ -451,7 +454,7 @@ export async function startRenders(slug: string, req: StartRenderRequest): Promi
 
   const latest = latestByKey(await allRows(slug));
 
-  const pictures = scenes.filter((s) => !s.chart);
+  const pictures = scenes.filter((s) => !s.chart && s.kind !== 'sources');
   if (req.kind === 'chart' || req.kind === 'chart_video') throw new Error(CHART_REFUSAL);
   if (req.scope === 'scene' && scenes.find((s) => s.id === req.sceneId)?.chart) throw new Error(CHART_REFUSAL);
 
@@ -464,7 +467,7 @@ export async function startRenders(slug: string, req: StartRenderRequest): Promi
 
   for (const scene of targets) {
     const requested = req.kind && req.kind !== 'auto' ? req.kind : 'auto';
-    const image = latestStillUrl([...latest.values()], scene.id);
+    const image = latestStillUrl([...latest.values()], scene);
 
     const record = async (started: RenderRow | null) => {
       if (started) latest.set(`${started.scene_id}:${started.kind}`, started);
@@ -484,6 +487,10 @@ export async function startRenders(slug: string, req: StartRenderRequest): Promi
       }
       continue;
     }
+
+    // A whole-reel run leaves a scene alone when it already has a finished clip drawn for it as it stands.
+    const clip = latest.get(`${scene.id}:clip`);
+    if (req.scope === 'reel' && clip?.status === 'succeeded' && clip.output_url && drawnForScene(clip.prompt_text, scene)) continue;
 
     if (image) {
       await record(await startVideoJob(slug, scene, spec, title, videoKindFor(scene), image, latest));
@@ -506,8 +513,8 @@ async function pollOne(row: RenderRow, board: { spec: ReelSpec; scenes: ReelScen
   if (!row.runway_task_id) {
     if (row.kind === 'clip') {
       const rows = await allRows(row.story_slug);
-      const image = latestStillUrl(rows, row.scene_id);
       const scene = board.scenes.find((s) => s.id === row.scene_id);
+      const image = latestStillUrl(rows, scene);
       if (image) {
         await submitToGenerator(row, { promptImage: image, duration: scene?.seconds ?? 5 });
       } else if (!isMediaConfigured()) {
