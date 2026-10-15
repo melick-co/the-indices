@@ -73,6 +73,18 @@ export function madeWithoutText(row: { prompt_text: string | null }): boolean {
 }
 
 /**
+ * Whether a picture was drawn for the scene as it stands. Pictures are filed by scene id, and a rewritten
+ * storyboard reuses the ids, so without this a rewrite puts the old scene 2's picture behind the new scene 2
+ * (the spending-sentiment reel, 15 October 2026). The picture prompt carries the scene's visual direction.
+ */
+export function drawnForScene(promptText: string | null, scene: Pick<ReelScene, 'visual_prompt'> | undefined): boolean {
+  if (!scene) return false;
+  const direction = withoutPresenter(scene.visual_prompt ?? '').trim();
+  if (!direction) return false;
+  return Boolean(promptText?.includes(direction.slice(0, 80)));
+}
+
+/**
  * Style notes without the clauses about type, straps and charts, which a generator reads as things
  * to draw. Split on sentence and clause ends so "the charts move, not the camera" goes while
  * "the camera holds" stays.

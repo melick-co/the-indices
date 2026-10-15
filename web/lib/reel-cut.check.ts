@@ -11,6 +11,7 @@ import {
   totalSeconds,
 } from './reel-cut-types';
 import { SCENE_KINDS, type ReelScene } from './reel-types';
+import { drawnForScene } from './runway-prompts';
 
 // A read that fits leaves the storyboard's length alone.
 assert.equal(fitSceneSeconds(6, 4.2), 6);
@@ -76,5 +77,14 @@ assert.deepEqual([...chartKinds].sort(), ['bars', 'line', 'rank_swap', 'timeline
 assert.ok(totalSeconds(DEMO_PROPS) >= 20 && totalSeconds(DEMO_PROPS) <= 75);
 // Burned-in text obeys the charter.
 for (const s of DEMO_PROPS.scenes) assert.ok(!/—/.test(`${s.on_screen} ${s.lower_third ?? ''} ${s.narration}`), `${s.id} has no em dash`);
+
+// A picture counts only for the scene it was drawn for: a rewrite reuses scene ids.
+const shopfront = { visual_prompt: 'Wide shot of a busy suburban shopping strip, people walking past closed shopfronts' };
+const kitchen = { visual_prompt: 'Overhead slow pan of a kitchen table with bills and a laptop open to a banking app' };
+const drawn = `Caveat vertical news explainer, 9:16. SCENE: ${shopfront.visual_prompt}, overcast sky.`;
+assert.ok(drawnForScene(drawn, shopfront));
+assert.ok(!drawnForScene(drawn, kitchen));
+assert.ok(!drawnForScene(null, shopfront));
+assert.ok(!drawnForScene(drawn, undefined));
 
 console.log('reel-cut: all checks passed');
