@@ -201,6 +201,7 @@ Return JSON only, matching this schema exactly:
       "chart": {
         "kind": "bars|rank_swap|timeline",
         "title": "optional",
+        "unit": "what the values are in, e.g. $ billion, per cent, per cent of income, index points",
         "caption": "publisher and period, e.g. ABS, June quarter 2025",
         "reveal": "all_at_once|sequential|swap",
         "series": [{ "label": "Australia", "value": 8.8, "highlight": true }],
@@ -215,12 +216,15 @@ Return JSON only, matching this schema exactly:
 Notes:
 - visual_prompt describes a picture only. The cut draws every chart from the series below and burns
   on_screen and lower_third itself, so a picture that carries its own lettering or chart comes out
-  with two versions on top of each other. Never ask the generator for text, figures or a chart.
+  with two versions on top of each other. Never ask the generator for text, figures or a chart, and never
+  point the camera at anything a viewer would try to read: documents, statements, spreadsheets, newspapers,
+  screens, phones or signs. Show places, people and things instead.
+- The sources scene takes no picture: the cut sets the receipt card on plain paper so it reads.
 - Omit "chart" on scenes that are voiceover over footage, such as cold_open, caveat, and usually turn. Never a presenter or host on camera.
 - Use reveal "sequential" when the chart builds point by point under the narration, "swap" for a
   rank_swap flipping between bases, "all_at_once" when the frame is already on screen.
 - Layer scenes should usually carry a chart built from the story's own series.
-- Every chart frame needs a caption naming the publisher and the period.
+- Every chart frame needs a caption naming the publisher and the period, and a unit.
 - Include every locked scene id. Do not add scenes.`;
 }
 
@@ -356,6 +360,41 @@ function toResult(
   };
 }
 
+/**
+ * Burned-in lines that run past what fits a phone screen are rewritten shorter, one small call for just those
+ * lines, rather than cut off mid-phrase. A line still too long after that is left for the check to flag.
+ */
+async function fitBurnedInText<T extends { scenes: Array<{ on_screen?: string; lower_third?: string }> }>(
+  slug: string,
+  model: T,
+  onProgress: ReelProgress,
+): Promise<T> {
+  const long: Array<{ i: number; field: 'on_screen' | 'lower_third'; text: string; max: number }> = [];
+  (model.scenes ?? []).forEach((s, i) => {
+    if ((s.on_screen ?? '').length > ON_SCREEN_CHARS) long.push({ i, field: 'on_screen', text: s.on_screen!, max: ON_SCREEN_CHARS });
+    if ((s.lower_third ?? '').length > LOWER_THIRD_CHARS) long.push({ i, field: 'lower_third', text: s.lower_third!, max: LOWER_THIRD_CHARS });
+  });
+  if (!long.length) return model;
+  onProgress(`Shortening ${long.length} on-screen line${long.length === 1 ? '' : 's'} to fit`);
+  const { text, usage } = await callAnthropic(
+    'You shorten burned-in captions for a vertical news video. Keep the meaning and every figure exactly; '
+      + 'drop words, never add facts. Australian English, no em dashes. Reply with JSON only.',
+    `Rewrite each line to at most its max characters (count them):\n${JSON.stringify(long.map(({ i, field, text: t, max }) => ({ i, field, text: t, max })))}\n`
+      + 'Return {"lines": [{"i": number, "field": "on_screen" | "lower_third", "text": "shorter line"}]}',
+    800,
+  );
+  await recordStage(slug, 'script', usage);
+  const out = parseModelJson<{ lines: Array<{ i: number; field: 'on_screen' | 'lower_third'; text: string }> }>(text, 'Caption fitter');
+  const next = { ...model, scenes: model.scenes.map((s) => ({ ...s })) };
+  for (const l of out.lines ?? []) {
+    const want = long.find((x) => x.i === l.i && x.field === l.field);
+    if (want && typeof l.text === 'string' && l.text.trim() && l.text.trim().length <= want.max) {
+      (next.scenes[l.i] as Record<string, unknown>)[l.field] = l.text.trim();
+    }
+  }
+  return next;
+}
+
 async function generateScript(
   slug: string,
   onProgress: ReelProgress,
@@ -384,6 +423,8 @@ async function generateScript(
   if (!Array.isArray(model.scenes) || !model.scenes.length) {
     throw new Error('Script generator returned no scenes');
   }
+
+  model = await fitBurnedInText(slug, model, onProgress);
 
   onProgress('Checking every spoken figure against the evidence');
   const normalised = model.scenes.map((scene, i) => normaliseScene({ ...scene, visual_prompt: '' }, i));

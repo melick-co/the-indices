@@ -329,7 +329,7 @@ export async function cutReel(slug: string, opts: { log?: CutLog } = {}): Promis
       oneNumber: story.oneNumber?.value ? { value: story.oneNumber.value, label: story.oneNumber.label } : null,
       sources: cutSources(story.evidence?.sources ?? []),
       scenes: scenes.map((scene) => planScene(scene, {
-        media: scene.chart ? null : media.get(scene.id) ?? null,
+        media: scene.chart || scene.kind === 'sources' ? null : media.get(scene.id) ?? null,
         voice: voices.get(scene.id) ?? null,
       })),
     };

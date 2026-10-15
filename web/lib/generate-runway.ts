@@ -398,7 +398,7 @@ async function refreshReelAssembly(slug: string, scenes: ReelScene[]): Promise<v
   const latest = latestByKey(rows);
   const reel = latest.get(`${REEL_SCENE_ID}:reel`);
   if (!reel || reel.status === 'succeeded' || reel.status === 'failed') return;
-  const pictures = scenes.filter((s) => !s.chart);
+  const pictures = scenes.filter((s) => !s.chart && s.kind !== 'sources');
 
   const clips: Array<{ sceneId: string; kind: RenderKind; url: string }> = [];
   let waiting = false;
@@ -454,7 +454,7 @@ export async function startRenders(slug: string, req: StartRenderRequest): Promi
 
   const latest = latestByKey(await allRows(slug));
 
-  const pictures = scenes.filter((s) => !s.chart);
+  const pictures = scenes.filter((s) => !s.chart && s.kind !== 'sources');
   if (req.kind === 'chart' || req.kind === 'chart_video') throw new Error(CHART_REFUSAL);
   if (req.scope === 'scene' && scenes.find((s) => s.id === req.sceneId)?.chart) throw new Error(CHART_REFUSAL);
 

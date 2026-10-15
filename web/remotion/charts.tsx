@@ -48,6 +48,11 @@ export function ChartFrame({ chart, children }: { chart: ReelChartFrame; childre
           {chart.title}
         </div>
       )}
+      {chart.unit && (
+        <div style={{ fontFamily: FONT.mono, fontSize: 22, letterSpacing: '0.06em', textTransform: 'uppercase', color: FOSSIL, margin: '-16px 0 24px' }}>
+          {chart.unit}
+        </div>
+      )}
       {children}
       <div style={{
         marginTop: 26, paddingTop: 14, borderTop: `1px solid ${RULE}`,

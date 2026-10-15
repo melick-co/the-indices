@@ -57,7 +57,8 @@ function pack(keep: string, optional: string[], max: number): string {
  */
 export const NO_TEXT_RULE =
   'NO TEXT OF ANY KIND in the frame: no lettering, captions, titles, straps, numbers, charts, graphs, '
-  + 'logos, screens or interface. Titles and charts are added afterwards over this picture. '
+  + 'logos, screens or interface. No documents, papers, statements, books, newspapers, phones or computer screens '
+  + 'with anything on them. Titles and charts are added afterwards over this picture. '
   + 'FULL BLEED: one photograph fills the whole vertical frame edge to edge, with no borders, margins, '
   + 'blank or blurred strips, split panels or collage. Calmer areas (sky, wall, soft background) near the '
   + 'top and bottom are part of the same photograph.';

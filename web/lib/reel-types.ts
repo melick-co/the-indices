@@ -96,6 +96,8 @@ export type ReelReveal = 'all_at_once' | 'sequential' | 'swap';
 export type ReelChartFrame = {
   kind: ChartKind;
   title?: string;
+  /** What the values are in ("$ billion", "per cent of income", "index points"), shown under the title. */
+  unit?: string;
   /** Must name the publisher and the period the figures come from. */
   caption: string;
   series: ChartSeriesPoint[];
@@ -272,6 +274,7 @@ function checkChart(
   sceneRef: string,
   warnings: string[],
 ): ReelChartFrame {
+  if (!chart.unit?.trim()) warnings.push(`${sceneRef}: chart has no unit, so its values read as bare numbers`);
   const untraced: number[] = [];
   for (const p of [...(chart.series ?? []), ...(chart.alt_series ?? [])]) {
     if (!tracesToStory(p.value, known)) untraced.push(p.value);
