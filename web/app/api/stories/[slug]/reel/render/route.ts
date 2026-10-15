@@ -4,7 +4,7 @@ import { MediaConfigError } from '@/lib/elevenlabs-client';
 import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 function jsonError(e: unknown, fallback = 400) {
   const message = e instanceof Error ? e.message : String(e);
@@ -27,8 +27,8 @@ export async function GET(
 
 /**
  * Start ElevenLabs generation. Body: { scope: 'scene' | 'reel', sceneId?, kind? }.
- * kind auto (default) stills a scene then animates it; chart scenes prefer an
- * animated chart from the locked series.
+ * kind auto (default) stills a scene then animates it. Chart scenes are refused:
+ * the cut draws every chart from the locked series.
  */
 export async function POST(
   req: Request,

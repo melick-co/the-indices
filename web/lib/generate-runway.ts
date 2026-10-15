@@ -132,6 +132,8 @@ export async function listRenders(slug: string): Promise<StoryReelRender[]> {
   return [...latestByKey((data ?? []) as RenderRow[]).values()].map(asRender);
 }
 
+const CHART_REFUSAL = 'Charts are drawn by the cut from the data, never by the picture generator.';
+
 function videoKindFor(scene: ReelScene): RenderChainTo {
   return scene.chart ? 'chart_video' : 'clip';
 }
@@ -303,14 +305,12 @@ async function allRows(slug: string): Promise<RenderRow[]> {
  * The still a video job may animate from. A still made under the old prompt, with the model's
  * lettering drawn in, does not count: animating it carries the lettering into the clip, so the
  * scene is drawn again instead (the fourth real cut, 5 October 2026, found every regeneration had
- * animated the old stills and no scene had a clean picture). Chart stills are traced from the
- * locked series and are taken as they are.
+ * animated the old stills and no scene had a clean picture). Model-drawn charts never count: the cut
+ * draws every chart from the data.
  */
 function latestStillUrl(rows: RenderRow[], sceneId: string): string | null {
   const latest = latestByKey(rows);
-  const chart = latest.get(`${sceneId}:chart`);
   const still = latest.get(`${sceneId}:still`);
-  if (chart?.status === 'succeeded' && chart.output_url) return chart.output_url;
   if (still?.status === 'succeeded' && still.output_url && madeWithoutText(still)) return still.output_url;
   return null;
 }
@@ -386,7 +386,7 @@ async function ensureReelRow(slug: string, sceneCount: number): Promise<void> {
     slug,
     sceneId: REEL_SCENE_ID,
     kind: 'reel',
-    promptText: `Assemble ${sceneCount} locked scene clips in storyboard order. Figures stay as traced; no new generation.`,
+    promptText: `Picture clips for ${sceneCount} scenes in storyboard order. Charts are drawn by the cut; no figures generated.`,
   });
 }
 
@@ -395,15 +395,14 @@ async function refreshReelAssembly(slug: string, scenes: ReelScene[]): Promise<v
   const latest = latestByKey(rows);
   const reel = latest.get(`${REEL_SCENE_ID}:reel`);
   if (!reel || reel.status === 'succeeded' || reel.status === 'failed') return;
+  const pictures = scenes.filter((s) => !s.chart);
 
   const clips: Array<{ sceneId: string; kind: RenderKind; url: string }> = [];
   let waiting = false;
   let failed: string | null = null;
 
-  for (const scene of scenes) {
-    const preferred = videoKindFor(scene);
-    const fallback: RenderKind = preferred === 'chart_video' ? 'clip' : 'chart_video';
-    const video = latest.get(`${scene.id}:${preferred}`) ?? latest.get(`${scene.id}:${fallback}`);
+  for (const scene of pictures) {
+    const video = latest.get(`${scene.id}:clip`);
     if (!video) {
       waiting = true;
       continue;
@@ -427,7 +426,7 @@ async function refreshReelAssembly(slug: string, scenes: ReelScene[]): Promise<v
     await updateRow(reel.render_id, { status: 'failed', error: failed });
     return;
   }
-  if (waiting || clips.length !== scenes.length) return;
+  if (waiting || clips.length !== pictures.length) return;
 
   await updateRow(reel.render_id, {
     status: 'succeeded',
@@ -439,8 +438,10 @@ async function refreshReelAssembly(slug: string, scenes: ReelScene[]): Promise<v
 }
 
 /**
- * Start one scene (still, chart, clip, animated chart) or every scene for a reel.
- * Video jobs prefer image-to-video from a locked still so chart figures stay put.
+ * Start the picture for one scene (still or clip), or for every picture scene of a reel. Chart scenes
+ * are never sent to the generator: the cut draws them from the locked series, and a model asked to
+ * draw a chart invents its own numbers and styling (the spending-sentiment reel, 15 October 2026:
+ * 175.1 for 175.7, a fake news logo, the voiceover printed on the chart).
  */
 export async function startRenders(slug: string, req: StartRenderRequest): Promise<StoryReelRender[]> {
   if (!isMediaConfigured()) throw new MediaConfigError();
@@ -450,12 +451,16 @@ export async function startRenders(slug: string, req: StartRenderRequest): Promi
 
   const latest = latestByKey(await allRows(slug));
 
-  const targets: ReelScene[] = req.scope === 'reel'
-    ? scenes
-    : scenes.filter((s) => s.id === req.sceneId);
-  if (!targets.length) throw new Error('No matching scene to render');
+  const pictures = scenes.filter((s) => !s.chart);
+  if (req.kind === 'chart' || req.kind === 'chart_video') throw new Error(CHART_REFUSAL);
+  if (req.scope === 'scene' && scenes.find((s) => s.id === req.sceneId)?.chart) throw new Error(CHART_REFUSAL);
 
-  if (req.scope === 'reel') await ensureReelRow(slug, scenes.length);
+  const targets: ReelScene[] = req.scope === 'reel'
+    ? pictures
+    : pictures.filter((s) => s.id === req.sceneId);
+  if (!targets.length) throw new Error('No matching picture scene to render');
+
+  if (req.scope === 'reel') await ensureReelRow(slug, pictures.length);
 
   for (const scene of targets) {
     const requested = req.kind && req.kind !== 'auto' ? req.kind : 'auto';
@@ -465,13 +470,13 @@ export async function startRenders(slug: string, req: StartRenderRequest): Promi
       if (started) latest.set(`${started.scene_id}:${started.kind}`, started);
     };
 
-    if (requested === 'still' || requested === 'chart') {
+    if (requested === 'still') {
       await record(await startStillJob(slug, scene, spec, title, null, latest));
       continue;
     }
 
-    if (requested === 'clip' || requested === 'chart_video') {
-      const kind: RenderChainTo = requested === 'chart_video' || scene.chart ? 'chart_video' : 'clip';
+    if (requested === 'clip') {
+      const kind: RenderChainTo = 'clip';
       if (image) {
         await record(await startVideoJob(slug, scene, spec, title, kind, image, latest));
       } else {
@@ -493,8 +498,13 @@ export async function startRenders(slug: string, req: StartRenderRequest): Promi
 
 async function pollOne(row: RenderRow, board: { spec: ReelSpec; scenes: ReelScene[]; title: string }): Promise<void> {
   if (row.kind === 'reel') return;
+  if (row.kind === 'chart' || row.kind === 'chart_video') {
+    // Left over from before charts were taken off the generator: close it rather than finish it.
+    await updateRow(row.render_id, { status: 'failed', error: CHART_REFUSAL });
+    return;
+  }
   if (!row.runway_task_id) {
-    if (row.kind === 'clip' || row.kind === 'chart_video') {
+    if (row.kind === 'clip') {
       const rows = await allRows(row.story_slug);
       const image = latestStillUrl(rows, row.scene_id);
       const scene = board.scenes.find((s) => s.id === row.scene_id);
@@ -553,7 +563,7 @@ async function pollOne(row: RenderRow, board: { spec: ReelSpec; scenes: ReelScen
   if (saved.status === 'succeeded') {
     // Billed per picture or per second of clip; the price table carries the plan's credit rates.
     const scene = board.scenes.find((s) => s.id === row.scene_id);
-    const video = row.kind === 'clip' || row.kind === 'chart_video';
+    const video = row.kind === 'clip';
     await recordCost({
       slug: row.story_slug,
       stage: row.kind as 'still' | 'chart' | 'clip' | 'chart_video',

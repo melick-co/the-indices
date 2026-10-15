@@ -37,6 +37,13 @@ export const WORD_CEILING_PER_SECOND = 2.7;
 export const SCENE_SECONDS = { min: 3, max: 9 };
 export const REEL_SECONDS = { min: 20, max: 75 };
 
+/**
+ * The most narration a reel can carry and still fit REEL_SECONDS.max at the measured pace. A scene
+ * may run past SCENE_SECONDS.max when its words need it, but the reel may not run past 75 seconds
+ * (Marcel, 15 October 2026, after a 96-second board cut to 1:41).
+ */
+export const REEL_WORDS_MAX = Math.floor(REEL_SECONDS.max * WORDS_PER_SECOND);
+
 /** Burned-in text has to survive a phone screen with platform chrome over it. */
 export const ON_SCREEN_CHARS = 70;
 export const LOWER_THIRD_CHARS = 48;
@@ -375,11 +382,18 @@ export function validateReel(
     warnings.push('No scene carries a chart, so nothing on screen validates the finding');
   }
 
+  // The words set each scene's length, but not the reel's: past 75 seconds is a fault however the
+  // seconds were reached.
   const total = checked.reduce((sum, s) => sum + s.seconds, 0);
-  const needed = checked.reduce((sum, s) => sum + secondsForWords(wordCount(s.narration)), 0);
-  if (total < REEL_SECONDS.min || total > Math.max(REEL_SECONDS.max, needed)) {
+  const spokenWords = checked.reduce((sum, s) => sum + wordCount(s.narration), 0);
+  if (total < REEL_SECONDS.min || total > REEL_SECONDS.max) {
     warnings.push(
       `Reel runs ${total}s, outside the ${REEL_SECONDS.min}-${REEL_SECONDS.max}s a reel holds`,
+    );
+  }
+  if (spokenWords > REEL_WORDS_MAX) {
+    warnings.push(
+      `Narration is ${spokenWords} words; ${REEL_SECONDS.max}s carries about ${REEL_WORDS_MAX}`,
     );
   }
 

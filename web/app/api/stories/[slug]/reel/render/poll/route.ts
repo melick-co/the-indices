@@ -2,7 +2,7 @@ import { isMediaConfigured, pollRenders } from '@/lib/generate-runway';
 import { MediaConfigError } from '@/lib/elevenlabs-client';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /**
  * Poll open ElevenLabs generations for this story (GET /v1/flows/{image|video}/{id}).
