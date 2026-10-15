@@ -2,8 +2,10 @@ import { goLiveFromPitch } from '@/lib/generate-story';
 import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
+// The publish gate runs the strict check (claim audit included) when the draft has not passed it yet.
+export const maxDuration = 300;
 
-/** Promote a draft story to published. */
+/** Promote a draft story to published, if it passes the publish gate (lib/publish-gate.ts). */
 export async function POST(
   _req: Request,
   { params }: { params: { pitchId: string } },

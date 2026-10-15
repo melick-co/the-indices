@@ -13,6 +13,8 @@ import { latestOfficialDocuments, verifyFootnoteLinks, verifySourcedStatements }
 import { eventsContext } from '@/lib/events';
 import { canonicalMetricId, loadKnownMetrics, normaliseMetricIds } from '../../agent/scripts/lib/metric-ids.mjs';
 import type { StoryChartBlock } from '@/lib/story-types';
+// Type only: publish-gate imports this module, so its functions are loaded on demand below.
+import type { GateCheck } from '@/lib/publish-gate';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -367,7 +369,9 @@ export async function checkStory(supabase: SupabaseClient, draft: StructuredStor
 
   // Figures exist in the data; now check each claim uses them truthfully. Runs even when only
   // style failed, so a held draft reaches the editor with its claims already audited.
-  if (figuresOk && apiKey && opts.audit) {
+  // Whether the strict part ran: without it a passing check is not a pass for the publish gate (lib/publish-gate.ts).
+  result.audited = Boolean(figuresOk && apiKey && opts.audit);
+  if (result.audited) {
     onEvent({ type: 'tool_start', name: 'audit', label: 'Auditing every claim against stored data', at: new Date().toISOString() });
     try {
       const audit = await auditClaims(supabase, draft, [...ids]);
@@ -560,6 +564,11 @@ export async function publishStoryFromPitch(
   const slug = existing?.slug ?? await uniqueSlug(story.slug_hint || story.title);
   const now = new Date().toISOString();
   const today = sydneyDay();
+  const evidence = { ...story.evidence, metric_ids: [...checkedIdsForSave] };
+  // A draft that passed the strict check is stamped for exactly this content, so it can go live (or be published
+  // from the queue) without being checked again. Edits after this clear the stamp's match.
+  const { stampFields } = await import('@/lib/publish-gate');
+  const stamp = await stampFields(supabase, { ...story, evidence }, check);
 
   // Save as draft — editor previews before going live.
   if (existing?.slug) {
@@ -572,9 +581,10 @@ export async function publishStoryFromPitch(
       caveat: story.caveat,
       published: today,
       one_number: story.one_number,
-      evidence: { ...story.evidence, metric_ids: [...checkedIdsForSave] },
+      evidence,
       body: story.body,
       frame_check: Boolean(story.frame_check),
+      ...stamp,
       updated_at: now,
     }).eq('pitch_id', pitchId);
   } else {
@@ -588,9 +598,10 @@ export async function publishStoryFromPitch(
       caveat: story.caveat,
       published: today,
       one_number: story.one_number,
-      evidence: { ...story.evidence, metric_ids: [...checkedIdsForSave] },
+      evidence,
       body: story.body,
       frame_check: Boolean(story.frame_check),
+      ...stamp,
     });
     if (insertErr) throw new Error(insertErr.message);
   }
@@ -622,8 +633,12 @@ export async function publishStoryFromPitch(
   };
 }
 
-/** Promote a draft story to published and mark the pitch published. */
-export async function goLiveFromPitch(pitchId: string): Promise<GoLiveResult> {
+/**
+ * Promote a draft story to published and mark the pitch published. The publish gate runs first: the draft goes live
+ * only if its current content passed the strict check (lib/publish-gate.ts). `check` is a strict check the caller
+ * has just run on exactly the saved draft (auto-articles, events, publishDraft).
+ */
+export async function goLiveFromPitch(pitchId: string, opts: { check?: GateCheck } = {}): Promise<GoLiveResult> {
   const supabase = createClient();
   const { data: story, error } = await supabase.from('stories')
     .select('slug, title, status')
@@ -639,6 +654,12 @@ export async function goLiveFromPitch(pitchId: string): Promise<GoLiveResult> {
     };
   }
 
+  const { ensurePublishable, gateMessage } = await import('@/lib/publish-gate');
+  const gate = await ensurePublishable(story.slug, { passed: opts.check });
+  if (!gate.ok) {
+    throw new Error(`Not published: /stories/${story.slug} has not passed the strict check: ${gate.issues.slice(0, 8).join('; ')}`);
+  }
+
   const now = new Date().toISOString();
   const today = sydneyDay();
   const { error: updErr } = await supabase.from('stories').update({
@@ -646,7 +667,7 @@ export async function goLiveFromPitch(pitchId: string): Promise<GoLiveResult> {
     published: today,
     updated_at: now,
   }).eq('pitch_id', pitchId);
-  if (updErr) throw new Error(updErr.message);
+  if (updErr) throw new Error(gateMessage(updErr));
 
   await supabase.rpc('set_actor', { who: 'editor' }).then(() => {}, () => {});
   await supabase.from('pitches').update({

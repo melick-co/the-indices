@@ -101,6 +101,9 @@ export default function StoryEditor({ story, renders = [], revision = null }: {
     published,
     body: { blocks },
     evidence: {
+      // Footnotes and quoted metric ids are not edited here; send them back so a save never drops them.
+      ...(story.evidence.footnotes ? { footnotes: story.evidence.footnotes } : {}),
+      ...(story.evidence.metric_ids?.length ? { metric_ids: story.evidence.metric_ids } : {}),
       table: tableHead.some((h) => h.trim()) ? { head: tableHead, rows: tableRows } : undefined,
       sources,
     },
@@ -109,7 +112,7 @@ export default function StoryEditor({ story, renders = [], revision = null }: {
     homeSection: (homeSection || null) as HomeSection | null,
   }), [
     kicker, title, hook, caveat, oneValue, oneLabel, frameCheck, published,
-    blocks, tableHead, tableRows, sources, heroImageUrl, heroImageAlt, homeSection,
+    blocks, tableHead, tableRows, sources, heroImageUrl, heroImageAlt, homeSection, story.evidence,
   ]);
 
   function save() {
@@ -125,9 +128,16 @@ export default function StoryEditor({ story, renders = [], revision = null }: {
           return;
         }
         const result = await saveStoryCopy(story.slug, payload);
+        if (!result.ok) {
+          // Held by the publish gate: the live article is unchanged; the edits wait in a pending revision.
+          setCheck({ ok: false, issues: result.issues });
+          setErr(result.message ?? 'Not saved.');
+          router.refresh();
+          return;
+        }
         setOk(result.staticBody
           ? 'Saved image and placement. Copy for this story is edited in the repo.'
-          : 'Saved.');
+          : story.status === 'published' ? 'Saved. Any edits to the copy passed the strict check.' : 'Saved.');
         router.refresh();
       } catch (e) {
         setErr(e instanceof Error ? e.message : 'Save failed');
@@ -141,7 +151,14 @@ export default function StoryEditor({ story, renders = [], revision = null }: {
     start(async () => {
       try {
         if (!readOnlyCopy) await saveStoryCopy(story.slug, payload);
-        await setStoryStatus(story.slug, 'published');
+        // The publish gate runs the strict check when this copy has not passed it yet (a minute or two).
+        const result = await setStoryStatus(story.slug, 'published');
+        if (!result.ok) {
+          setCheck({ ok: false, issues: result.issues });
+          setErr(result.message ?? 'Not published.');
+          router.refresh();
+          return;
+        }
         setOk('Published.');
         router.refresh();
       } catch (e) {
@@ -167,13 +184,21 @@ export default function StoryEditor({ story, renders = [], revision = null }: {
   }
 
   function applyRevision() {
-    const force = !check?.ok;
-    if (force && !window.confirm('This revision has not passed every check. Put it live anyway?')) return;
     setErr(null);
     setOk(null);
+    // Only a revision that passed the strict check goes live; there is no override on the desk.
+    if (!check?.ok || check.stale) {
+      setErr('This revision has not passed the strict check. Fix the items listed and re-check it; it cannot go live until it passes.');
+      return;
+    }
     start(async () => {
       try {
-        await applyStoryRevision(story.slug, force);
+        const result = await applyStoryRevision(story.slug);
+        if (!result.ok) {
+          setCheck({ ok: false, issues: result.issues });
+          setErr(result.message ?? 'Not applied.');
+          return;
+        }
         router.push(`/foundry/desk/${story.slug}`);
         router.refresh();
       } catch (e) {
@@ -213,8 +238,9 @@ export default function StoryEditor({ story, renders = [], revision = null }: {
       )}
       {editingRevision && (
         <>
-          <button type="button" className="studio-btn-accent" disabled={pending} onClick={applyRevision}>
-            {check?.ok ? 'Apply revision' : 'Apply anyway'}
+          <button type="button" className="studio-btn-accent" disabled={pending || !check?.ok || check.stale}
+            onClick={applyRevision} title={check?.ok && !check.stale ? undefined : 'Re-check first: only a revision that passes goes live'}>
+            Apply revision
           </button>
           <button type="button" className="studio-btn-outline" disabled={pending} onClick={discardRevision}>
             Discard revision
@@ -285,7 +311,7 @@ export default function StoryEditor({ story, renders = [], revision = null }: {
           Editing the pending revision. The live article does not change until you apply it.
         </p>
       )}
-      {check && (recheckTarget || editingRevision) && (
+      {check && (recheckTarget || editingRevision || !check.ok) && (
         <div className={`desk-check ${check.ok ? 'is-ok' : 'is-held'}`}>
           <strong>
             {check.stale ? 'Edited since the last check. Re-check before applying.'

@@ -1,17 +1,19 @@
 import { sydneyDay } from '@/lib/dates';
 import { attachHighlights } from '@/lib/story-highlights';
 import { createClient } from '@/lib/supabase-server';
-import { checkStory, draftStory, goLiveFromPitch, type PriorArticle } from '@/lib/generate-story';
-import type { StructuredStory } from '@/lib/article-from-pitch';
+import { draftStory, goLiveFromPitch, type PriorArticle } from '@/lib/generate-story';
 import type { FoundryEvent } from '@/lib/foundry-agent';
 import type { FactCheck } from '@/lib/fact-check';
 import type { StoryBlock } from '@/lib/story-types';
 import { loadPendingRevision } from '@/lib/stories-loader';
+import {
+  ARTICLE_COLS, ensurePublishable, gateIssues, gateMessage, passedStrict, pitchMetricIds, recheck, stampFields, type StoredCheck,
+} from '@/lib/publish-gate';
 import { buildReference } from '../../agent/scripts/lib/revise-pitches.mjs';
 import { callClaudeJson } from '../../agent/scripts/lib/claude.mjs';
 
 /** The article fields a revision replaces. Placement, art and dates are left alone. */
-const CONTENT_COLS = ['kicker', 'title', 'hook', 'caveat', 'one_number', 'evidence', 'body', 'frame_check'] as const;
+const CONTENT_COLS = ARTICLE_COLS;
 // A revision also keeps the metric ids its copy quotes, so a re-check audits against the same series.
 type Content = Record<(typeof CONTENT_COLS)[number], unknown> & { metric_ids_used?: string[] };
 
@@ -90,7 +92,7 @@ export async function refreshStory(
     story_id: row.story_id,
     status: 'pending',
     content,
-    check: { ok: check.ok, issues: check.issues, warnings: check.warnings ?? [] },
+    check: { ok: check.ok, issues: check.issues, warnings: check.warnings ?? [], audited: Boolean(check.audited) },
     note: story.generation_note,
   }).select('revision_id').single();
   if (error || !rev) throw new Error(error?.message ?? 'could not save the revision');
@@ -99,16 +101,31 @@ export async function refreshStory(
 
 /**
  * Put the pending revision live: archive the current version, replace the content, and add the update note.
- * Refuses a revision that failed its checks unless forced.
+ * Only a revision that passed the strict check goes live, stamped for the publish gate. `force` puts a failed
+ * revision live anyway, and needs the editor's reason (`forceReason`), which is recorded on the story; it is
+ * reachable only from the command line (refresh-stories.ts --apply --force with REVISION_FORCE_REASON).
  */
-export async function applyRevision(slug: string, opts: { note?: string; force?: boolean } = {}) {
+export async function applyRevision(slug: string, opts: { note?: string; force?: boolean; forceReason?: string } = {}) {
   const db = createClient();
   const row = await loadPublished(slug);
-  const pending = await loadPendingRevision(row.story_id);
+  let pending = await loadPendingRevision(row.story_id);
   if (!pending) throw new Error(`/stories/${slug} has no pending revision`);
-  if (!pending.check?.ok && !opts.force) {
-    throw new Error(`the revision for /stories/${slug} failed its checks: ${(pending.check?.issues ?? []).slice(0, 4).join('; ')}`);
+  // A revision checked before the gate recorded whether the claim audit ran is checked again, not trusted.
+  if (pending.check?.ok && (pending.check as StoredCheck).audited === undefined && !(pending.check as StoredCheck).stale) {
+    await recheckRevision(slug);
+    pending = await loadPendingRevision(row.story_id);
+    if (!pending) throw new Error(`/stories/${slug} has no pending revision`);
   }
+  const passed = passedStrict(pending.check);
+  const reason = opts.force ? opts.forceReason?.trim() : undefined;
+  if (opts.force && !passed && !reason) {
+    throw new Error(`forcing the revision for /stories/${slug} live needs a reason (REVISION_FORCE_REASON)`);
+  }
+  if (!passed && !reason) {
+    throw new Error(`the revision for /stories/${slug} has not passed the strict check: ${gateIssues(pending.check).slice(0, 4).join('; ')}`);
+  }
+  const content = pick(pending.content as Record<string, unknown>);
+  const stamp = await stampFields(db, content, pending.check, passed ? undefined : reason);
   const now = new Date().toISOString();
   const { error: archiveErr } = await db.from('story_revisions').insert({
     story_id: row.story_id,
@@ -119,16 +136,17 @@ export async function applyRevision(slug: string, opts: { note?: string; force?:
   });
   if (archiveErr) throw new Error(archiveErr.message);
   const { error } = await db.from('stories').update({
-    ...pick(pending.content as Record<string, unknown>),
+    ...content,
+    ...stamp,
     update_note: withCorrections(opts.note ?? DEFAULT_UPDATE_NOTE, row.update_note as string | null),
     updated_on: sydneyDay(),
     updated_at: now,
   }).eq('story_id', row.story_id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(gateMessage(error));
   await db.from('story_revisions').update({ status: 'applied', resolved_at: now }).eq('revision_id', pending.revision_id);
   // The revision's body replaces the old one, highlights included: make them again from the revised figures.
   await attachHighlights(db, slug).catch(() => null);
-  return { slug, title: String(pending.content.title) };
+  return { slug, title: String(pending.content.title), forced: !passed };
 }
 
 /**
@@ -174,33 +192,7 @@ export async function restoreCorrections(slug: string): Promise<string[]> {
   return kept.filter((k) => !live.includes(k));
 }
 
-/** Stored check result: what the desk shows next to a draft or revision. */
-export type StoredCheck = { ok: boolean; issues: string[]; warnings: string[]; checked_at: string };
-
-/** Metric ids the copy may quote: the pitch's links plus everything the story's charts use. */
-async function pitchMetricIds(pitchId: string | null): Promise<string[]> {
-  if (!pitchId) return [];
-  const { data } = await createClient().from('pitches').select('metric_ids, resurface_metrics').eq('id', pitchId).maybeSingle();
-  return [...new Set([...(data?.metric_ids ?? []), ...(data?.resurface_metrics ?? [])])] as string[];
-}
-
-/**
- * Run every publishing check on edited copy, without rewriting it (the desk's "Re-check").
- * Returns the checked content: unverifiable quotes removed, charts and the hero number refilled from the store.
- */
-async function recheck(content: Content, pitchId: string | null): Promise<{ content: Content; check: StoredCheck }> {
-  const db = createClient();
-  // Series the copy quotes: kept on the revision and in evidence.metric_ids (saved with every article since Oct 2026).
-  const saved = ((content.evidence as { metric_ids?: string[] } | null)?.metric_ids) ?? [];
-  const used = [...new Set([...(content.metric_ids_used ?? []), ...saved])];
-  const draft = { ...(content as unknown as StructuredStory), slug_hint: '', generation_note: '', metric_ids_used: used };
-  const { check, ids } = await checkStory(db, draft, { metricIds: await pitchMetricIds(pitchId), audit: true });
-  draft.evidence = { ...draft.evidence, metric_ids: [...ids] };
-  return {
-    content: pickRevision(draft as unknown as Record<string, unknown>),
-    check: { ok: check.ok, issues: check.issues, warnings: check.warnings ?? [], checked_at: new Date().toISOString() },
-  };
-}
+export type { StoredCheck };
 
 /** Every check on the live copy, read-only: nothing is saved (charts are rebuilt only in memory). */
 export async function checkLive(slug: string): Promise<StoredCheck> {
@@ -215,12 +207,20 @@ export async function saveRevisionContent(slug: string, content: Content) {
   const row = await loadPublished(slug);
   const pending = await loadPendingRevision(row.story_id);
   if (!pending) throw new Error(`/stories/${slug} has no pending revision`);
+  // Keep the footnotes and metric ids the revision already has when the editor's copy does not carry them (desk saves).
+  const before = (pending.content as Record<string, unknown>).evidence as { footnotes?: unknown; metric_ids?: string[] } | null;
+  const ev = (content.evidence ?? null) as { footnotes?: unknown; metric_ids?: string[] } | null;
+  const evidence = ev && before ? {
+    ...ev,
+    ...(ev.footnotes === undefined && before.footnotes !== undefined ? { footnotes: before.footnotes } : {}),
+    ...(!ev.metric_ids?.length && before.metric_ids?.length ? { metric_ids: before.metric_ids } : {}),
+  } : content.evidence;
   const { error } = await createClient().from('story_revisions')
-    // Keep the metric ids the revision already quotes when the editor's copy does not carry them (desk saves).
     .update({
       content: pickRevision({
         metric_ids_used: (pending.content as Record<string, unknown>).metric_ids_used,
         ...(content as Record<string, unknown>),
+        evidence,
       }),
       check: { ...(pending.check ?? {}), ok: false, stale: true },
     })
@@ -254,9 +254,13 @@ export async function recheckDraft(slug: string, extraMetrics: string[] = []): P
   const db = createClient();
   const row = await loadDraft(slug);
   const { content, check } = await recheck({ ...pick(row), metric_ids_used: extraMetrics }, row.pitch_id as string | null);
-  // Only the article columns go back on the story row (metric ids live on revisions, not stories).
-  const { error } = await db.from('stories').update({ ...pick(content as Record<string, unknown>), updated_at: new Date().toISOString() }).eq('slug', slug);
-  if (error) throw new Error(error.message);
+  // Only the article columns go back on the story row (metric ids live on revisions, not stories). A draft that
+  // passed is stamped for the publish gate in the same write; the highlight panel (not a claim) is kept.
+  const highlights = (row.body as { highlights?: unknown } | null)?.highlights;
+  const saved = { ...pick(content as Record<string, unknown>), ...(highlights ? { body: { ...(content.body as object), highlights } } : {}) };
+  const stamp = await stampFields(db, saved, check);
+  const { error } = await db.from('stories').update({ ...saved, ...stamp, updated_at: new Date().toISOString() }).eq('slug', slug);
+  if (error) throw new Error(gateMessage(error));
   return check;
 }
 
@@ -402,6 +406,26 @@ export async function startRevisionFromLive(slug: string) {
   if (error) throw new Error(error.message);
 }
 
+/** True when a published story has a pending revision on the desk. */
+export async function hasPendingRevision(slug: string): Promise<boolean> {
+  const row = await loadPublished(slug);
+  return Boolean(await loadPendingRevision(row.story_id));
+}
+
+/**
+ * Hold edits to a live story that failed the strict check as a pending revision, with the check they failed. The
+ * live article does not change; the editor fixes the revision and re-checks it on the desk.
+ */
+export async function holdAsRevision(slug: string, content: Content, check: StoredCheck) {
+  const row = await loadPublished(slug);
+  if (await loadPendingRevision(row.story_id)) throw new Error(`/stories/${slug} already has a pending revision`);
+  const { error } = await createClient().from('story_revisions').insert({
+    story_id: row.story_id, status: 'pending', content: pickRevision(content as Record<string, unknown>), check,
+    note: 'Desk edit held by the publish gate',
+  });
+  if (error) throw new Error(error.message);
+}
+
 /**
  * Publish a held draft the editor has approved: re-check it first, and publish only if it still passes
  * every check (data and sources can change between approval and publishing).
@@ -409,12 +433,14 @@ export async function startRevisionFromLive(slug: string) {
 export async function publishDraft(slug: string, extraMetrics: string[] = []): Promise<{ check: StoredCheck; published: boolean }> {
   const row = await loadDraft(slug);
   const check = await recheckDraft(slug, extraMetrics);
-  if (!check.ok) return { check, published: false };
-  if (row.pitch_id) await goLiveFromPitch(String(row.pitch_id));
+  if (!passedStrict(check)) return { check: { ...check, ok: false, issues: gateIssues(check) }, published: false };
+  if (row.pitch_id) await goLiveFromPitch(String(row.pitch_id), { check });
   else {
+    const gate = await ensurePublishable(slug, { passed: check });
+    if (!gate.ok) return { check: { ...check, ok: false, issues: gate.issues }, published: false };
     const now = new Date().toISOString();
     const { error } = await createClient().from('stories').update({ status: 'published', published: sydneyDay(), updated_at: now }).eq('slug', slug);
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(gateMessage(error));
   }
   return { check, published: true };
 }

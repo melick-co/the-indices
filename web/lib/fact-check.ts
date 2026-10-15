@@ -60,6 +60,11 @@ export type FactCheck = {
   claims?: Array<{ claim: string; verdict: string; evidence: string }>;
   /** House-style notes that do not block publishing (style-check.ts). */
   warnings?: string[];
+  /**
+   * The claim audit and source checks ran (lib/generate-story.ts checkStory with audit on and ANTHROPIC_API_KEY
+   * set). A check without them is not the strict check, and the publish gate does not count it as passed.
+   */
+  audited?: boolean;
 };
 
 type Obs = { entity: string; period: string; value: number };
