@@ -6,6 +6,8 @@ import { buildHomeLayout } from '@/lib/home-layout';
 import DeskBoard from './DeskBoard';
 
 export const dynamic = 'force-dynamic';
+// Publishing from the board runs the publish gate's strict check (claim audit) when a draft has not passed it.
+export const maxDuration = 300;
 export const metadata = { title: 'News Desk — Caveat' };
 
 export default async function NewsDeskPage() {

@@ -3,7 +3,8 @@
  *
  *   npx tsx --import ./scripts/node-shims.mjs scripts/refresh-stories.ts <slug> [<slug> ...]          # write pending revisions
  *   npx tsx --import ./scripts/node-shims.mjs scripts/refresh-stories.ts --apply <slug> [...]        # put them live
- *   ... --apply --force   # apply even though the revision failed a check (editor's call)
+ *   ... --apply --force   # apply even though the revision failed the strict check (editor's call): needs the reason in
+ *                         # REVISION_FORCE_REASON, recorded on the story (stories.check_override). Command line only.
  *   ... --show <slug>     # print the pending revision's copy, with deck and lede word counts
  *   ... --edit <slug>     # apply REVISION_EDITS (JSON [{find, replace}]) to the revision (or to a new revision of the
  *                         # live copy, for corrections), then re-check it. --apply takes REVISION_NOTE as the update note.
@@ -20,6 +21,9 @@
  *   ... --figures <slug>  # dry run of the event updater: the figure edits it would make, or that it would call for
  *                         # a new article instead; nothing is saved
  *   ... --publish <slug>  # publish an approved draft: re-checked first, published only if it still passes
+ *
+ * Everything that goes live passes the publish gate (lib/publish-gate.ts, agent/supabase/45_publish_gate.sql): the
+ * strict check must have passed for exactly the content being published.
  *   ... --drafts          # list draft stories; with --recheck/--show/--edit, slugs that are drafts are handled as
  *                         # drafts (edited and re-checked in place; they are not live)
  *
@@ -34,6 +38,7 @@ import {
 } from '@/lib/refresh-story';
 import type { StoryBlock } from '@/lib/story-types';
 import { createClient } from '@/lib/supabase-server';
+import { gateIssues, passedStrict } from '@/lib/publish-gate';
 import { verifySourcedStatements } from '@/lib/source-check';
 import type { FoundryEvent } from '@/lib/foundry-agent';
 
@@ -99,8 +104,9 @@ async function main() {
       }
       if (auditLive) {
         const check = await checkLive(slug);
-        log(check.ok ? '  Passes every check.' : `  Would be held (${check.issues.length} issue(s)):`);
-        for (const i of check.issues) log(`    - ${i}`);
+        const issues = gateIssues(check);
+        log(passedStrict(check) ? '  Passes every check.' : `  Would be held (${issues.length} issue(s)):`);
+        for (const i of passedStrict(check) ? [] : issues) log(`    - ${i}`);
         continue;
       }
       if (charts) {
@@ -108,13 +114,14 @@ async function main() {
         if (existing) { log('  Skipped: a revision is already pending on the desk.'); continue; }
         await startRevisionFromLive(slug);
         const check = await recheckRevision(slug);
-        if (check.ok) {
+        if (passedStrict(check)) {
           await applyRevision(slug, { note: process.env.REVISION_NOTE?.trim()
             || `Updated ${new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Australia/Sydney' })}: charts rebuilt from the latest official data so each shows every series it compares. No findings changed.` });
           log('  Charts rebuilt; passed every check and applied.');
         } else {
-          log(`  Held for the desk (${check.issues.length} issue(s)); the live article is unchanged:`);
-          for (const i of check.issues) log(`    - ${i}`);
+          const issues = gateIssues(check);
+          log(`  Held for the desk (${issues.length} issue(s)); the live article is unchanged:`);
+          for (const i of issues) log(`    - ${i}`);
         }
         continue;
       }
@@ -218,8 +225,10 @@ async function main() {
         continue;
       }
       if (apply) {
-        const r = await applyRevision(slug, { force, note: process.env.REVISION_NOTE?.trim() || undefined });
-        log(`  Applied: "${r.title}"`);
+        const r = await applyRevision(slug, {
+          force, forceReason: process.env.REVISION_FORCE_REASON, note: process.env.REVISION_NOTE?.trim() || undefined,
+        });
+        log(r.forced ? `  Applied without passing the strict check (override recorded): "${r.title}"` : `  Applied: "${r.title}"`);
         continue;
       }
       const r = await refreshStory(slug, onEvent, process.env.REFRESH_BRIEF);

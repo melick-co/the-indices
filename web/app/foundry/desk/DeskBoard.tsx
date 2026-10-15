@@ -33,11 +33,16 @@ export default function DeskBoard({
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
 
-  function run(fn: () => Promise<void>) {
+  function run(fn: () => Promise<unknown>) {
     setErr(null);
     start(async () => {
       try {
-        await fn();
+        const result = await fn();
+        // Actions the publish gate can hold return their issues rather than throwing.
+        const held = result as { ok?: boolean; issues?: string[]; message?: string } | undefined;
+        if (held && held.ok === false) {
+          setErr([held.message ?? 'Held.', ...(held.issues ?? []).slice(0, 8)].join(' · '));
+        }
         router.refresh();
       } catch (e) {
         setErr(e instanceof Error ? e.message : 'Desk save failed');

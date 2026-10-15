@@ -6,7 +6,6 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase-server';
 import type {
   HomeSection,
-  SourceRow,
   StoryArt,
   StoryBlock,
   StoryBody,
@@ -15,8 +14,17 @@ import type {
 } from '@/lib/story-types';
 import { attachGeneratedArt, isStaticStorySlug, parseStoryArt } from '@/lib/story-art';
 import {
-  applyRevision, discardRevision, recheckDraft, recheckRevision, saveRevisionContent, type StoredCheck,
+  applyRevision, discardRevision, hasPendingRevision, holdAsRevision, recheckDraft, recheckRevision, saveRevisionContent,
+  type StoredCheck,
 } from '@/lib/refresh-story';
+import { sanitiseEvidence } from '@/lib/desk-evidence';
+import { attachHighlights } from '@/lib/story-highlights';
+import {
+  claimsOf, ensurePublishable, gateIssues, gateMessage, passedStrict, recheck, sameClaims, stampFields,
+} from '@/lib/publish-gate';
+
+/** What a desk action that can be held by the publish gate returns (thrown errors lose their message in production). */
+export type DeskResult = { ok: boolean; issues: string[]; message?: string };
 
 function revalidateStory(slug: string) {
   revalidatePath('/');
@@ -147,17 +155,31 @@ export async function reorderSection(
   revalidatePath('/foundry/desk');
 }
 
-export async function setStoryStatus(slug: string, status: 'draft' | 'published' | 'archived') {
+/**
+ * Set a story's status. Publishing goes through the publish gate: the story goes live only if its current content
+ * passed the strict check (run here when it has not; a minute or two with the claim audit).
+ */
+export async function setStoryStatus(slug: string, status: 'draft' | 'published' | 'archived'): Promise<DeskResult> {
   await requireAdmin();
   if (usesDeskOverlay(slug)) {
     throw new Error('Founding stories are always published. Edit status in the repo.');
   }
   const supabase = createClient();
+  if (status === 'published') {
+    const { data: current } = await supabase.from('stories').select('status').eq('slug', slug).maybeSingle();
+    if (current?.status !== 'published') {
+      const gate = await ensurePublishable(slug);
+      if (!gate.ok) {
+        revalidateStory(slug);
+        return { ok: false, issues: gate.issues, message: 'Not published: it has not passed the strict check.' };
+      }
+    }
+  }
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = { status, updated_at: now };
   if (status === 'published') patch.published = now.slice(0, 10);
   const { error } = await supabase.from('stories').update(patch).eq('slug', slug);
-  if (error) throw new Error(error.message);
+  if (error) return { ok: false, issues: [gateMessage(error)], message: gateMessage(error) };
 
   if (status === 'published') {
     const { data } = await supabase.from('stories').select('pitch_id').eq('slug', slug).maybeSingle();
@@ -171,6 +193,7 @@ export async function setStoryStatus(slug: string, status: 'draft' | 'published'
     }
   }
   revalidateStory(slug);
+  return { ok: true, issues: [] };
 }
 
 export type StoryCopyPayload = {
@@ -190,32 +213,6 @@ export type StoryCopyPayload = {
 
 function requireText(label: string, value: string) {
   if (!value.trim()) throw new Error(`${label} cannot be empty`);
-}
-
-function sanitiseEvidence(evidence: StoryEvidence): StoryEvidence {
-  const sources: SourceRow[] = (evidence.sources ?? [])
-    .filter((s) => s.metric?.trim() && s.org?.trim())
-    .map((s) => ({
-      metric: s.metric.trim(),
-      org: s.org.trim(),
-      tier: s.tier === 2 || s.tier === 3 ? s.tier : 1,
-      url: (s.url ?? '').trim(),
-      period: (s.period ?? '').trim(),
-      basis: (s.basis ?? '').trim(),
-    }));
-  const table = evidence.table
-    ? {
-      head: evidence.table.head.map((h) => h.trim()).filter(Boolean),
-      rows: evidence.table.rows.map((r) => r.map((c) => c ?? '')),
-    }
-    : undefined;
-  // Keep footnotes and the quoted metric ids: the desk edits sources and the table, not these.
-  const kept = {
-    ...(evidence.footnotes ? { footnotes: evidence.footnotes } : {}),
-    ...(evidence.metric_ids?.length ? { metric_ids: evidence.metric_ids } : {}),
-  };
-  if (table && !table.head.length) return { sources, ...kept };
-  return { table, sources, ...kept };
 }
 
 function sanitiseBody(body: StoryBody): StoryBody {
@@ -269,7 +266,18 @@ function sanitiseBody(body: StoryBody): StoryBody {
   return { blocks };
 }
 
-export async function saveStoryCopy(slug: string, payload: StoryCopyPayload) {
+export type SaveCopyResult = DeskResult & {
+  staticBody: boolean;
+  /** Edits to a live story that failed the strict check: held as a pending revision, the live article unchanged. */
+  held?: boolean;
+};
+
+/**
+ * Save the desk's copy. A draft is saved as it is. On a live story, edits that change its claims go live only if
+ * they pass the strict check (saved as checked, stamped for the publish gate); otherwise the live article stays as
+ * it is and the edits are held as a pending revision with the issues. Image, placement and dates always save.
+ */
+export async function saveStoryCopy(slug: string, payload: StoryCopyPayload): Promise<SaveCopyResult> {
   await requireAdmin();
   requireText('Title', payload.title);
   requireText('Kicker', payload.kicker);
@@ -286,29 +294,84 @@ export async function saveStoryCopy(slug: string, payload: StoryCopyPayload) {
       home_section: payload.homeSection,
     });
     revalidateStory(slug);
-    return { ok: true as const, staticBody: true };
+    return { ok: true, issues: [], staticBody: true };
   }
 
   const supabase = createClient();
-  const { error } = await supabase.from('stories').update({
+  const { data: row, error: readErr } = await supabase.from('stories').select('*').eq('slug', slug).maybeSingle();
+  if (readErr) throw new Error(readErr.message);
+  if (!row) throw new Error(`No story row for ${slug}`);
+  const stored = row.body as { highlights?: unknown } | null;
+  const copy = {
     kicker: payload.kicker.trim(),
     title: payload.title.trim(),
     hook: payload.hook.trim(),
     caveat: payload.caveat.trim(),
     // Keep the hero number's binding (metric_id, period, comparison); the desk edits value and label.
     one_number: { ...payload.oneNumber, value: payload.oneNumber.value.trim(), label: payload.oneNumber.label.trim() },
+    // The highlight panel is not edited on the desk; keep it.
+    body: { ...sanitiseBody(payload.body), ...(stored?.highlights ? { highlights: stored.highlights } : {}) },
+    evidence: sanitiseEvidence(payload.evidence, row.evidence as StoryEvidence | null),
+  };
+  const meta = {
     frame_check: Boolean(payload.frameCheck),
     published: payload.published?.slice(0, 10) || sydneyDay(),
-    body: sanitiseBody(payload.body),
-    evidence: sanitiseEvidence(payload.evidence),
     hero_image_url: heroImageUrl,
     hero_image_alt: heroImageAlt,
     home_section: payload.homeSection,
     updated_at: new Date().toISOString(),
-  }).eq('slug', slug);
-  if (error) throw new Error(error.message);
+  };
+
+  const live = row.status === 'published';
+  // The stored copy cleaned the same way, so an untouched field never reads as an edit.
+  const one = (row.one_number ?? {}) as StoryOneNumber;
+  const before = {
+    kicker: String(row.kicker ?? '').trim(), title: String(row.title ?? '').trim(),
+    hook: String(row.hook ?? '').trim(), caveat: String(row.caveat ?? '').trim(),
+    one_number: { ...one, value: String(one.value ?? '').trim(), label: String(one.label ?? '').trim() },
+    body: sanitiseBody((row.body ?? { blocks: [] }) as StoryBody),
+    evidence: sanitiseEvidence((row.evidence ?? { sources: [] }) as StoryEvidence, row.evidence as StoryEvidence | null),
+  };
+  const unchanged = sameClaims(before, copy);
+  if (!live || unchanged) {
+    // Unchanged copy is not rewritten (a draft keeps its check stamp); only image, placement and dates save. A
+    // changed draft is saved as it is: it is checked before it goes live.
+    const { error } = await supabase.from('stories').update(unchanged ? meta : { ...copy, ...meta }).eq('slug', slug);
+    if (error) throw new Error(gateMessage(error));
+    revalidateStory(slug);
+    return { ok: true, issues: [], staticBody: false };
+  }
+
+  // The live story's claims change: the strict check runs first.
+  if (await hasPendingRevision(slug)) {
+    return {
+      ok: false, staticBody: false,
+      issues: ['this story has a pending revision: make the edits there (Fix and re-check), not on the live copy'],
+      message: 'Not saved: this story has a pending revision.',
+    };
+  }
+  const saved = ((row.evidence as StoryEvidence | null)?.metric_ids) ?? [];
+  const { content, check } = await recheck({ ...copy, frame_check: meta.frame_check, metric_ids_used: saved }, row.pitch_id as string | null);
+  if (!passedStrict(check)) {
+    const { error } = await supabase.from('stories').update(meta).eq('slug', slug);
+    if (error) throw new Error(gateMessage(error));
+    await holdAsRevision(slug, content, { ...check, ok: false, issues: gateIssues(check) });
+    revalidateStory(slug);
+    return {
+      ok: false, held: true, staticBody: false, issues: gateIssues(check),
+      message: 'Not live: the edits failed the strict check, so the live article is unchanged. They are held as a pending revision to fix and re-check.',
+    };
+  }
+  const checked = { ...claimsOf(content), body: { ...(content.body as object), ...(stored?.highlights ? { highlights: stored.highlights } : {}) } };
+  const stamp = await stampFields(supabase, checked, check);
+  const { error } = await supabase.from('stories').update({ ...checked, ...meta, ...stamp }).eq('slug', slug);
+  if (error) {
+    return { ok: false, staticBody: false, issues: [gateMessage(error)], message: gateMessage(error) };
+  }
+  // New figures, new highlights.
+  await attachHighlights(supabase, slug).catch(() => null);
   revalidateStory(slug);
-  return { ok: true as const, staticBody: false };
+  return { ok: true, issues: [], staticBody: false };
 }
 
 export async function saveHeroImage(slug: string, url: string, alt: string) {
@@ -442,24 +505,33 @@ export async function saveRevisionCopy(slug: string, payload: StoryCopyPayload) 
  */
 export async function recheckStory(slug: string, payload: StoryCopyPayload, target: 'draft' | 'revision'): Promise<StoredCheck> {
   await requireAdmin();
+  let check: StoredCheck;
   if (target === 'revision') {
     await saveRevisionContent(slug, revisionContent(payload));
-    const check = await recheckRevision(slug);
-    revalidateStory(slug);
-    return check;
+    check = await recheckRevision(slug);
+  } else {
+    await saveStoryCopy(slug, payload);
+    check = await recheckDraft(slug);
   }
-  await saveStoryCopy(slug, payload);
-  const check = await recheckDraft(slug);
   revalidateStory(slug);
-  return check;
+  // Shown as the publish gate reads it: a pass without the claim audit is not a pass.
+  return passedStrict(check) ? check : { ...check, ok: false, issues: gateIssues(check) };
 }
 
-/** Put a story's pending revision live. `force` is the editor overriding a failed check. */
-export async function applyStoryRevision(slug: string, force = false) {
+/**
+ * Put a story's pending revision live, only if it passed the strict check. The desk cannot override a failed
+ * check; an override needs a reason and runs from the command line (refresh-stories.ts --apply --force).
+ */
+export async function applyStoryRevision(slug: string): Promise<DeskResult> {
   await requireAdmin();
-  const result = await applyRevision(slug, { force });
+  try {
+    await applyRevision(slug);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return { ok: false, issues: [message], message: 'Not applied: the revision has not passed the strict check.' };
+  }
   revalidateStory(slug);
-  return result;
+  return { ok: true, issues: [] };
 }
 
 export async function discardStoryRevision(slug: string) {

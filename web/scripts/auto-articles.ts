@@ -20,6 +20,7 @@
 import { createClient } from '@/lib/supabase-server';
 import { strengthenPitch } from '@/lib/strengthen-pitch';
 import { goLiveFromPitch, publishStoryFromPitch } from '@/lib/generate-story';
+import { gateIssues, passedStrict } from '@/lib/publish-gate';
 import { generateHeroImage } from '@/lib/hero-image';
 import { attachHighlights } from '@/lib/story-highlights';
 import { generateHeroVideo } from '@/lib/hero-video';
@@ -159,11 +160,13 @@ async function runOne(p: Pitch, today: string): Promise<AutoMark> {
   log(`  Standfirst: ${written?.hook ?? ''}`);
   if (lede?.text) log(`  Lede: ${lede.text.slice(0, 400)}`);
 
-  if (!draft.check.ok) {
-    log(`  Held for review (${draft.check.issues.length} issue(s)):`);
-    for (const i of draft.check.issues.slice(0, 12)) log(`    - ${i}`);
-    await requestMissingSeries(p, draft.check.issues);
-    return { ...started, outcome: 'held', slug: draft.slug, issues: draft.check.issues.slice(0, 20) };
+  // Only a pass of the strict check (claim audit included) counts: the publish gate (lib/publish-gate.ts).
+  if (!passedStrict(draft.check)) {
+    const issues = gateIssues(draft.check);
+    log(`  Held for review (${issues.length} issue(s)):`);
+    for (const i of issues.slice(0, 12)) log(`    - ${i}`);
+    await requestMissingSeries(p, issues);
+    return { ...started, outcome: 'held', slug: draft.slug, issues: issues.slice(0, 20) };
   }
 
   log(`  Claims audited: ${draft.check.claims?.length ?? 0}, all supported.`);
@@ -194,7 +197,7 @@ async function runOne(p: Pitch, today: string): Promise<AutoMark> {
     log(`  Queued: /stories/${story.slug}`);
     return { ...started, outcome: 'queued', slug: story.slug };
   }
-  const live = await goLiveFromPitch(p.id);
+  const live = await goLiveFromPitch(p.id, { check: draft.check });
   log(`  Published: ${live.storyUrl}`);
   return { ...started, outcome: 'published', slug: live.slug };
 }

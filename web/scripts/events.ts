@@ -27,6 +27,7 @@ import {
 } from '@/lib/events';
 import { updateFigures } from '@/lib/refresh-story';
 import { goLiveFromPitch, publishStoryFromPitch } from '@/lib/generate-story';
+import { gateIssues, passedStrict } from '@/lib/publish-gate';
 import { generateHeroImage } from '@/lib/hero-image';
 import { attachHighlights } from '@/lib/story-highlights';
 import { generateHeroVideo } from '@/lib/hero-video';
@@ -319,8 +320,8 @@ Lead with what is newsworthy in the stored data and the institution's own words;
 async function publishLive(pitchId: string) {
   const row = { id: pitchId };
   const draft = await publishStoryFromPitch(row.id, onEvent, { audit: true });
-  if (!draft.check.ok) {
-    log(`  Held as a draft (${draft.check.issues.length} issue(s)): /stories/${draft.slug}`);
+  if (!passedStrict(draft.check)) {
+    log(`  Held as a draft (${gateIssues(draft.check).length} issue(s)): /stories/${draft.slug}`);
     return { pitch_id: row.id, slug: draft.slug, outcome: 'held' };
   }
   const { data: story } = await db.from('stories').select('slug, title, hook, kicker, one_number').eq('pitch_id', row.id).single();
@@ -338,7 +339,7 @@ async function publishLive(pitchId: string) {
       catch (err) { log(`    Hero video failed: ${err instanceof Error ? err.message : err}`); }
     }
   }
-  const live = await goLiveFromPitch(row.id);
+  const live = await goLiveFromPitch(row.id, { check: draft.check });
   log(`  Published: ${live.storyUrl}`);
   return { pitch_id: row.id, slug: live.slug, outcome: 'published' };
 }
