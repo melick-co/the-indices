@@ -34,7 +34,7 @@ const SITE = 'https://caveat.news';
 type Existing = { slug: string; title: string; keywords: string[]; status: string; created_at?: string; paragraphs?: unknown; published?: string | null };
 type Plan = {
   peg: string; peg_kind: 'trend' | 'story'; story_slug?: string | null; word: string; why_loose: string;
-  metric_ids: string[]; keywords: string[]; angle: string;
+  metric_ids: string[]; keywords: string[]; angle: string; figure_metric_id?: string;
 };
 type Draft = { title: string; slug?: string; keywords?: string[]; paragraphs: string[] };
 
@@ -119,14 +119,24 @@ Pick ONE peg from the trending topics or recent stories (prefer what is trending
 in that conversation that people use loosely (a level read as a change, a total read per person, a nominal figure
 read as real, an average read as typical, a policy rate read as a household rate, and so on). Avoid subjects the
 covered keywords already handle. Choose 1 to 3 metric_ids from the catalogue (exact ids) whose stored Australian
-readings settle the point. If nothing fits a stored series, choose the best trending subject that does.
+readings settle the point.
+
+The loose number itself must be measured by one of those series: the column may only state figures our series hold, so
+a peg whose number we cannot check (an insurer's premium survey, a private price index, a poll) is no use however hot
+it is. Name that series as figure_metric_id. If no trending subject has its number in the catalogue, take a recent
+Caveat story instead, or a subject from the catalogue that people misread all the time (a level read as a change, a
+total read per person, nominal read as real).
 
 Respond ONLY with JSON:
-{"peg":"the topic as people are discussing it","peg_kind":"trend|story","story_slug":"slug if the peg is a Caveat story, else null","word":"the loose word or number","why_loose":"one sentence","metric_ids":["..."],"keywords":["4-7 lowercase keywords for matching future trends"],"angle":"two sentences: the correction and the caveat it lands on"}`;
+{"peg":"the topic as people are discussing it","peg_kind":"trend|story","figure_metric_id":"the catalogue series that measures the loose number itself","story_slug":"slug if the peg is a Caveat story, else null","word":"the loose word or number","why_loose":"one sentence","metric_ids":["..."],"keywords":["4-7 lowercase keywords for matching future trends"],"angle":"two sentences: the correction and the caveat it lands on"}`;
   const p = await callClaudeJson(prompt, { label: 'rub plan', maxTokens: 2000 }) as Plan;
   const known = new Set(metrics.map((m) => m.metric_id));
   p.metric_ids = (p.metric_ids ?? []).filter((id) => known.has(id)).slice(0, 3);
   if (!p.metric_ids.length) throw new Error(`rub plan: none of the chosen series is in the metrics catalogue (${JSON.stringify(p)})`);
+  // The loose number has to be one our series measure; otherwise the column can only gesture at it and fails the check.
+  const figure = p.figure_metric_id;
+  if (!figure || !known.has(figure)) throw new Error(`rub plan: the loose number "${p.word}" is not measured by any stored series; no draft this week`);
+  if (!p.metric_ids.includes(figure)) p.metric_ids = [figure, ...p.metric_ids].slice(0, 3);
   return p;
 }
 
@@ -216,7 +226,11 @@ async function main() {
   const [trending, stories, metrics] = await Promise.all([loadTrendingPage(), recentStories(), metricCatalogue()]);
   const trends = trendTopics(trending);
   if (!metrics.length) throw new Error('The metrics catalogue is empty: nothing could settle a column.');
-  const p = await plan(rows, trends, stories, metrics);
+  // A peg whose number no stored series measures is refused; one more try before giving up for the week.
+  const p = await plan(rows, trends, stories, metrics).catch(async (e) => {
+    console.log(`${e instanceof Error ? e.message : e}; planning again.`);
+    return plan(rows, trends, stories, metrics);
+  });
   console.log(`Peg: ${p.peg} (${p.peg_kind}). Loose word: ${p.word}. Series: ${p.metric_ids.join(', ')}`);
   const reference = await buildReference(db, p.metric_ids);
 
