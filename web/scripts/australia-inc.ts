@@ -10,22 +10,26 @@
  * Env: SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY.
  */
 import { createClient } from '@/lib/supabase-server';
-import { fetchBeatFeeds, loadCandidates, reviewItems, saveItems, writeBottomLine } from '@/lib/australia-inc-pipeline';
+import { fetchBeatFeeds, loadCandidates, recheckAdopted, requestMissingSeries, reviewItems, saveItems, writeBottomLine } from '@/lib/australia-inc-pipeline';
 
 const dry = process.argv.includes('--dry-run');
 const log = (line: string) => console.log(line);
 
 async function main() {
   const db = createClient();
+  // Claims that asked the source scout for a series it has since adopted are checked against it first.
+  const rechecked = await recheckAdopted(db, { dry, log });
   const fresh = await fetchBeatFeeds(db, dry, log);
   const candidates = await loadCandidates(db, fresh);
   log(`${candidates.length} candidate item(s) from the last 36 hours`);
   const reviewed = await reviewItems(db, candidates, log);
   const items = dry ? reviewed : await saveItems(db, reviewed);
+  // Claims on official statistics we do not hold: ask the source scout for the series.
+  const requested = await requestMissingSeries(db, items, { dry, log });
   if (dry) {
     for (const i of items) {
       log(`\n[${i.status}] ${i.publisher} · ${i.kind}: ${i.title}\n  ${i.summary}`);
-      for (const c of i.claims) log(`  - ${c.text} [${c.verdict}${c.metric_id ? ` ${c.metric_id}` : ''}]${c.note ? ` ${c.note}` : ''}`);
+      for (const c of i.claims) log(`  - ${c.text} [${c.verdict}${c.metric_id ? ` ${c.metric_id}` : ''}]${c.note ? ` ${c.note}` : ''}${c.needs ? ` (needs: ${c.needs.series}, ${c.needs.org})` : ''}`);
     }
   }
   const bl = await writeBottomLine(db, items, { dry, log });
@@ -35,7 +39,7 @@ async function main() {
     if (bl.check.warnings.length) log(`warnings:\n  ${bl.check.warnings.join('\n  ')}`);
   }
   if (!dry) {
-    await db.from('agent_runs').insert({ notes: `australia-inc: ${JSON.stringify({ candidates: candidates.length, items: items.length, published: items.filter((i) => i.status === 'published').length, bottom_line: bl?.status ?? 'none' })}` });
+    await db.from('agent_runs').insert({ notes: `australia-inc: ${JSON.stringify({ candidates: candidates.length, items: items.length, published: items.filter((i) => i.status === 'published').length, bottom_line: bl?.status ?? 'none', requested, rechecked })}` });
   }
 }
 

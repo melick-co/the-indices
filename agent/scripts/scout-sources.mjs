@@ -7,8 +7,9 @@
  *   ... --id=<metric_id>                      # scout these ids instead of the demand list
  *                                             # (repeatable, or SCOUT_IDS, space/comma separated)
  *
- * Demand comes first from pending tier 1/2 source_suggestions (filed by Foundry
- * turns and by auto-articles held for missing data), then from pitches'
+ * Demand comes first from pending tier 1/2 source_suggestions (claims the Australia Inc
+ * and economist reviewers could not check, newest first; Foundry turns; auto-articles
+ * held for missing data), then from pitches'
  * trigger_rows.unlinked_metrics (ids the model asked for that the store does not
  * hold). For each target it:
  *   1. asks Claude what the id means and how to search for it;
@@ -30,9 +31,9 @@ import { absFetch } from './watch-abs.mjs';
 import { oecdFetch, fetchSeries } from './watch-oecd.mjs';
 import { catalogue as sdmxCatalogue, dimensions as sdmxDimensions, fetchRows } from './lib/sdmx-providers.mjs';
 import { rbaCatalogue, rbaColumns, rbaRows } from './lib/rba-catalogue.mjs';
+import { slug, orderDemand, RETRY_DAYS } from './lib/claim-requests.mjs';
 
-const MAX_TARGETS = 4;
-const RETRY_DAYS = 30;
+const MAX_TARGETS = 6;
 const CANDIDATES_PER_PROVIDER = 20;
 const CODES_PER_DIMENSION = 40;
 const STRUCTURE = 'application/vnd.sdmx.structure+json';
@@ -68,12 +69,11 @@ async function demand(known) {
     // Ids that read like a single fact ("ABS_WPI_Q2-2026_annual-3.0pct") are not series.
     .filter((e) => /^[a-z][a-z0-9_]{2,60}$/.test(e.id))
     .sort((a, b) => b.pitches - a.pitches);
-  // Explicit requests come first: Foundry turns and held articles file these.
+  // Explicit requests come first: claims the reviewers could not check (newest first, leaving room for the rest),
+  // then Foundry turns and held articles, then what pitches ask for.
   const suggested = (await suggestions()).filter((t) => !recent.has(t.logId));
-  return [...suggested, ...unlinked];
+  return orderDemand(suggested, unlinked, MAX_TARGETS);
 }
-
-const slug = (text) => String(text ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 50);
 
 /** Pending tier 1/2 data-source suggestions (Foundry turns, held auto-articles), as scout targets. */
 async function suggestions() {
@@ -90,6 +90,9 @@ async function suggestions() {
         id: slug(what) || `suggestion_${r.suggestion_id.slice(0, 8)}`,
         logId: `suggestion:${r.suggestion_id}`,
         suggestionId: r.suggestion_id,
+        payload: p,
+        origin: p.origin ?? null,
+        created_at: r.created_at,
         pitches: 0,
         headlines: [],
         hint: [what && `Statistic: ${what}`, p.org && `Publisher: ${p.org}`, p.url && `Seen at: ${p.url}`,
@@ -480,6 +483,8 @@ async function main() {
         await db.from('source_suggestions').update({
           status: 'approved', reviewed_at: new Date().toISOString(),
           review_note: `Adopted by the source scout as ${r.metric_id}: ${r.note}`.slice(0, 1000),
+          // The reviewers re-check the claim that asked for it against this series (claim-requests.mjs).
+          payload: { ...(t.payload ?? {}), adopted_metric_id: r.metric_id },
         }).eq('suggestion_id', t.suggestionId);
       } else if (t.suggestionId) {
         // Leave it pending for the editor (it can still be registered as a source), with the scout's finding.
@@ -491,6 +496,13 @@ async function main() {
         requested_id: t.logId ?? t.id, last_tried: new Date().toISOString(),
         outcome: r.outcome, metric_id: r.metric_id ?? null, note: r.note?.slice(0, 1000) ?? null,
       });
+      // Claim-driven requests are also logged by series, so the reviewers do not file the same one again soon.
+      if (t.origin) {
+        await db.from('source_scout_log').upsert({
+          requested_id: `claim:${t.id}`, last_tried: new Date().toISOString(),
+          outcome: r.outcome, metric_id: r.metric_id ?? null, note: r.note?.slice(0, 1000) ?? null,
+        });
+      }
     }
   }
   const adopted = results.filter((r) => r.outcome === 'adopted');

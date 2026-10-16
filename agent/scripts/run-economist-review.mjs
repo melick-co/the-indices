@@ -12,12 +12,15 @@
  *    catalogue of stored series), and a possible Caveat angle.
  * 3. For each claim tied to a series, the latest official readings are fetched and the model gives a verdict
  *    (agrees, disagrees, partly, too early for a forecast) with a one-line note citing the figures it was shown.
+ * 4. A claim that states an official statistic the store does not hold files a source suggestion for the source scout
+ *    (lib/claim-requests.mjs); once the scout adopts the series, the next run re-checks that claim against it.
  * Economists' views are tier-3 context: never headline figures. Nothing here publishes; the Pitches tab shows them.
  */
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import './lib/load-env.mjs';
 import { callClaudeJson } from './lib/claude.mjs';
+import { adoptedForRecheck, claimRequests, fileClaimRequests, findClaim, markRechecked, MAX_REQUESTS_PER_RUN } from './lib/claim-requests.mjs';
 
 const dry = process.argv.includes('--dry-run');
 const again = process.argv.includes('--again'); // re-review what was reviewed in the last 14 days
@@ -128,13 +131,18 @@ Return:
     "kind": "forecast" | "view" | "figure",
     "figure": "the number it states, as written, or null",
     "horizon": "for forecasts: when it is meant to be true, else null",
-    "metric_id": "the stored series that measures exactly the quantity the claim is about, from the catalogue below, or null"}],
+    "metric_id": "the stored series that measures exactly the quantity the claim is about, from the catalogue below, or null",
+    "needs": null | {"series": "plain name of the statistic incl. basis, e.g. 'Unemployment rate, trend, Australia, monthly'", "org": "the official publisher", "why": "a few words"}}],
  "angle": "a possible Caveat story in at most 30 words: what our data could confirm, complicate or contradict. Null if none"}
 
 Rules: attribute every view to its author or organisation; never state a view as fact. Use only metric_ids from the catalogue.
 A metric_id must measure the claim's own quantity (the cash rate for a claim about the cash rate, CPI for a claim about
 inflation). A related or broader series does not count: a company's valuation is not market capitalisation to GDP, fuel
 excise is not total tax revenue. When in doubt, null. Australian English, no em dashes.
+needs: only when metric_id is null and the claim states (or turns on) an official Australian statistic that the ABS, the
+RBA, Treasury or the Parliamentary Budget Office, or an international official body (OECD, IMF, World Bank, BIS) would
+publish as a recurring series: name that series. Otherwise null: opinions, forecasts, promises, private data (Cotality,
+CoreLogic, PropTrack, bank or Westpac-Melbourne Institute surveys, polls) and one-off figures such as a company's results.
 
 Catalogue of stored series:
 ${cat}`;
@@ -156,15 +164,22 @@ async function review(note, cat) {
   if (!out.relevant) return { status: 'dismissed', relevant: false, summary: out.summary ?? null, claims: [], angle: null, author: out.author ?? note.author };
   const known = new Set(cat.split('\n').map((l) => l.split(':')[0]));
   const claims = (out.claims ?? []).slice(0, 6).map((c) => ({ ...c, metric_id: c.metric_id && known.has(c.metric_id) ? c.metric_id : null }));
+  await checkClaims(claims, note.published_at, `economist verdicts ${note.id}`);
+  return { status: 'reviewed', relevant: true, summary: out.summary ?? null, claims, angle: out.angle ?? null, author: out.author ?? note.author };
+}
+
+/** Verdicts for the claims tied to a series, in place: the latest readings, then the verdict prompt. */
+async function checkClaims(claims, published, label, only = null) {
   const checkable = [];
   for (const [i, c] of claims.entries()) {
+    if (only != null && i !== only) continue;
     if (!c.metric_id) { c.verdict = 'no series'; continue; }
     const rows = await latest(c.metric_id);
     if (!rows.length) { c.verdict = 'no series'; continue; }
     checkable.push({ i, claim: c.text, kind: c.kind, horizon: c.horizon, series: c.metric_id, readings: rows.map((r) => `${r.period}: ${r.value} (change ${r.change >= 0 ? '+' : ''}${r.change})`) });
   }
   if (checkable.length) {
-    const v = await callClaudeJson(verdictPrompt(checkable, note.published_at), { label: `economist verdicts ${note.id}`, maxTokens: 2000 }).catch(() => ({ verdicts: [] }));
+    const v = await callClaudeJson(verdictPrompt(checkable, published), { label, maxTokens: 2000 }).catch(() => ({ verdicts: [] }));
     for (const r of v.verdicts ?? []) {
       if (!claims[r.i]) continue;
       // A series that turned out not to measure the claim is no check at all: show the claim without a verdict.
@@ -172,7 +187,41 @@ async function review(note, cat) {
       claims[r.i].verdict = r.verdict; claims[r.i].data_note = r.note;
     }
   }
-  return { status: 'reviewed', relevant: true, summary: out.summary ?? null, claims, angle: out.angle ?? null, author: out.author ?? note.author };
+  // A re-checked claim the model gave no verdict for stays unchecked.
+  if (only != null && (!claims[only].verdict || claims[only].verdict === 'no series')) { claims[only].verdict = 'no series'; claims[only].metric_id = null; }
+}
+
+/**
+ * Claims that asked the source scout for a series it has since adopted: tie each to the new series and check it once.
+ * Runs before the review so the editor sees the verdict with the day's notes.
+ */
+async function recheckAdopted(cat) {
+  const adopted = await adoptedForRecheck(db, 'economists');
+  const known = new Set(cat.split('\n').map((l) => l.split(':')[0]));
+  let done = 0;
+  for (const s of adopted) {
+    const noteId = s.payload?.note_id;
+    if (!noteId) { if (!dry) await markRechecked(db, s, 'no note id'); continue; }
+    // The loaders put the series in the catalogue; until they have, try again next run.
+    if (!known.has(s.metric_id) || !(await latest(s.metric_id)).length) { console.log(`re-check ${s.metric_id}: not loaded yet`); continue; }
+    const { data: note } = await db.from('economist_notes').select('id, title, claims, published_at').eq('id', noteId).maybeSingle();
+    const i = findClaim(note?.claims, s.payload);
+    if (!note || i < 0) { if (!dry) await markRechecked(db, s, 'claim no longer on the note'); continue; }
+    const claims = note.claims.map((c) => ({ ...c }));
+    if (claims[i].metric_id) { if (!dry) await markRechecked(db, s, `already tied to ${claims[i].metric_id}`); continue; }
+    claims[i].metric_id = s.metric_id;
+    delete claims[i].verdict;
+    await checkClaims(claims, note.published_at, `economist re-check ${note.id}`, i);
+    const result = `${claims[i].verdict}${claims[i].metric_id ? ` against ${claims[i].metric_id}` : ''}`;
+    console.log(`re-checked ${note.title}: "${String(claims[i].text).slice(0, 80)}" -> ${result}${dry ? ' (dry run)' : ''}`);
+    if (!dry) {
+      const { error } = await db.from('economist_notes').update({ claims }).eq('id', note.id);
+      if (error) { console.log(`  not saved: ${error.message}`); continue; }
+      await markRechecked(db, s, result);
+    }
+    done++;
+  }
+  return done;
 }
 
 async function main() {
@@ -182,22 +231,29 @@ async function main() {
   const added = await collectFeeds();
   console.log(`${added} new note(s).`);
   const cat = await catalogue();
+  const rechecked = await recheckAdopted(cat);
   const { data: notes } = dry
     ? { data: [] }
-    : await db.from('economist_notes').select('id, source_id, org, author, title, body, published_at').eq('status', 'new').order('created_at').limit(MAX_REVIEWS);
+    : await db.from('economist_notes').select('id, source_id, org, author, title, url, body, published_at').eq('status', 'new').order('created_at').limit(MAX_REVIEWS);
   let done = 0;
+  let requested = 0;
   for (const n of notes ?? []) {
     try {
       const r = await review(n, cat);
       await db.from('economist_notes').update({ ...r, reviewed_at: new Date().toISOString(), error: null }).eq('id', n.id);
       console.log(`${r.status.padEnd(9)} ${n.org}: ${n.title}${r.claims?.length ? ` (${r.claims.length} claims, ${r.claims.filter((c) => !['no series', 'unclear'].includes(c.verdict)).length} checked)` : ''}`);
       done++;
+      // Claims on official statistics we do not hold: ask the source scout for the series.
+      if (r.relevant) {
+        requested += await fileClaimRequests(db, claimRequests(r.claims, { origin: 'economists', url: n.url, note_id: n.id, title: n.title }),
+          { dry, cap: MAX_REQUESTS_PER_RUN - requested }).catch((e) => { console.log(`  claim requests failed: ${e.message}`); return 0; });
+      }
     } catch (e) {
       await db.from('economist_notes').update({ status: 'failed', error: String(e.message ?? e).slice(0, 400) }).eq('id', n.id);
       console.log(`failed    ${n.title}: ${e.message}`);
     }
   }
-  if (!dry) await db.from('agent_runs').insert({ notes: `economist-review: ${JSON.stringify({ added, reviewed: done })}` });
+  if (!dry) await db.from('agent_runs').insert({ notes: `economist-review: ${JSON.stringify({ added, reviewed: done, requested, rechecked })}` });
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

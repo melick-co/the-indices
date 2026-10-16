@@ -17,7 +17,11 @@ import type { Footnote, StoryBlock } from '@/lib/story-types';
 export type LinkKind = 'chart' | 'story' | 'external' | 'source';
 export type IncLink = { label: string; url: string; kind: LinkKind };
 export type Verdict = 'agrees' | 'disagrees' | 'partly' | 'too early' | 'unclear' | 'no series';
-export type IncClaim = { text: string; metric_id: string | null; verdict: Verdict; note?: string | null };
+export type IncClaim = {
+  text: string; metric_id: string | null; verdict: Verdict; note?: string | null;
+  /** The official series the source scout could look for when none is stored (lib/claim-requests.mjs). */
+  needs?: { series: string; org: string; why: string; tier: number } | null;
+};
 export type IncKind = 'announcement' | 'news' | 'release';
 
 export type IncItem = {
