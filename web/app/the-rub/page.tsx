@@ -1,13 +1,16 @@
 import Link from 'next/link';
 import SiteFooter from '@/components/SiteFooter';
-import { RUBS } from '@/content/the-rub/seed';
+import { loadRubs } from '@/lib/the-rub';
+
+export const revalidate = 900;
 
 export const metadata = {
   title: 'The Rub — The Caveat',
   description: 'Column 8. The truth behind a trending topic.',
 };
 
-export default function TheRubIndex() {
+export default async function TheRubIndex() {
+  const rubs = await loadRubs();
   return (
     <>
       <main className="article measure">
@@ -18,7 +21,7 @@ export default function TheRubIndex() {
           definition they used too loosely. Pedantic. Checkable.
         </p>
         <ul className="archive-list">
-          {RUBS.map((rub) => (
+          {rubs.map((rub) => (
             <li key={rub.slug}>
               <Link href={`/the-rub/${rub.slug}`}>
                 <span className="archive-date">{rub.published}</span>
