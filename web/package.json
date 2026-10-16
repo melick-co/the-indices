@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "reel-cut": "tsx --import ./scripts/node-shims.mjs scripts/reel-cut.ts",
-    "check:reel-cut": "tsx lib/reel-cut.check.ts"
+    "check:reel-cut": "tsx lib/reel-cut.check.ts",
+    "check:australia-inc": "tsx lib/australia-inc.check.ts"
   },
   "dependencies": {
     "@hallelx/youtube-transcript": "0.2.0",

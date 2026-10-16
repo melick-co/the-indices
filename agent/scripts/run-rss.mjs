@@ -2,10 +2,10 @@
 // -> link to banked pitches or create new ideas. Schedule every 6-24h (cron/n8n).
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY
 import { createClient } from '@supabase/supabase-js';
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import './lib/load-env.mjs';
 import { callClaudeJson } from './lib/claude.mjs';
+import { parseFeed, sha } from './lib/rss-parse.mjs';
 
 const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY,
   { auth: { persistSession: false } });
@@ -18,33 +18,6 @@ const GLOBAL_KEYWORDS = [
   'migration','immigration','visa','tax','budget','superannuation','super','abs','oecd','imf',
   'unemployment','cost of living','bond yield','deficit','surplus'
 ];
-
-const sha = (s) => createHash('sha256').update(s).digest('hex');
-
-/** Minimal RSS/Atom parser: tolerant, no dependencies. */
-function parseFeed(xml) {
-  const items = [];
-  const blocks = xml.match(/<(item|entry)[\s\S]*?<\/\1>/gi) ?? [];
-  for (const b of blocks) {
-    const pick = (tags) => {
-      for (const t of tags) {
-        const m = b.match(new RegExp(`<${t}[^>]*>([\\s\\S]*?)</${t}>`, 'i'));
-        if (m) return m[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ')
-                    .replace(/\s+/g, ' ').trim();
-      }
-      return null;
-    };
-    const linkAttr = b.match(/<link[^>]*href="([^"]+)"/i)?.[1];
-    items.push({
-      title: pick(['title']) ?? '(untitled)',
-      link: pick(['link']) || linkAttr || null,
-      summary: (pick(['description','summary','content:encoded','content']) ?? '').slice(0, 600),
-      guid: pick(['guid','id']) || linkAttr || pick(['link']) || pick(['title']),
-      published: pick(['pubDate','published','updated','dc:date']),
-    });
-  }
-  return items;
-}
 
 async function fetchFeeds() {
   const { data: feeds } = await db.from('rss_feeds').select('*')
@@ -81,6 +54,9 @@ async function fetchFeeds() {
   return { fetched, inserted };
 }
 
+// Beat feeds (rss_feeds.beat, e.g. 'australia_inc') go through the same keyword prefilter, for pitching only. Their
+// own pipelines (web/lib/australia-inc-pipeline.ts) read their items from rss_items whatever the status, so
+// "discarded" here means "no pitch", not "dropped".
 async function prefilter() {
   // Tracked topics from the studio extend the global watchlist, so adding a
   // topic there immediately changes what the news watcher notices.
