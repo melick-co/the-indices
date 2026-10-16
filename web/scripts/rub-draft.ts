@@ -80,7 +80,8 @@ const exemplars = (rows: Existing[]) => {
 };
 
 const RULES = `COLUMN RULES (all are checked; a column that breaks one is held):
-- ${MIN_PARAGRAPHS} to ${MAX_PARAGRAPHS} paragraphs, ${MIN_WORDS} to ${MAX_WORDS} words in total, then a final paragraph that is exactly:
+- ${MIN_PARAGRAPHS} to ${MAX_PARAGRAPHS} paragraphs, ${MIN_WORDS} to ${MAX_WORDS} words in total (aim for about 150, like the
+  published columns), then a final paragraph that is exactly:
   "${CLOSING_LINE}"
 - A contrarian title of 14 words or fewer, usually two short sentences: the loose claim, then the correction.
 - Measured, pedantic, dry; the voice of a fussy engineer-presenter (James May) who likes the word "precise". First

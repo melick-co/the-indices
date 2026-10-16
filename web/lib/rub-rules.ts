@@ -9,8 +9,9 @@ import type { ClaimAudit } from '@/lib/claim-audit';
 export const CLOSING_LINE = 'Which, if we are being precise, is the rub.';
 export const MIN_PARAGRAPHS = 3;
 export const MAX_PARAGRAPHS = 4;
-export const MIN_WORDS = 200;
-export const MAX_WORDS = 320;
+// The seeded columns run 130 to 165 words before the closing line.
+export const MIN_WORDS = 120;
+export const MAX_WORDS = 200;
 export const MAX_TITLE_WORDS = 14;
 
 export type RubCopy = { title: string; paragraphs: string[] };

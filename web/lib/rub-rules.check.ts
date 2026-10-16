@@ -4,18 +4,19 @@ import {
 } from './rub-rules';
 import type { FactCheck } from './fact-check';
 import type { ClaimAudit } from './claim-audit';
+import { RUBS } from '../content/the-rub/seed';
 
 const para = (n: number) => Array.from({ length: n }, (_, i) => `word${i}`).join(' ') + '.';
-const good = { title: 'The jobless rate fell. That is not a hiring boom.', paragraphs: [para(80), para(80), para(80), CLOSING_LINE] };
+const good = { title: 'The jobless rate fell. That is not a hiring boom.', paragraphs: [para(50), para(50), para(50), CLOSING_LINE] };
 
-// Column rules.
+// Column rules. The seeded columns (130-165 words) sit inside the range.
 assert.deepEqual(columnIssues(good), []);
 assert.ok(columnIssues({ ...good, paragraphs: good.paragraphs.slice(0, -1) }).some((i) => i.includes('must end')));
 assert.ok(columnIssues({ ...good, paragraphs: [...good.paragraphs.slice(0, -1), 'Which, if we are being precise, is the rub'] }).some((i) => i.includes('must end')));
 assert.ok(columnIssues({ ...good, paragraphs: [para(120), para(120), CLOSING_LINE] }).some((i) => i.includes('2 paragraphs')));
 assert.ok(columnIssues({ ...good, paragraphs: [para(60), para(60), para(60), para(60), para(60), CLOSING_LINE] }).some((i) => i.includes('5 paragraphs')));
-assert.ok(columnIssues({ ...good, paragraphs: [para(40), para(40), para(40), CLOSING_LINE] }).some((i) => /120 words/.test(i)));
-assert.ok(columnIssues({ ...good, paragraphs: [para(120), para(120), para(120), CLOSING_LINE] }).some((i) => /360 words/.test(i)));
+assert.ok(columnIssues({ ...good, paragraphs: [para(30), para(30), para(30), CLOSING_LINE] }).some((i) => /90 words/.test(i)));
+assert.ok(columnIssues({ ...good, paragraphs: [para(70), para(70), para(70), CLOSING_LINE] }).some((i) => /210 words/.test(i)));
 assert.ok(columnIssues({ ...good, title: 'Rates — again' }).some((i) => i.includes('em dash')));
 assert.ok(columnIssues({ ...good, paragraphs: [`${para(80)} — so.`, para(80), para(80), CLOSING_LINE] }).some((i) => i.includes('em dash')));
 assert.ok(columnIssues({ ...good, title: '' }).some((i) => i.includes('no title')));
