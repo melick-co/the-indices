@@ -31,12 +31,14 @@ on:
     - cron: '11 19 * * *'
     - cron: '11 1 * * *'
     - cron: '11 7 * * *'
+    # The Rub (Column 8): one draft a week, Monday about 5:30am Sydney (web/scripts/rub-draft.ts). Never publishes.
+    - cron: '29 18 * * 0'
   workflow_dispatch:
     inputs:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, economists, economists-again, economists-dry-run, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, wb, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, races-replace, house-track, house-track-choose, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, hero-review, story-highlights, story-highlights-dry-run, reel-cut, reel-rewrite, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, economists, economists-again, economists-dry-run, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, wb, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, races-replace, house-track, house-track-choose, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, hero-review, story-highlights, story-highlights-dry-run, reel-cut, reel-rewrite, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, rub-draft, rub-draft-dry-run, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, reel-rewrite, story-refresh(-apply): story slug(s). Space separated.'
@@ -403,6 +405,31 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+
+  rub-draft:
+    # The Rub (Column 8): draft one column from this week's trends, run the strict check (figure check and claim audit,
+    # plus the column rules), save it as pending (passed) or draft (held). An editor approves it at /foundry/rub.
+    # rub-draft (dispatched, or the Foundry "Draft one now" button) always drafts; the weekly run skips if one is
+    # already waiting. rub-draft-dry-run prints the draft and its check and saves nothing.
+    if: >-
+      github.event_name == 'workflow_dispatch' && startsWith(inputs.task, 'rub-draft') ||
+      github.event_name == 'schedule' && github.event.schedule == '29 18 * * 0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run: { working-directory: web }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm ci --silent
+      - name: Draft the Rub
+        run: npx tsx --import ./scripts/node-shims.mjs scripts/rub-draft.ts ${{ inputs.task == 'rub-draft-dry-run' && '--dry-run' || inputs.task == 'rub-draft' && '--force' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
   story-refresh:
     # Rewrite published articles in the house news style (web/scripts/refresh-stories.ts; pitch input = slugs).

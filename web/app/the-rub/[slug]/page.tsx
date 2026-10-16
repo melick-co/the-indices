@@ -1,22 +1,20 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import SiteFooter from '@/components/SiteFooter';
-import { RUBS } from '@/content/the-rub/seed';
 import { rubBySlug } from '@/lib/the-rub';
 
-export function generateStaticParams() {
-  return RUBS.map((r) => ({ slug: r.slug }));
-}
+// Columns live in the rubs table now (approved at /foundry/rub), so pages render on request and refresh.
+export const revalidate = 900;
 
-export function generateMetadata({ params }: { params: { slug: string } }) {
-  const rub = rubBySlug(params.slug);
+export async function generateMetadata({ params }: { params: { slug: string } }) {
+  const rub = await rubBySlug(params.slug);
   return rub
     ? { title: `${rub.title} — The Rub`, description: rub.paragraphs[0] }
     : {};
 }
 
-export default function TheRubPage({ params }: { params: { slug: string } }) {
-  const rub = rubBySlug(params.slug);
+export default async function TheRubPage({ params }: { params: { slug: string } }) {
+  const rub = await rubBySlug(params.slug);
   if (!rub) notFound();
 
   return (
