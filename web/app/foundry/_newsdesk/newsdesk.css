@@ -1,0 +1,71 @@
+/* The Newsdesk dashboard (/foundry): dense panels in the ops shell's card style. */
+.nd-page { max-width: 1280px; min-width: 0; }
+.nd-page * { min-width: 0; }
+
+.nd-pulse { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; margin-bottom: 16px; }
+.nd-title { font-family: var(--font-ops); font-size: 24px; line-height: 1.33; letter-spacing: -0.025em; font-weight: 600; margin: 0; }
+.nd-pulse-stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.nd-pulse-stats > div { background: var(--card, #fff); border-radius: 18px; padding: 8px 14px; box-shadow: var(--shadow-subtle); }
+.nd-pulse-stats dt, .nd-meta, .nd-status, .nd-label, .nd-rank {
+  font-family: var(--font-ops); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint);
+}
+.nd-pulse-stats dd { margin: 2px 0 0; font-size: 13px; font-weight: 500; }
+.nd-faint { color: var(--ink-faint); }
+.nd-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.nd-dot.is-ok { background: #16a34a; }
+.nd-dot.is-bad { background: var(--color-ember, #e7000b); }
+
+.nd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 16px; align-items: start; }
+
+.nd-panel {
+  background: var(--card, #fff); border-radius: var(--radius-cards, 24px); padding: 18px 20px;
+  box-shadow: var(--shadow-subtle); display: flex; flex-direction: column; gap: 10px;
+}
+.nd-panel--needs { margin-bottom: 16px; border-left: 4px solid var(--color-ember, #e7000b); }
+.nd-panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+.nd-panel-title { font-family: var(--font-ops); font-size: 16px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.nd-panel-foot { display: flex; flex-wrap: wrap; gap: 6px 16px; padding-top: 8px; border-top: 1px solid var(--rule); }
+.nd-go { font-size: 13px; font-weight: 500; }
+.nd-go:hover { text-decoration: underline; }
+
+.nd-list { list-style: none; margin: 0; padding: 0; }
+.nd-row { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; border-bottom: 1px solid var(--rule); }
+.nd-row:last-child { border-bottom: none; }
+.nd-row-main { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.nd-row-title { font-size: 14px; line-height: 1.35; font-weight: 500; overflow-wrap: anywhere; }
+a.nd-row-title:hover { text-decoration: underline; }
+.nd-meta { text-transform: none; letter-spacing: 0; font-size: 12px; overflow-wrap: anywhere; }
+.nd-meta a { text-decoration: underline; }
+.nd-label.is-bad { color: var(--color-ember, #e7000b); }
+.nd-rank { min-width: 1.4em; padding-top: 2px; }
+.nd-list--needs { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); column-gap: 24px; }
+.nd-list--links { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 6px 12px; }
+.nd-list--links a { font-size: 13px; font-weight: 500; }
+.nd-list--links a:hover { text-decoration: underline; }
+.nd-issues { margin: 4px 0 0; padding-left: 16px; font-size: 12px; color: var(--ink-soft); }
+
+.nd-empty { font-size: 13px; color: var(--ink-faint); margin: 0; }
+.nd-chips, .nd-needs-chips, .nd-counts, .nd-quick, .nd-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.nd-chip, .nd-count {
+  font-family: var(--font-ops); font-size: 12px; padding: 4px 10px; border-radius: 18px; background: #f5f5f5;
+  color: var(--ink); border: none; cursor: pointer;
+}
+.nd-chip.is-on { background: #0a0a0a; color: #fafafa; }
+.nd-chip-n { opacity: .7; margin-left: 2px; }
+.nd-count:hover, .nd-chip:hover { text-decoration: underline; }
+
+.nd-btn {
+  font-family: var(--font-ops); font-size: 12px; font-weight: 500; padding: 5px 12px; border-radius: 18px;
+  background: #0a0a0a; color: #fafafa; border: none; cursor: pointer; white-space: nowrap;
+}
+.nd-btn--quiet { background: #f5f5f5; color: #0a0a0a; }
+.nd-btn:disabled { opacity: .5; cursor: default; }
+.nd-inline-form { margin: 0; flex-shrink: 0; }
+
+.nd-tick { padding-top: 3px; flex-shrink: 0; }
+.nd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .nd-panel { padding: 14px 16px; border-radius: 18px; }
+  .nd-pulse-stats > div { flex: 1 1 40%; }
+}

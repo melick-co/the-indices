@@ -31,7 +31,7 @@ export default async function Home() {
   const { hero, rest } = buildHomeLayout(allStories, trendIndex);
   const secondaries = rest.slice(0, 3);
   const more = rest.slice(3, 7);
-  const rub = pickRub(trendingData);
+  const rub = await pickRub(trendingData);
   const explainer = pickExplainer();
 
   return (

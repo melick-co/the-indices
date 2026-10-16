@@ -12,6 +12,7 @@ export async function POST(
     const result = await markReelReady(params.slug);
     revalidatePath(`/stories/${params.slug}/reel`);
     revalidatePath('/foundry');
+    revalidatePath('/foundry/pitches');
     return Response.json(result);
   } catch (e) {
     return Response.json(
