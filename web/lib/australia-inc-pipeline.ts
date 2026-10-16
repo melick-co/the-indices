@@ -27,6 +27,8 @@ import {
  */
 
 const HOURS = 36;
+/** Government releases come every few days, not hourly: the beat feeds are read further back (covered urls are skipped). */
+const BEAT_HOURS = 96;
 const MAX_CANDIDATES = 40;
 const MAX_PICKS = 8;
 const UA = 'Mozilla/5.0 (compatible; caveat-australia-inc/0.1; +https://caveat.news/methodology)';
@@ -110,17 +112,19 @@ export async function fetchBeatFeeds(db: SupabaseClient, dry: boolean, log: Log)
 /** Items from the last ~36 hours: everything from the government feeds, plus general news on bottom-line topics. */
 export async function loadCandidates(db: SupabaseClient, extra: Candidate[]): Promise<Candidate[]> {
   const since = new Date(Date.now() - HOURS * 3600e3).toISOString();
+  const beatSince = new Date(Date.now() - BEAT_HOURS * 3600e3).toISOString();
   let { data: feeds, error } = await db.from('rss_feeds').select('feed_id, name, publisher, beat');
   // Before migration 46 there is no beat column: general news only.
   if (error) ({ data: feeds } = await db.from('rss_feeds').select('feed_id, name, publisher').then((r) => ({ data: (r.data ?? []).map((f) => ({ ...f, beat: null })) })));
   const feedOf = new Map((feeds ?? []).map((f) => [f.feed_id as string, f]));
   const { data: items } = await db.from('rss_items').select('item_id, feed_id, title, link, summary, published_at, fetched_at')
-    .gte('fetched_at', since).order('fetched_at', { ascending: false }).limit(500);
+    .gte('fetched_at', beatSince).order('fetched_at', { ascending: false }).limit(800);
   const fromDb: Candidate[] = (items ?? []).flatMap((it) => {
     const f = feedOf.get(it.feed_id);
     if (!it.link || !f) return [];
-    if (it.published_at && it.published_at < since) return [];
     const beat = f.beat === 'australia_inc';
+    if (it.published_at && it.published_at < (beat ? beatSince : since)) return [];
+    if (!beat && it.fetched_at < since) return [];
     if (!beat && !matchesTopics(`${it.title} ${it.summary ?? ''}`)) return [];
     return [{ rss_item_id: it.item_id, title: it.title, url: it.link, summary: it.summary ?? '', published_at: it.published_at, publisher: f.publisher ?? f.name ?? '', official: isOfficialUrl(it.link), beat }];
   });
@@ -173,7 +177,9 @@ Return:
    {"text": "the claim in one sentence, attributed", "metric_id": "the stored series measuring exactly the claim's quantity, from the catalogue, or null"}]}
 
 Rules: attribute every statement; never state a government claim as fact. A metric_id must measure the claim's own
-quantity, not a related one; when in doubt, null. Australian English ("per cent", "labour", "organise"). No em dashes.
+quantity on the same basis, not a related one: the same measure (nominal vs real, an index vs a rate, a private index
+such as Cotality vs an official one), the same frequency and period (since April vs quarterly), the same adjustment
+(trend vs seasonally adjusted). When in doubt, null: an unchecked claim is fine, a false contradiction is not. Australian English ("per cent", "labour", "organise"). No em dashes.
 
 Catalogue of stored series:
 ${cat}`;
@@ -183,8 +189,12 @@ function verdictPrompt(claims: unknown[], published: string | null) {
   return `For each claim (made ${published ? `on ${published.slice(0, 10)}` : 'recently'}), compare it with the official readings given (latest last; each with its change from the reading before).
 Reply with JSON only, writing the note first and choosing the verdict that the note supports:
 {"verdicts": [{"i": index, "note": "at most 25 words, citing only the figures shown", "verdict": "agrees" | "disagrees" | "partly" | "too early" | "unclear"}]}
-agrees: the readings bear out the claim. disagrees: they contradict it. partly: some parts hold, some don't.
-too early: a forecast or promise whose period has not arrived. unclear: the readings don't measure what the claim is about.
+agrees: the readings bear out the claim, including when the claim rounds a reading (4.65 stated as 4.6 or 4.7 agrees).
+disagrees: ONLY when the readings measure exactly what the claim measures, for the same period and on the same basis,
+and clearly contradict it beyond rounding. partly: some parts hold, some don't.
+too early: a forecast or promise whose period has not arrived.
+unclear: the readings measure something different (real vs nominal, a different index or publisher, a different
+period, frequency or adjustment) or cannot settle it. When in doubt between disagrees and unclear, choose unclear.
 Use only the figures given; no outside knowledge. Australian English, no em dashes.
 
 ${JSON.stringify(claims, null, 1)}`;
@@ -242,9 +252,11 @@ export async function reviewItems(db: SupabaseClient, cands: Candidate[], log: L
       out.push({
         rss_item_id: c.rss_item_id, title: c.title, url: c.url, publisher: c.publisher, published_at: c.published_at,
         kind: (['announcement', 'release', 'news'].includes(p.kind ?? '') ? p.kind : c.official ? 'announcement' : 'news') as IncKind,
-        summary, claims, links, status: problems.length ? 'new' : 'published',
+        // A contradiction goes live only after an editor has seen it: a wrong "disagrees" is the costliest mistake here.
+        summary, claims, links, status: problems.length || claims.some((k) => k.verdict === 'disagrees') ? 'new' : 'published',
       });
-      log(`${problems.length ? `held (${problems.join('; ')})` : 'covered'}: ${c.publisher}: ${c.title} (${claims.filter((k) => k.verdict !== 'no series').length}/${claims.length} claims checked)`);
+      const contradicts = claims.some((k) => k.verdict === 'disagrees');
+      log(`${problems.length ? `held (${problems.join('; ')})` : contradicts ? 'held for the editor (our data disagrees)' : 'covered'}: ${c.publisher}: ${c.title} (${claims.filter((k) => k.verdict !== 'no series').length}/${claims.length} claims checked)`);
     } catch (e) {
       log(`failed: ${c.title}: ${e instanceof Error ? e.message : e}`);
     }
@@ -278,7 +290,13 @@ Rules (a sentence that breaks one holds the whole brief):
   government claim as fact.
 - Figures come from exactly two places: the stored reference below (sentence source null; figures exactly as listed,
   or a simple change between two listed readings), or an OFFICIAL source's own text (sentence cites it and says who
-  said it). A news outlet's figures are never repeated: report what the outlet reported without the number.
+  said it). A news outlet's figures are NEVER repeated, not even approximately ("fallen sharply", not "7.1 per cent"):
+  report what the outlet reported without the number.
+- Read the stored series before describing a trend: say a rate is rising only if its listed readings rise, and name
+  a cycle (easing, tightening) only when the readings show it. Prefer one series per point; do not stack every figure.
+- Do not mention data sets, checks or "reference data" at all: the reader sees findings, not plumbing.
+- Lead with government announcements and official releases where there are any; news coverage comes after.
+- At most 250 words. Count them. Cut a paragraph rather than run over.
 - Where a claim has a verdict, say what our data shows ("ABS figures show…", "the latest readings show…").
 - If you give an inflation figure, give headline CPI and the trimmed mean together and say that the trimmed mean is
   the RBA's preferred measure of underlying inflation. Otherwise leave inflation figures out.
@@ -395,10 +413,10 @@ export async function writeBottomLine(db: SupabaseClient, newItems: ItemRow[], o
     draft = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories, first.issues, draft), { label: 'bottom line rewrite', maxTokens: 4000 }));
   }
   let { check, links } = await checkBottomLine(db, draft, sources, metricIds, known);
-  if (!check.ok && check.audited) {
-    // One more round with the full findings, then the verdict stands.
-    log(`bottom line: held for ${check.issues.length} issue(s); one revision`);
-    const revised = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories, check.issues, draft), { label: 'bottom line revision', maxTokens: 4000 }));
+  // Up to two revision rounds with the full findings, then the verdict stands.
+  for (let round = 1; round <= 2 && !check.ok && check.audited; round++) {
+    log(`bottom line: held for ${check.issues.length} issue(s); revision ${round}`);
+    const revised = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories, check.issues, draft), { label: `bottom line revision ${round}`, maxTokens: 4000 }));
     const again = await checkBottomLine(db, revised, sources, metricIds, known);
     draft = revised; check = again.check; links = again.links;
   }
