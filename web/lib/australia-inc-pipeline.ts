@@ -13,7 +13,7 @@ import { pdfText } from '@/lib/pdf-text';
 import { sydneyDay } from '@/lib/dates';
 import {
   BOTTOM_LINE_TOPICS, chartPathFor, dataFigures, decide, figuresMissingFrom, filterLinks, isOfficialUrl, isSourcedSentence,
-  itemIssues, linkablePaths, matchesTopics, normaliseDraft, normaliseLinks, sentenceText, shouldWrite, toCheckable, validateDraft,
+  dropFlaggedSentences, itemIssues, linkablePaths, matchesTopics, normaliseDraft, normaliseLinks, sentenceText, shouldWrite, toCheckable, validateDraft,
   VERDICTS, type BottomLineCheck, type BottomLineDraft, type IncClaim, type IncKind, type IncLink, type KnownPaths, type SourceRef, type Verdict,
 } from '@/lib/australia-inc';
 
@@ -419,6 +419,18 @@ export async function writeBottomLine(db: SupabaseClient, newItems: ItemRow[], o
     const revised = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories, check.issues, draft), { label: `bottom line revision ${round}`, maxTokens: 4000 }));
     const again = await checkBottomLine(db, revised, sources, metricIds, known);
     draft = revised; check = again.check; links = again.links;
+  }
+  // Held only for sentences that break the figures or wording rules: cut them, re-validate, and keep the day.
+  if (!check.ok && check.audited) {
+    const cut = dropFlaggedSentences(draft, links, check.issues);
+    if (cut) {
+      const again = validateDraft(cut.draft, sources);
+      if (!again.issues.length) {
+        log(`bottom line: cut ${cut.dropped.length} sentence(s) that broke the figures rule`);
+        draft = cut.draft; links = cut.links;
+        check = { ...check, ok: true, issues: [], warnings: [...check.warnings, ...again.warnings, ...cut.dropped.map((t) => `cut: ${t}`)] };
+      }
+    }
   }
   const { status } = decide(check);
   const used = new Set(draft.paragraphs.flatMap((p) => p.sentences.map((s) => s.source)).filter((n): n is number => n != null));

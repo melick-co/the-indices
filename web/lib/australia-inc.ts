@@ -156,6 +156,40 @@ export function validateDraft(draft: BottomLineDraft, sources: SourceRef[]): { i
   return { issues, warnings };
 }
 
+/** The sentence-level breaches a sentence can simply be cut for: a news figure, an unattributed figure, internal wording. */
+const DROPPABLE = /^paragraph (\d+) sentence (\d+): (?:a figure from a news report|the figure is from|internal wording)/;
+
+/**
+ * After the revision rounds, a brief held only for sentences that break the figures or wording rules loses those
+ * sentences rather than the whole day: cutting a sentence cannot add a claim the checks have not seen. Returns null
+ * when any issue is of another kind (an unsupported claim, a failed source check), so those still hold the brief.
+ * Links whose words were in a cut sentence go with it.
+ */
+export function dropFlaggedSentences(
+  draft: BottomLineDraft, links: IncLink[][], issues: string[],
+): { draft: BottomLineDraft; links: IncLink[][]; dropped: string[] } | null {
+  if (!issues.length) return null;
+  const cut = new Set<string>();
+  for (const i of issues) {
+    const m = DROPPABLE.exec(i);
+    if (!m) return null;
+    cut.add(`${Number(m[1]) - 1}:${Number(m[2]) - 1}`);
+  }
+  const dropped: string[] = [];
+  const kept: Array<{ p: DraftParagraph; links: IncLink[] }> = [];
+  draft.paragraphs.forEach((p, i) => {
+    const sentences = p.sentences.filter((s, k) => {
+      if (!cut.has(`${i}:${k}`)) return true;
+      dropped.push(s.text);
+      return false;
+    });
+    if (!sentences.length) return;
+    const text = sentences.map((s) => s.text).join(' ');
+    kept.push({ p: { sentences, links: p.links.filter((l) => text.includes(l.label)) }, links: (links[i] ?? []).filter((l) => text.includes(l.label)) });
+  });
+  return { draft: { ...draft, paragraphs: kept.map((k) => k.p) }, links: kept.map((k) => k.links), dropped };
+}
+
 /** A sentence whose figures belong to an official document (checked against that document, not the store). */
 export function isSourcedSentence(s: DraftSentence, sources: SourceRef[]): boolean {
   const src = s.source == null ? undefined : sources.find((x) => x.n === s.source);

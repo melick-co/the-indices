@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  dropFlaggedSentences,
   chartPathFor, dataFigures, decide, figuresMissingFrom, filterLinks, internalPathOk, isOfficialUrl, itemIssues, linkify,
   matchesTopics, normaliseDraft, shouldWrite, toCheckable, validateDraft, type BottomLineDraft, type SourceRef,
 } from './australia-inc';
@@ -103,5 +104,26 @@ assert.deepEqual(figuresMissingFrom('The deficit would be $27.9 billion, up from
 assert.deepEqual(figuresMissingFrom('Spending of 1,234 million', 'spending 1,234 million'), []);
 assert.deepEqual(itemIssues('The Treasurer said the deficit is $27.9 billion.', 'Treasurer', 'the deficit is $27.9 billion'), []);
 assert.ok(itemIssues('The deficit is $30 billion.', 'Treasurer', 'the deficit is $27.9 billion').length >= 2);
+
+
+// A brief held only for news figures loses those sentences, not the day; any other issue still holds it.
+{
+  const d = { headline: 'h', paragraphs: [
+    { sentences: [{ text: 'The ABS said unemployment was 4.7 per cent.', source: null }, { text: 'The Guardian said 3 million rent.', source: 2 }], links: [{ label: 'unemployment', url: '/x', kind: 'chart' as const }] },
+    { sentences: [{ text: 'MacroBusiness said 40 years.', source: 3 }], links: [{ label: 'MacroBusiness', url: 'https://m', kind: 'external' as const }] },
+  ] };
+  const links = d.paragraphs.map((p) => p.links);
+  const cut = dropFlaggedSentences(d, links, [
+    'paragraph 1 sentence 2: a figure from a news report (The Guardian); figures come from stored data or an official announcement',
+    'paragraph 2 sentence 1: a figure from a news report (MacroBusiness); figures come from stored data or an official announcement',
+  ]);
+  assert.ok(cut);
+  assert.equal(cut!.draft.paragraphs.length, 1);
+  assert.equal(cut!.draft.paragraphs[0].sentences.length, 1);
+  assert.equal(cut!.links.length, 1);
+  assert.equal(cut!.dropped.length, 2);
+  assert.equal(dropFlaggedSentences(d, links, ['claim not supported by stored data: "x"']), null);
+  assert.equal(dropFlaggedSentences(d, links, []), null);
+}
 
 console.log('australia-inc checks passed');
