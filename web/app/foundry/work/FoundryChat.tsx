@@ -889,7 +889,7 @@ export default function FoundryChat({
       {Boolean(linkedPitch) && (
         <p className="cc-dim" style={{ marginTop: '1rem', fontSize: '.72rem' }}>
           Banked as a candidate pitch ·{' '}
-          <Link className="cc-link" href="/foundry?tab=candidate">open Awaiting ranking</Link>
+          <Link className="cc-link" href="/foundry/pitches?tab=candidate">open Awaiting ranking</Link>
         </p>
       )}
     </main>

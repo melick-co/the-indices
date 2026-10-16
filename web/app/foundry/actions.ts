@@ -49,6 +49,7 @@ export async function act(pitchId: string, action: Action, comment?: string) {
   }
 
   revalidatePath('/foundry');
+  revalidatePath('/foundry/pitches');
 }
 
 export async function addToInbox(kind: string, title: string, body: string, url: string) {
@@ -58,6 +59,7 @@ export async function addToInbox(kind: string, title: string, body: string, url:
     kind, title: title || null, body: body || null, url: url || null,
   });
   revalidatePath('/foundry');
+  revalidatePath('/foundry/pitches');
 }
 
 /** Mark a news item for the public ticker, with an optional label. */
@@ -70,6 +72,7 @@ export async function curate(itemId: string, curated: boolean, note?: string) {
     curated_at: curated ? new Date().toISOString() : null,
   }).eq('item_id', itemId);
   revalidatePath('/foundry');
+  revalidatePath('/foundry/pitches');
   revalidatePath('/');
 }
 
@@ -182,6 +185,7 @@ export async function approveSourceSuggestion(suggestionId: string, note?: strin
   }).eq('suggestion_id', suggestionId);
 
   revalidatePath('/foundry');
+  revalidatePath('/foundry/pitches');
   return { ok: true as const };
 }
 
@@ -194,6 +198,7 @@ export async function rejectSourceSuggestion(suggestionId: string, note?: string
     review_note: note?.trim() || null,
   }).eq('suggestion_id', suggestionId).eq('status', 'pending');
   revalidatePath('/foundry');
+  revalidatePath('/foundry/pitches');
   return { ok: true as const };
 }
 
@@ -207,6 +212,7 @@ export async function rejectSuggestion(suggestionId: string, note?: string) {
     review_note: note?.trim() || null,
   }).eq('suggestion_id', suggestionId).eq('status', 'pending');
   revalidatePath('/foundry');
+  revalidatePath('/foundry/pitches');
   return { ok: true as const };
 }
 
@@ -229,6 +235,7 @@ export async function pitchNote(noteId: string) {
   await supabase.from('inbox').insert({ kind: 'idea', title: n.angle ?? n.title, body, url: n.url ?? null });
   await supabase.from('economist_notes').update({ status: 'pitched' }).eq('id', noteId);
   revalidatePath('/foundry');
+  revalidatePath('/foundry/pitches');
   return { ok: true as const };
 }
 
@@ -237,5 +244,6 @@ export async function dismissNote(noteId: string) {
   const supabase = createClient();
   await supabase.from('economist_notes').update({ status: 'dismissed' }).eq('id', noteId);
   revalidatePath('/foundry');
+  revalidatePath('/foundry/pitches');
   return { ok: true as const };
 }

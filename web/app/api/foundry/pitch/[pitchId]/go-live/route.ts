@@ -18,6 +18,7 @@ export async function POST(
     revalidatePath(`/foundry/desk/${result.slug}`);
     revalidatePath('/foundry/desk');
     revalidatePath('/foundry');
+    revalidatePath('/foundry/pitches');
     return Response.json(result);
   } catch (e) {
     return Response.json(

@@ -26,6 +26,9 @@ const nextConfig = {
       { source: '/indices/people', destination: '/indices/population', permanent: true },
       { source: '/indices/people/:metric', destination: '/indices/economy/people/:metric', permanent: true },
       { source: '/indices/:section(growth|jobs|prices|rates|housing|public)/:path*', destination: '/indices/economy/:section/:path*', permanent: true },
+      // /foundry is the Newsdesk; the Pitches board moved to /foundry/pitches. Old board links (?tab=...) follow it
+      // (the query string is passed through).
+      { source: '/foundry', has: [{ type: 'query', key: 'tab' }], destination: '/foundry/pitches', permanent: true },
       { source: '/studio', destination: '/foundry', permanent: true },
       { source: '/studio/ask', destination: '/foundry/work', permanent: true },
       { source: '/studio/brainstorm', destination: '/foundry/work', permanent: true },

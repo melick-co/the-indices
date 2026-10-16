@@ -296,7 +296,7 @@ function SourceIntake() {
       {done && <p className="markets-note">{done}</p>}
       <p className="markets-blurb" style={{ marginTop: '1.4rem' }}>
         Proposed series appear on{' '}
-        <Link href="/foundry">Foundry → source suggestions</Link>
+        <Link href="/foundry/pitches">Foundry → source suggestions</Link>
         {' '}for approval. The RBA hike odds remain a derived series at{' '}
         <Link href="/markets/rba-rate-rise">RBA rate rise</Link>.
       </p>

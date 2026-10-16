@@ -56,7 +56,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
 
   function selectTab(next: string) {
     setTab(next);
-    router.replace(next === 'pitched' ? '/foundry' : `/foundry?tab=${next}`, { scroll: false });
+    router.replace(next === 'pitched' ? '/foundry/pitches' : `/foundry/pitches?tab=${next}`, { scroll: false });
   }
 
   const run = (id: string, action: any) =>
@@ -65,7 +65,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
   return (
     <>
       <main style={{ paddingBottom: 'var(--spacing-84)' }}>
-        <h1 className="section-head" style={{ borderBottom: 'none', marginBottom: 'var(--spacing-21)' }}>Foundry</h1>
+        <h1 className="section-head" style={{ borderBottom: 'none', marginBottom: 'var(--spacing-21)' }}>Pitches</h1>
         {showInbox && <InboxForm onDone={() => setShowInbox(false)} />}
         <p style={{ marginBottom: 'var(--spacing-21)', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <Link href="/foundry/desk" className="studio-link">Desk</Link>
@@ -368,7 +368,7 @@ export default function FoundryBoard({ pitches, runs, inbox, feedback, events, m
           )}
         </section>
 
-        <section style={{ marginTop: '3rem' }}>
+        <section id="news" style={{ marginTop: '3rem' }}>
           <h3 className="section-head">
             News · tick to feature on the public ticker ({news.filter((n) => n.curated).length} live)
           </h3>
