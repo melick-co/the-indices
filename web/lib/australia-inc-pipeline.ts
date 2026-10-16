@@ -14,7 +14,7 @@ import { pdfText } from '@/lib/pdf-text';
 import { sydneyDay } from '@/lib/dates';
 import {
   BOTTOM_LINE_TOPICS, chartPathFor, dataFigures, decide, figuresMissingFrom, filterLinks, isOfficialUrl, isSourcedSentence,
-  dropFlaggedSentences, itemIssues, linkablePaths, matchesTopics, normaliseDraft, normaliseLinks, sentenceText, shouldWrite, toCheckable, validateDraft,
+  dropFlaggedSentences, findListedLink, itemIssues, linkablePaths, matchesTopics, normaliseDraft, normaliseLinks, sentenceText, shouldWrite, toCheckable, validateDraft,
   VERDICTS, type BottomLineCheck, type BottomLineDraft, type IncClaim, type IncKind, type IncLink, type KnownPaths, type SourceRef, type Verdict,
 } from '@/lib/australia-inc';
 
@@ -47,6 +47,23 @@ export type ItemRow = {
 };
 
 // ---------------------------------------------------------------------------------------------------- helpers
+
+/**
+ * An official item whose feed link is dead: look for it on the page that lists it (the link's parent path, as the
+ * site writes it, then in lower case) and return the address the site actually uses.
+ */
+export async function repairOfficialLink(url: string, title: string): Promise<string | null> {
+  const parent = url.replace(/\/[^/]+\/?$/, '');
+  for (const listing of [...new Set([parent, parent.toLowerCase()])]) {
+    try {
+      const res = await fetch(listing, { headers: { 'user-agent': UA }, redirect: 'follow', signal: AbortSignal.timeout(20_000) });
+      if (!res.ok) continue;
+      const found = findListedLink(await res.text(), title, res.url || listing);
+      if (found && found !== url && (await urlResolves(found))) return found;
+    } catch { /* try the next form */ }
+  }
+  return null;
+}
 
 /** True when the address answers 200 (HEAD, or GET where HEAD is refused). */
 export async function urlResolves(url: string): Promise<boolean> {
@@ -251,7 +268,12 @@ export async function reviewItems(db: SupabaseClient, cands: Candidate[], log: L
   for (const p of (picked.picks ?? []).slice(0, MAX_PICKS)) {
     const c = cands[p.i];
     if (!c) continue;
-    if (!(await urlResolves(c.url))) { log(`skip (link does not resolve): ${c.title}`); continue; }
+    if (!(await urlResolves(c.url))) {
+      const repaired = c.official ? await repairOfficialLink(c.url, c.title) : null;
+      if (!repaired) { log(`skip (link does not resolve): ${c.title}`); continue; }
+      log(`link repaired from the publisher's listing: ${c.title}`);
+      c.url = repaired;
+    }
     const text = await sourceText(c.url, `${c.title}\n${c.summary}`);
     try {
       const x = await callClaudeJson(extractPrompt(c, text, cat.text), { label: `australia-inc item ${p.i}`, maxTokens: 3000 }) as { summary?: string; claims?: Array<{ text?: string; metric_id?: string | null; needs?: unknown }> };
