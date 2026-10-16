@@ -191,6 +191,7 @@ export async function proposeMarketWatch(watchId: string, why?: string) {
 
   revalidatePath('/markets');
   revalidatePath('/foundry');
+  revalidatePath('/foundry/pitches');
   return { ok: true as const, suggestionId: suggestion.suggestion_id as string };
 }
 

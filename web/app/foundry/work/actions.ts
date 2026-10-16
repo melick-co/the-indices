@@ -34,6 +34,7 @@ export async function summarisePastedTranscript(title: string, text: string) {
 function revalidateFoundry(sessionId?: string) {
   revalidatePath('/foundry/work');
   revalidatePath('/foundry');
+  revalidatePath('/foundry/pitches');
   if (sessionId) revalidatePath(`/foundry/work/${sessionId}`);
 }
 
@@ -138,6 +139,7 @@ export async function bankFoundrySession(
     .eq('session_id', sessionId);
 
   revalidatePath('/foundry');
+  revalidatePath('/foundry/pitches');
   revalidateFoundry(sessionId);
   return { ok: true as const, pitchId: pitch.id };
 }

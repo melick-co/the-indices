@@ -3,13 +3,15 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-/** The Foundry: one tool, five tabs (Studio and Brainstorm were folded in; their old links redirect here). */
+/** The Foundry: the Newsdesk dashboard first, then the desks it links into (Studio and Brainstorm were folded in; their old links redirect here). */
 const PRIMARY = [
+  { href: '/foundry', label: 'Newsdesk' },
+  { href: '/foundry/pitches', label: 'Pitches' },
   { href: '/foundry/make', label: 'Make' },
-  { href: '/foundry', label: 'Pitches' },
   { href: '/foundry/work', label: 'Research' },
   { href: '/foundry/desk', label: 'Desk' },
   { href: '/foundry/queue', label: 'Queue' },
+  { href: '/foundry/rub', label: 'The Rub' },
   { href: '/indices', label: 'Caveat Indices' },
 ] as const;
 
@@ -20,13 +22,8 @@ const SECONDARY = [
 
 function isActive(pathname: string, href: string) {
   if (href === '/') return false;
-  if (href === '/foundry') {
-    return pathname === '/foundry' || (pathname.startsWith('/foundry/')
-      && !pathname.startsWith('/foundry/desk')
-      && !pathname.startsWith('/foundry/work')
-      && !pathname.startsWith('/foundry/queue')
-      && !pathname.startsWith('/foundry/make'));
-  }
+  // The Newsdesk is only itself; every desk under /foundry has its own tab.
+  if (href === '/foundry') return pathname === '/foundry';
   if (href === '/indices') {
     return pathname === '/indices' || pathname.startsWith('/indices/')
       || pathname === '/metrics' || pathname.startsWith('/metrics/');

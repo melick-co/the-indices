@@ -29,6 +29,7 @@ export type DeskResult = { ok: boolean; issues: string[]; message?: string };
 function revalidateStory(slug: string) {
   revalidatePath('/');
   revalidatePath('/foundry');
+  revalidatePath('/foundry/pitches');
   revalidatePath('/foundry/desk');
   revalidatePath(`/foundry/desk/${slug}`);
   revalidatePath(`/stories/${slug}`);

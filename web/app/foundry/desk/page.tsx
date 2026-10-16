@@ -28,7 +28,7 @@ export default async function NewsDeskPage() {
       </h1>
       <p className="measure" style={{ marginBottom: 'var(--spacing-21)' }}>
         Lay out the home page, edit published copy, and attach images. Pitches stay
-        on <Link href="/foundry">Foundry</Link>. Chart figures are editor-entered —
+        on <Link href="/foundry/pitches">Pitches</Link>. Chart figures are editor-entered —
         the desk does not invent them. Generated stills and clips attach here when
         another agent writes them; this desk does not call a generator.
       </p>

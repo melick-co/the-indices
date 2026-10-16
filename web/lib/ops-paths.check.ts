@@ -3,6 +3,7 @@ import { isIndicesPath, isOpsPath } from './ops-paths';
 
 assert.equal(isOpsPath('/foundry'), true);
 assert.equal(isOpsPath('/foundry/desk'), true);
+assert.equal(isOpsPath('/foundry/pitches'), true);
 assert.equal(isOpsPath('/foundry/work/abc'), true);
 assert.equal(isOpsPath('/studio/ask'), true);
 assert.equal(isOpsPath('/account'), true);
