@@ -282,3 +282,76 @@ body:has(.site-shell--bs) { background: #fdfcf3; }
 .site-shell--bs .hl-thumb-note { font-family: var(--bs-serif); font-size: 14px; color: var(--bs-caption); }
 .site-shell--bs .hl-thumb .hl-spark { margin: 4px 0 0; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
 .site-shell--bs .hl-thumb .hl-spark svg { height: 100%; min-height: 40px; max-height: 90px; }
+
+/* ---------- Australia Inc. (/australia-inc): The Bottom Line, the wire, the numbers ---------- */
+.site-shell--bs .sheet-side { grid-column: 6 / span 3; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+@media (max-width: 1024px) { .site-shell--bs .sheet-side { grid-column: 2; } }
+@media (max-width: 720px) { .site-shell--bs .sheet-side { grid-column: 1; } }
+
+.site-shell--bs .inc-page { max-width: var(--page-max-width); margin: 0 auto; padding: 0 var(--page-gutter); }
+@media (max-width: 720px) { .site-shell--bs .inc-page { padding: 0 16px; } }
+.site-shell--bs .inc-head { text-align: center; border-bottom: 1px solid var(--bs-ink); padding: 8px 0 18px; margin-bottom: 28px; }
+.site-shell--bs .inc-head-flag,
+.site-shell--bs .inc-flag,
+.site-shell--bs .inc-item-kicker {
+  font-family: var(--bs-serif); font-size: 12px; letter-spacing: 0.075em; text-transform: uppercase; color: var(--bs-ink);
+}
+.site-shell--bs .inc-head-name { font-family: var(--bs-serif); font-weight: 400; font-size: clamp(36px, 5vw, 56px); letter-spacing: -0.02em; line-height: 1.05; margin: 6px 0; }
+.site-shell--bs .inc-head-dek { font-size: 18px; color: var(--bs-caption); }
+
+.site-shell--bs .inc-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); gap: 0 32px; align-items: start; }
+@media (max-width: 900px) { .site-shell--bs .inc-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.site-shell--bs .inc-bl { background: var(--bs-margin); padding: 0 20px 20px; }
+.site-shell--bs .inc-bl .inc-flag { display: block; margin: 0 -20px 16px; padding: 8px 20px; background: var(--bs-ink); color: var(--bs-white); }
+.site-shell--bs .inc-bl-hed { font-family: var(--bs-serif); font-weight: 400; font-size: clamp(26px, 3vw, 34px); line-height: 1.12; letter-spacing: -0.02em; margin: 0 0 6px; }
+.site-shell--bs .inc-bl-date { font-family: var(--bs-serif); font-size: 13px; color: var(--bs-caption); margin-bottom: 14px; }
+.site-shell--bs .inc-bl-p { font-size: 17px; line-height: 1.5; margin: 0 0 12px; }
+.site-shell--bs .inc-bl-p:first-of-type::first-letter { font-weight: 600; }
+.site-shell--bs .inc-link { color: var(--bs-ink); border-bottom: 1px solid var(--bs-mute); text-decoration: none; }
+.site-shell--bs .inc-link:hover { border-bottom-color: var(--bs-ink); }
+.site-shell--bs .inc-link-chart::after { content: ' \2197'; font-size: 0.8em; color: var(--bs-caption); }
+.site-shell--bs .inc-bl-extra { font-size: 14px; color: var(--bs-caption); }
+.site-shell--bs .inc-bl-foot { font-family: var(--bs-serif); font-size: 13px; color: var(--bs-caption); border-top: 1px solid var(--bs-rule); padding-top: 10px; margin-top: 16px; }
+.site-shell--bs .inc-bl-foot a { color: var(--bs-ink); border-bottom: 1px solid var(--bs-rule); }
+.site-shell--bs .inc-bl-empty .inc-bl-hed { font-style: italic; }
+
+.site-shell--bs .inc-section-head { font-family: var(--bs-serif); font-weight: 400; font-size: 24px; letter-spacing: -0.02em; border-bottom: 1px solid var(--bs-ink); padding-bottom: 6px; margin: 0 0 6px; }
+.site-shell--bs .inc-section-dek { font-size: 14px; color: var(--bs-caption); margin-bottom: 16px; }
+.site-shell--bs .inc-section-dek a { color: var(--bs-ink); border-bottom: 1px solid var(--bs-rule); }
+@media (max-width: 900px) { .site-shell--bs .inc-wire { margin-top: 32px; } }
+.site-shell--bs .inc-items { list-style: none; margin: 0; padding: 0; }
+.site-shell--bs .inc-item { border-bottom: 1px solid var(--bs-rule); padding: 0 0 16px; margin-bottom: 16px; }
+.site-shell--bs .inc-item-date { color: var(--bs-caption); }
+.site-shell--bs .inc-item-hed { font-family: var(--bs-serif); font-weight: 400; font-size: 20px; line-height: 1.25; letter-spacing: -0.01em; margin: 4px 0 6px; }
+.site-shell--bs .inc-item-hed a { color: var(--bs-ink); }
+.site-shell--bs .inc-item-summary { font-size: 15px; line-height: 1.45; margin: 0 0 8px; }
+.site-shell--bs .inc-claims { list-style: none; padding: 0; margin: 0 0 8px; font-size: 14px; line-height: 1.45; }
+.site-shell--bs .inc-claims li { margin-bottom: 6px; }
+.site-shell--bs .inc-claim-note { color: var(--bs-caption); }
+.site-shell--bs .inc-chip {
+  display: inline-block; padding: 0 8px; border: 1px solid currentColor; border-radius: 999px; font-family: var(--bs-sans);
+  font-size: 11px; line-height: 18px; white-space: nowrap; color: var(--bs-caption);
+}
+.site-shell--bs .inc-chip-agrees { color: #1a7f37; }
+.site-shell--bs .inc-chip-disagrees { color: #c0362c; }
+.site-shell--bs .inc-chip-partly { color: #9a6700; }
+.site-shell--bs .inc-item-links { font-size: 13px; color: var(--bs-caption); }
+.site-shell--bs .inc-empty { font-size: 15px; color: var(--bs-caption); font-style: italic; border-top: 1px solid var(--bs-rule); padding-top: 12px; }
+.site-shell--bs .inc-numbers { margin: 48px 0 20px; }
+/* The P&L dashboard is built for the Indices frame (negative margins); here it sits flush in the page. */
+.site-shell--bs .inc-pnl > .dx { margin: 0 auto; max-width: var(--page-max-width); }
+.site-shell--bs .inc-edition { max-width: 760px; }
+.site-shell--bs .inc-sources { margin-top: 28px; font-size: 14px; }
+.site-shell--bs .inc-sources ul { padding-left: 18px; }
+.site-shell--bs .inc-sources a { color: var(--bs-ink); border-bottom: 1px solid var(--bs-rule); }
+
+/* Home: the Bottom Line teaser above the explainer. */
+.site-shell--bs .inc-teaser { border-top: 3px solid var(--bs-ink); padding-top: 8px; }
+.site-shell--bs .inc-teaser-name { font-family: var(--bs-serif); font-weight: 600; font-size: 22px; letter-spacing: -0.02em; margin: 2px 0 6px; }
+.site-shell--bs .inc-teaser-name a { color: var(--bs-ink); }
+.site-shell--bs .inc-teaser-hed { font-family: var(--bs-serif); font-style: italic; font-size: 18px; line-height: 1.3; margin: 0 0 6px; }
+.site-shell--bs .inc-teaser-p { font-size: 15px; line-height: 1.45; margin: 0 0 6px; }
+.site-shell--bs .inc-teaser-more { font-family: var(--bs-serif); font-size: 13px; }
+.site-shell--bs .inc-teaser-more a { color: var(--bs-ink); border-bottom: 1px solid var(--bs-ink); }
+.site-shell--bs .inc-teaser-date { color: var(--bs-caption); }

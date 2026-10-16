@@ -16,13 +16,16 @@ import { buildTrendIndex } from '@/lib/trend-weight';
 import { pickRub } from '@/lib/the-rub';
 import { pickExplainer } from '@/lib/explainers';
 import { HighlightThumb } from '@/components/StoryHighlights';
+import { BottomLineTeaser } from '@/components/AustraliaInc';
+import { loadLatestBottomLine } from '@/lib/australia-inc-loader';
 
 export const revalidate = 900;
 
 export default async function Home() {
-  const [allStories, trendingData] = await Promise.all([
+  const [allStories, trendingData, bottomLine] = await Promise.all([
     loadAllStories(),
     loadTrendingPage(),
+    loadLatestBottomLine(),
   ]);
   const trendIndex = buildTrendIndex(trendingData);
   const { hero, rest } = buildHomeLayout(allStories, trendIndex);
@@ -73,7 +76,10 @@ export default async function Home() {
               );
             })}
           </div>
-          <ExplainerTeaser explainer={explainer} />
+          <div className="sheet-side">
+            <BottomLineTeaser bl={bottomLine} />
+            <ExplainerTeaser explainer={explainer} />
+          </div>
         </div>
 
         <InstrumentsDash />

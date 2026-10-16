@@ -8,6 +8,7 @@ const SECTIONS = [
   { href: '/', label: 'Today' },
   { href: '/explainers', label: 'Explainers' },
   { href: '/the-rub', label: 'The Rub' },
+  { href: '/australia-inc', label: 'Australia Inc.' },
   { href: '/indices', label: 'Caveat Indices' },
   { href: '/instruments', label: 'Instruments' },
   { href: '/trending', label: 'Trending' },

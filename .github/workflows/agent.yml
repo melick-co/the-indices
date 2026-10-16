@@ -31,12 +31,15 @@ on:
     - cron: '11 19 * * *'
     - cron: '11 1 * * *'
     - cron: '11 7 * * *'
+    # Australia Inc.: the commentary and The Bottom Line, about 5:47am Sydney (AEDT; 4:47am AEST) so a late start still
+    # lands before breakfast (web/scripts/australia-inc.ts).
+    - cron: '47 18 * * *'
   workflow_dispatch:
     inputs:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, economists, economists-again, economists-dry-run, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, wb, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, races-replace, house-track, house-track-choose, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, hero-review, story-highlights, story-highlights-dry-run, reel-cut, reel-rewrite, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, both]
+        options: [rss, trends, trending, trending-review, email, economists, economists-again, economists-dry-run, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, wb, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, races-replace, house-track, house-track-choose, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, hero-review, story-highlights, story-highlights-dry-run, reel-cut, reel-rewrite, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, australia-inc, australia-inc-dry-run, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, reel-rewrite, story-refresh(-apply): story slug(s). Space separated.'
@@ -316,6 +319,33 @@ jobs:
           ${{ inputs.task == 'visuals-dry-run' && '--dry-run' || inputs.task == 'visuals-list' && '--list' || '' }}
         env:
           VISUAL_KEY: ${{ inputs.pitch }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  australia-inc:
+    # Australia Inc. (web/scripts/australia-inc.ts): government feeds and bottom-line news -> the running commentary
+    # (inc_items) -> today's Bottom Line, published only if the strict check passes, otherwise held for the newsdesk.
+    if: >-
+      github.event_name == 'workflow_dispatch' && startsWith(inputs.task, 'australia-inc') ||
+      github.event_name == 'schedule' && github.event.schedule == '47 18 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run: { working-directory: web }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm ci --silent
+      - run: npm install @supabase/supabase-js --no-save --silent
+        working-directory: agent
+      - name: Australia Inc. and The Bottom Line
+        run: >-
+          npx tsx --import ./scripts/node-shims.mjs scripts/australia-inc.ts
+          ${{ inputs.task == 'australia-inc-dry-run' && '--dry-run' || '' }}
+        env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
