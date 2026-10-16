@@ -332,3 +332,32 @@ export function itemIssues(summary: string, publisher: string, sourceText: strin
   if (missing.length) out.push(`figures not in the source: ${missing.join(', ')}`);
   return out;
 }
+
+const STOP = new Set(['a', 'an', 'and', 'the', 'of', 'for', 'to', 'in', 'on', 'at', 'by', 'with', 'from', 'is', 'as']);
+const wordsOf = (t: string) => t.toLowerCase().replace(/&[a-z#0-9]+;/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+
+/**
+ * The link on an official listing page that is this item: the anchor whose text is the title, or whose last path
+ * segment is the title's opening words (some sites shorten addresses and drop small words). Feeds from
+ * ministers.treasury.gov.au carry addresses the site no longer answers (capitals, full titles), so the item is found on
+ * the page that lists it instead.
+ */
+export function findListedLink(html: string, title: string, base: string): string | null {
+  const want = wordsOf(title);
+  const wantKey = want.join(' ');
+  const content = want.filter((w) => !STOP.has(w));
+  let best: { href: string; score: number } | null = null;
+  for (const m of html.matchAll(/<a\b[^>]*href="([^"#]+)"[^>]*>([\s\S]*?)<\/a>/gi)) {
+    const href = m[1];
+    const text = wordsOf(m[2].replace(/<[^>]+>/g, ' ')).join(' ');
+    const slug = wordsOf(decodeURIComponent(href.split('?')[0].replace(/\/$/, '').split('/').pop() ?? ''));
+    let score = 0;
+    if (text && text === wantKey) score = 3;
+    else if (slug.length >= 3 && slug.every((w) => content.includes(w) || want.includes(w))
+      && slug.filter((w) => !STOP.has(w)).join(' ') === content.slice(0, slug.filter((w) => !STOP.has(w)).length).join(' ')) score = 2;
+    if (score && (!best || score > best.score)) best = { href, score };
+  }
+  if (!best) return null;
+  try { return new URL(best.href, base).toString(); } catch { return null; }
+}
+

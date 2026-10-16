@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   dropFlaggedSentences,
+  findListedLink,
   chartPathFor, dataFigures, decide, figuresMissingFrom, filterLinks, internalPathOk, isOfficialUrl, itemIssues, linkify,
   matchesTopics, normaliseDraft, shouldWrite, toCheckable, validateDraft, type BottomLineDraft, type SourceRef,
 } from './australia-inc';
@@ -124,6 +125,21 @@ assert.ok(itemIssues('The deficit is $30 billion.', 'Treasurer', 'the deficit is
   assert.equal(cut!.dropped.length, 2);
   assert.equal(dropFlaggedSentences(d, links, ['claim not supported by stored data: "x"']), null);
   assert.equal(dropFlaggedSentences(d, links, []), null);
+}
+
+// A Treasury feed link the site no longer answers is found on its listing page by title.
+{
+  const html = '<ul><li><a href="/ministers/jim-chalmers-2022/media-releases/tax-reform-fairer-tax-system">Tax reform for a fairer tax system</a></li>'
+    + '<li><a href="/ministers/jim-chalmers-2022/media-releases/first-meeting-between-uk-chancellor-healey-and">First meeting between UK Chancellor Healey and Australian Treasurer Chalmers</a></li>'
+    + '<li><a href="/ministers/jim-chalmers-2022/media-releases/g20-meeting">G20 meeting</a></li></ul>';
+  const base = 'https://ministers.treasury.gov.au/ministers/jim-chalmers-2022/media-releases';
+  assert.equal(findListedLink(html, 'Tax reform for a fairer tax system', base), 'https://ministers.treasury.gov.au/ministers/jim-chalmers-2022/media-releases/tax-reform-fairer-tax-system');
+  assert.equal(findListedLink(html, 'First meeting between UK Chancellor Healey and Australian Treasurer Chalmers', base),
+    'https://ministers.treasury.gov.au/ministers/jim-chalmers-2022/media-releases/first-meeting-between-uk-chancellor-healey-and');
+  // Slug matched by its opening words when the anchor text differs.
+  assert.equal(findListedLink('<a href="/x/tax-reform-fairer-tax-system">Read more</a>', 'Tax reform for a fairer tax system', base),
+    'https://ministers.treasury.gov.au/x/tax-reform-fairer-tax-system');
+  assert.equal(findListedLink(html, 'Something else entirely', base), null);
 }
 
 console.log('australia-inc checks passed');
