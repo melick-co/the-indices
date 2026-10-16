@@ -66,6 +66,13 @@ function SourceDetail({ action, payload }: { action: string; payload: Record<str
   if (action === 'register_data_source') {
     return (
       <div style={detail}>
+        {payload.origin ? (
+          <div>
+            Requested by {payload.origin === 'australia_inc' ? 'Australia Inc' : payload.origin === 'economists' ? 'the economists review' : String(payload.origin)}
+            {payload.org ? ` · ${String(payload.org)}` : ''}
+            {payload.claim ? <> · claim: &ldquo;{String(payload.claim)}&rdquo;</> : null}
+          </div>
+        ) : null}
         {payload.name ? <div>{String(payload.name)} ({String(payload.org ?? '')})</div> : null}
         {payload.url ? <div>{String(payload.url)}</div> : null}
         {payload.tier ? <div>Tier {String(payload.tier)} · {String(payload.cadence ?? 'irregular')}</div> : null}

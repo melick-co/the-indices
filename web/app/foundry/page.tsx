@@ -170,9 +170,14 @@ export default async function NewsdeskPage() {
   }
   for (const s of sourceSugs.rows ?? []) {
     const p = (s.payload ?? {}) as Row;
-    needs.push({ key: `s-${s.suggestion_id}`, label: s.action === 'register_rss_feed' ? 'New feed suggested' : 'New source suggested',
-      title: s.summary || p.name || p.url || 'Suggestion', meta: [hostOf(p.url ?? p.feed_url), timeAgo(s.created_at, now)].filter(Boolean).join(' · '),
-      href: '/foundry/pitches', action: <SourceDecision id={s.suggestion_id} /> });
+    // A series a reviewer asked the source scout for, because a claim could not be checked: show where and which claim.
+    const origin = p.origin === 'australia_inc' ? 'Australia Inc' : p.origin === 'economists' ? 'Economists' : null;
+    const claim = origin && p.claim ? `Claim: "${String(p.claim).slice(0, 140)}${String(p.claim).length > 140 ? '…' : ''}"` : null;
+    needs.push({ key: `s-${s.suggestion_id}`,
+      label: s.action === 'register_rss_feed' ? 'New feed suggested' : origin ? `Series requested · ${origin}` : 'New source suggested',
+      title: s.summary || p.name || p.url || 'Suggestion',
+      meta: [claim, origin && p.org, hostOf(p.url ?? p.feed_url), timeAgo(s.created_at, now)].filter(Boolean).join(' · '),
+      href: p.origin === 'australia_inc' ? '/australia-inc' : '/foundry/pitches', action: <SourceDecision id={s.suggestion_id} /> });
   }
   const needsCount = needs.length
     + Math.max(0, (sourceSugs.count ?? 0) - (sourceSugs.rows?.length ?? 0))

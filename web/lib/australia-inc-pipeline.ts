@@ -5,6 +5,7 @@ import { ensureDocument } from '../../agent/scripts/lib/source-docs.mjs';
 import { decodeEntities, fetchDocument } from '../../agent/scripts/lib/html-text.mjs';
 import { buildReference } from '../../agent/scripts/lib/revise-pitches.mjs';
 import { numbersIn } from '../../agent/scripts/lib/figures.mjs';
+import { adoptedForRecheck, claimRequests, fileClaimRequests, findClaim, markRechecked, normaliseNeeds } from '../../agent/scripts/lib/claim-requests.mjs';
 import { CHARTER } from '@/lib/research-agent';
 import { factCheckStory } from '@/lib/fact-check';
 import { auditClaims } from '@/lib/claim-audit';
@@ -24,6 +25,8 @@ import {
  *      against stored series (the economist reviewer's method: catalogue prompt, then verdicts against the latest
  *      readings with changes computed in code); upsert inc_items;
  *   3. write today's Bottom Line and run the strict check, fail closed: published only if everything passes.
+ * Claims on an official statistic the store does not hold ask the source scout for it (requestMissingSeries); once the
+ * scout adopts the series, the next run re-checks those claims against it (recheckAdopted, at the start of the run).
  */
 
 const HOURS = 36;
@@ -174,12 +177,17 @@ ${text.slice(0, 10_000)}
 Return:
 {"summary": "one or two plain sentences, attributed to ${c.publisher} or the person named (\\"The Treasurer said…\\"). Only figures that appear in the text above.",
  "claims": [                        // up to 4, the substantive ones that a national statistic could test
-   {"text": "the claim in one sentence, attributed", "metric_id": "the stored series measuring exactly the claim's quantity, from the catalogue, or null"}]}
+   {"text": "the claim in one sentence, attributed", "metric_id": "the stored series measuring exactly the claim's quantity, from the catalogue, or null",
+    "needs": null | {"series": "plain name of the statistic incl. basis, e.g. 'Unemployment rate, trend, Australia, monthly'", "org": "the official publisher", "why": "a few words"}}]}
 
 Rules: attribute every statement; never state a government claim as fact. A metric_id must measure the claim's own
 quantity on the same basis, not a related one: the same measure (nominal vs real, an index vs a rate, a private index
 such as Cotality vs an official one), the same frequency and period (since April vs quarterly), the same adjustment
 (trend vs seasonally adjusted). When in doubt, null: an unchecked claim is fine, a false contradiction is not. Australian English ("per cent", "labour", "organise"). No em dashes.
+needs: only when metric_id is null and the claim states an official Australian statistic that the ABS, the RBA,
+Treasury or the Parliamentary Budget Office, or an international official body (OECD, IMF, World Bank, BIS) would
+publish as a recurring series: name that series. Otherwise null: opinions, forecasts, promises, private data (Cotality,
+CoreLogic, PropTrack, bank or Westpac-Melbourne Institute surveys, polls) and one-off figures such as a company's results.
 
 Catalogue of stored series:
 ${cat}`;
@@ -200,6 +208,40 @@ Use only the figures given; no outside knowledge. Australian English, no em dash
 ${JSON.stringify(claims, null, 1)}`;
 }
 
+type Catalogue = Awaited<ReturnType<typeof catalogue>>;
+
+/**
+ * Verdicts for the claims tied to a stored series, in place: the latest readings (changes worked out in code), then the
+ * verdict prompt; a note may cite only the figures it was shown. `only` limits the check to one claim (a re-check).
+ * A claim left without a verdict was not checked: it shows no series.
+ */
+export async function checkClaims(db: SupabaseClient, claims: IncClaim[], published: string | null, cat: Catalogue, label: string, only?: number) {
+  const checkable: Array<{ i: number; claim: string; series: string; readings: string[] }> = [];
+  const allowed = new Map<number, number[]>();
+  for (const [i, k] of claims.entries()) {
+    if (only != null && i !== only) continue;
+    if (!k.metric_id) continue;
+    const rows = await latest(db, k.metric_id);
+    if (!rows.length) { k.metric_id = null; continue; }
+    checkable.push({ i, claim: k.text, series: `${k.metric_id} (${cat.names.get(k.metric_id) ?? ''})`, readings: rows.map((r) => `${r.period}: ${r.value} (change ${r.change >= 0 ? '+' : ''}${r.change})`) });
+    allowed.set(i, rows.flatMap((r) => [r.value, r.change]));
+  }
+  if (checkable.length) {
+    const v = await callClaudeJson(verdictPrompt(checkable, published), { label, maxTokens: 2000 }).catch(() => ({ verdicts: [] })) as { verdicts?: Array<{ i: number; verdict: string; note?: string }> };
+    for (const r of v.verdicts ?? []) {
+      const k = claims[r.i];
+      if (!k || !allowed.has(r.i) || !VERDICTS.includes(r.verdict as Verdict) || r.verdict === 'unclear') continue;
+      // The note may cite only the readings it was shown (or the claim's own figures).
+      const shown = [...(allowed.get(r.i) ?? []), ...numbersIn(k.text)];
+      const stray = numbersIn(r.note ?? '').filter((n) => !shown.some((a) => Math.abs(Math.abs(a) - n) < 0.051));
+      if (stray.length) continue;
+      k.verdict = r.verdict as Verdict;
+      k.note = r.note ?? null;
+    }
+  }
+  for (const [i, k] of claims.entries()) if ((only == null || i === only) && k.verdict === 'no series') k.metric_id = null;
+}
+
 /** Summaries and checked claims for the items that matter. */
 export async function reviewItems(db: SupabaseClient, cands: Candidate[], log: Log): Promise<ItemRow[]> {
   if (!cands.length) return [];
@@ -212,36 +254,18 @@ export async function reviewItems(db: SupabaseClient, cands: Candidate[], log: L
     if (!(await urlResolves(c.url))) { log(`skip (link does not resolve): ${c.title}`); continue; }
     const text = await sourceText(c.url, `${c.title}\n${c.summary}`);
     try {
-      const x = await callClaudeJson(extractPrompt(c, text, cat.text), { label: `australia-inc item ${p.i}`, maxTokens: 3000 }) as { summary?: string; claims?: Array<{ text?: string; metric_id?: string | null }> };
+      const x = await callClaudeJson(extractPrompt(c, text, cat.text), { label: `australia-inc item ${p.i}`, maxTokens: 3000 }) as { summary?: string; claims?: Array<{ text?: string; metric_id?: string | null; needs?: unknown }> };
       const claims: IncClaim[] = (x.claims ?? []).slice(0, 4)
-        .filter((k): k is { text: string; metric_id?: string | null } => typeof k.text === 'string' && k.text.trim().length > 0)
+        .filter((k): k is { text: string; metric_id?: string | null; needs?: unknown } => typeof k.text === 'string' && k.text.trim().length > 0)
         // A claim's figures must be the source's own.
         .filter((k) => figuresMissingFrom(k.text, text).length === 0)
-        .map((k) => ({ text: k.text.trim(), metric_id: k.metric_id && cat.ids.has(k.metric_id) ? k.metric_id : null, verdict: 'no series' as Verdict, note: null }));
-      const checkable: Array<{ i: number; claim: string; series: string; readings: string[] }> = [];
-      const allowed = new Map<number, number[]>();
-      for (const [i, k] of claims.entries()) {
-        if (!k.metric_id) continue;
-        const rows = await latest(db, k.metric_id);
-        if (!rows.length) { k.metric_id = null; continue; }
-        checkable.push({ i, claim: k.text, series: `${k.metric_id} (${cat.names.get(k.metric_id) ?? ''})`, readings: rows.map((r) => `${r.period}: ${r.value} (change ${r.change >= 0 ? '+' : ''}${r.change})`) });
-        allowed.set(i, rows.flatMap((r) => [r.value, r.change]));
-      }
-      if (checkable.length) {
-        const v = await callClaudeJson(verdictPrompt(checkable, c.published_at), { label: `australia-inc verdicts ${p.i}`, maxTokens: 2000 }).catch(() => ({ verdicts: [] })) as { verdicts?: Array<{ i: number; verdict: string; note?: string }> };
-        for (const r of v.verdicts ?? []) {
-          const k = claims[r.i];
-          if (!k || !VERDICTS.includes(r.verdict as Verdict) || r.verdict === 'unclear') continue;
-          // The note may cite only the readings it was shown (or the claim's own figures).
-          const shown = [...(allowed.get(r.i) ?? []), ...numbersIn(k.text)];
-          const stray = numbersIn(r.note ?? '').filter((n) => !shown.some((a) => Math.abs(Math.abs(a) - n) < 0.051));
-          if (stray.length) continue;
-          k.verdict = r.verdict as Verdict;
-          k.note = r.note ?? null;
-        }
-      }
-      // A claim without a verdict was not checked: it shows no series.
-      for (const k of claims) if (k.verdict === 'no series') k.metric_id = null;
+        .map((k) => {
+          const metric_id = k.metric_id && cat.ids.has(k.metric_id) ? k.metric_id : null;
+          // What the source scout could look for when no stored series measures the claim (official statistics only).
+          const needs = metric_id ? null : normaliseNeeds(k.needs);
+          return { text: k.text.trim(), metric_id, verdict: 'no series' as Verdict, note: null, ...(needs ? { needs } : {}) };
+        });
+      await checkClaims(db, claims, c.published_at, cat, `australia-inc verdicts ${p.i}`);
       const summary = (x.summary ?? '').trim();
       const problems = itemIssues(summary, c.publisher, text);
       const links: IncLink[] = [{ label: c.publisher || 'Source', url: c.url, kind: 'source' }];
@@ -270,6 +294,60 @@ export async function saveItems(db: SupabaseClient, rows: ItemRow[]): Promise<It
   if (error) throw new Error(`inc_items: ${error.message}`);
   const ids = new Map((data ?? []).map((d) => [d.url as string, d.id as string]));
   return rows.map((r) => ({ ...r, id: ids.get(r.url) }));
+}
+
+// ---------------------------------------------------------------------------------------------------- claims to the source scout
+
+/** Claims on an official statistic we do not hold: ask the source scout for the series (capped, deduplicated). */
+export async function requestMissingSeries(db: SupabaseClient, items: ItemRow[], opts: { dry: boolean; log: Log }): Promise<number> {
+  const requests = items.flatMap((i) => claimRequests(i.claims, { origin: 'australia_inc', url: i.url, item_id: i.id, title: i.title }));
+  if (!requests.length) return 0;
+  try {
+    return await fileClaimRequests(db, requests, { dry: opts.dry, log: opts.log });
+  } catch (e) {
+    opts.log(`claim requests failed: ${e instanceof Error ? e.message : e}`);
+    return 0;
+  }
+}
+
+/**
+ * Claims that asked the source scout for a series it has since adopted: tie each to the new series, check it once with
+ * the same readings and verdict prompt, and save. A new 'disagrees' holds the item for the editor, as at review time.
+ */
+export async function recheckAdopted(db: SupabaseClient, opts: { dry: boolean; log: Log }): Promise<number> {
+  const { dry, log } = opts;
+  const adopted = await adoptedForRecheck(db, 'australia_inc');
+  if (!adopted.length) return 0;
+  const cat = await catalogue(db);
+  let done = 0;
+  for (const s of adopted) {
+    const itemId = s.payload?.item_id;
+    if (!itemId) { if (!dry) await markRechecked(db, s, 'no item id'); continue; }
+    // The loaders add the series to the catalogue and store its readings; until they have, try again next run.
+    if (!cat.ids.has(s.metric_id) || !(await latest(db, s.metric_id)).length) { log(`re-check ${s.metric_id}: not loaded yet`); continue; }
+    const { data: item } = await db.from('inc_items').select('id, title, claims, links, status, published_at').eq('id', itemId).maybeSingle();
+    const claims = ((item?.claims ?? []) as IncClaim[]).map((k) => ({ ...k }));
+    const i = findClaim(claims, s.payload);
+    if (!item || i < 0) { if (!dry) await markRechecked(db, s, 'claim no longer on the item'); continue; }
+    if (claims[i].metric_id) { if (!dry) await markRechecked(db, s, `already tied to ${claims[i].metric_id}`); continue; }
+    claims[i] = { ...claims[i], metric_id: s.metric_id, verdict: 'no series', note: null };
+    await checkClaims(db, claims, item.published_at, cat, `australia-inc re-check ${item.id}`, i);
+    const k = claims[i];
+    const links = [...((item.links ?? []) as IncLink[])];
+    const chart = chartPathFor(k.metric_id);
+    if (chart && !links.some((l) => l.url === chart.path)) links.push({ label: chart.label, url: chart.path, kind: 'chart' });
+    // A contradiction goes live only after an editor has seen it.
+    const status = k.verdict === 'disagrees' ? 'new' : item.status;
+    const result = `${k.verdict}${k.metric_id ? ` against ${k.metric_id}` : ''}`;
+    log(`re-checked ${item.title}: "${k.text.slice(0, 80)}" -> ${result}${status !== item.status ? ' (held for the editor)' : ''}${dry ? ' (dry run)' : ''}`);
+    if (!dry) {
+      const { error } = await db.from('inc_items').update({ claims, links, status }).eq('id', item.id);
+      if (error) { log(`  not saved: ${error.message}`); continue; }
+      await markRechecked(db, s, result);
+    }
+    done++;
+  }
+  return done;
 }
 
 // ---------------------------------------------------------------------------------------------------- 3. the bottom line
@@ -397,7 +475,8 @@ export async function writeBottomLine(db: SupabaseClient, newItems: ItemRow[], o
   const items = pool.filter((i) => !seen.has(i.url) && seen.add(i.url)).slice(0, 12);
   if (!items.length) { log('bottom line: nothing published in the commentary in the last 36 hours; no brief today'); return null; }
 
-  const sources = items.map((i, k) => ({ n: k + 1, title: i.title, url: i.url, publisher: i.publisher ?? '', official: isOfficialUrl(i.url), summary: i.summary ?? '', claims: (i.claims ?? []) as IncClaim[] }));
+  // A claim's request to the source scout (needs) is plumbing, not something the brief reports.
+  const sources = items.map((i, k) => ({ n: k + 1, title: i.title, url: i.url, publisher: i.publisher ?? '', official: isOfficialUrl(i.url), summary: i.summary ?? '', claims: ((i.claims ?? []) as IncClaim[]).map(({ needs: _needs, ...rest }) => rest) }));
   const cat = await catalogue(db);
   const metricIds = [...new Set(['cash_rate_au', 'unemployment_rate_au', ...sources.flatMap((s) => s.claims.map((c) => c.metric_id).filter((x): x is string => Boolean(x)))])].filter((id) => cat.ids.has(id));
   const reference = await buildReference(db, metricIds, { history: 12 });

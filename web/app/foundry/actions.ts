@@ -154,7 +154,8 @@ export async function approveSourceSuggestion(suggestionId: string, note?: strin
         name: String(p.name ?? s.summary ?? sourceId),
         org: String(p.org ?? 'Unknown'),
         tier: Number(p.tier) || 2,
-        access_url: p.url ? String(p.url) : null,
+        // A claim-driven request's url is the item that made the claim, not the data's address.
+        access_url: p.url && !p.origin ? String(p.url) : null,
         cadence: (['daily', 'weekly', 'monthly', 'quarterly', 'biannual', 'annual', 'irregular'] as const)
           .includes(p.cadence as 'monthly') ? String(p.cadence) : 'irregular',
         notes: p.why ? String(p.why) : null,
