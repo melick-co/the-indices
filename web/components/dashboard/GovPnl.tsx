@@ -49,7 +49,8 @@ export function GovPnlView({ d }: { d: GovPnlData }) {
                     <td>{opt(p)}</td>
                     <td className={ch == null ? '' : ch.up ? 'up' : 'down'}>{ch?.text ?? '—'}</td>
                     <td>{perPerson(v)}</td>
-                    <td>{v == null ? '—' : `${((Math.abs(v) / c.revenue) * 100).toFixed(1)}%`}</td>
+                    {/* Signed, as the amounts are: a deficit or borrowing is a negative share of revenue. */}
+                    <td>{v == null ? '—' : pct((v / c.revenue) * 100)}</td>
                     <td>{opt(a)}</td>
                   </tr>
                 );
