@@ -4823,7 +4823,19 @@ a.dx-driver:hover { background: #f5f7fb; }
 @container (max-width: 520px) {
   .dx-pnl th:nth-child(3), .dx-pnl td:nth-child(3), .dx-pnl th:nth-child(5), .dx-pnl td:nth-child(5) { display: none; }
   .dx-pnl td:first-child { min-width: 120px; }
+  /* The government's statement has an all-governments column too: drop the share of revenue as well. */
+  .dx-pnl-gov th:nth-child(6), .dx-pnl-gov td:nth-child(6) { display: none; }
+  .dx-pnl-gov th, .dx-pnl-gov td { padding-left: 4px; padding-right: 4px; }
+  .dx-pnl-gov td:first-child { min-width: 96px; }
+  .dx-pnl-gov .dx-wide { display: none; }
 }
+.dx-pnl-gov .dx-narrow { display: none; }
+@container (max-width: 520px) { .dx-pnl-gov .dx-narrow { display: inline; } }
+
+/* The government's profit and loss, below the country's: same frame, no second full-height canvas. */
+.dx-body + .dx-gov { padding-top: 0; }
+.dx.dx-embed { min-height: 0; }
+.dx-gov .dx-pnl td small { white-space: normal; }
 
 /* ==========================================================================================================
    The Indices: its own site. Reuses the desk's tokens (fonts, colours) without the desk's sidebar.

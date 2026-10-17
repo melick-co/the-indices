@@ -40,7 +40,8 @@ function change(now: number, prior: number | null) {
   return ((now - prior) / Math.abs(prior)) * 100;
 }
 
-export function PnlView({ d }: { d: PnlData }) {
+/** `children` renders below the statement, inside the same frame (the government's profit and loss). */
+export function PnlView({ d, children }: { d: PnlData; children?: React.ReactNode }) {
   const { now, prior, population } = d;
   const perPerson = (m: number) => (population ? `$${Math.round((m * 1e6) / population.value).toLocaleString('en-AU')}` : '—');
   const margin = (now.saving / now.gni) * 100;
@@ -147,6 +148,7 @@ export function PnlView({ d }: { d: PnlData }) {
           Every line is an official ABS figure from the national accounts (ANA_INC, ANA_AGG, ANA_EXP) and the balance of payments (BOP), summed over the four quarters shown, except depreciation, which the ABS data API doesn&apos;t publish at current prices. It is derived from the national income account identity: net saving = gross national income + net transfers from abroad − consumption − depreciation. Before the figures are stored, the loader checks that the income lines sum to GDP and that GDP agrees across the income, expenditure and key-aggregate tables.
         </p>
       </div>
+      {children}
     </main>
   );
 }
