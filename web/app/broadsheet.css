@@ -325,7 +325,30 @@ body:has(.site-shell--bs) { background: #fdfcf3; }
 .site-shell--bs .inc-item-date { color: var(--bs-caption); }
 .site-shell--bs .inc-item-hed { font-family: var(--bs-serif); font-weight: 400; font-size: 20px; line-height: 1.25; letter-spacing: -0.01em; margin: 4px 0 6px; }
 .site-shell--bs .inc-item-hed a { color: var(--bs-ink); }
-.site-shell--bs .inc-item-summary { font-size: 15px; line-height: 1.45; margin: 0 0 8px; }
+.site-shell--bs .inc-item-summary {
+  font-size: 15px; line-height: 1.45; margin: 0 0 6px;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
+}
+/* Opened: the whole summary, then the checks and links. */
+.site-shell--bs .inc-item:has(> .inc-item-more[open]) .inc-item-summary { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
+.site-shell--bs .inc-item-more > summary,
+.site-shell--bs .inc-earlier > summary {
+  list-style: none; cursor: pointer; display: inline-block;
+  font-family: var(--bs-sans, inherit); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--bs-caption); border-bottom: 1px solid currentColor; padding-bottom: 1px;
+}
+.site-shell--bs .inc-item-more > summary::-webkit-details-marker,
+.site-shell--bs .inc-earlier > summary::-webkit-details-marker { display: none; }
+.site-shell--bs .inc-item-more > summary::after { content: ' \2193'; }
+.site-shell--bs .inc-item-more[open] > summary { font-size: 0; border: 0; }
+.site-shell--bs .inc-item-less { display: none; }
+.site-shell--bs .inc-item-more[open] .inc-item-less { display: inline; font-size: 12px; border-bottom: 1px solid currentColor; }
+.site-shell--bs .inc-item-more[open] > summary::after { content: ' \2191'; font-size: 12px; }
+.site-shell--bs .inc-item-more[open] { display: flex; flex-direction: column; }
+.site-shell--bs .inc-item-more[open] > summary { order: 2; margin-top: 4px; align-self: flex-start; }
+.site-shell--bs .inc-item-more > .inc-claims { margin-top: 8px; }
+.site-shell--bs .inc-earlier { margin-top: 4px; }
+.site-shell--bs .inc-earlier > summary { margin-bottom: 16px; }
 .site-shell--bs .inc-claims { list-style: none; padding: 0; margin: 0 0 8px; font-size: 14px; line-height: 1.45; }
 .site-shell--bs .inc-claims li { margin-bottom: 6px; }
 .site-shell--bs .inc-claim-note { color: var(--bs-caption); }
