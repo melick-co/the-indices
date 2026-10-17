@@ -364,6 +364,8 @@ body:has(.site-shell--bs) { background: #fdfcf3; }
 .site-shell--bs .inc-numbers { margin: 48px 0 20px; }
 /* The P&L dashboard is built for the Indices frame (negative margins); here it sits flush in the page. */
 .site-shell--bs .inc-pnl > .dx { margin: 0 auto; max-width: var(--page-max-width); }
+/* The government's statement sits under its own section head ("The government's books"), so its dashboard heading goes. */
+.site-shell--bs .inc-pnl .dx-gov > .dx-h2 { display: none; }
 .site-shell--bs .inc-edition { max-width: 760px; }
 .site-shell--bs .inc-sources { margin-top: 28px; font-size: 14px; }
 .site-shell--bs .inc-sources ul { padding-left: 18px; }
