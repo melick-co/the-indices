@@ -160,6 +160,34 @@ export function validateDraft(draft: BottomLineDraft, sources: SourceRef[]): { i
   return { issues, warnings };
 }
 
+/** Issues from the claim audit and the source check, which quote the text they reject. */
+const QUOTED = /^(claim not supported by stored data|source): "([^"]{8,})"/;
+
+/**
+ * The sentence ("<paragraph>:<sentence>", zero-based) a quoted claim comes from: the one containing the quote, or,
+ * since the audit sometimes paraphrases, the one sharing most of the quote's content words (at least two thirds of
+ * them, and clearly ahead of the next best). Null when it cannot be told, or when the quote is in the headline (a
+ * headline cannot be cut), so the brief is held rather than guessed at.
+ */
+export function locateSentence(draft: BottomLineDraft, quote: string): string | null {
+  const norm = (t: string) => wordsOf(t).join(' ');
+  const q = norm(quote.replace(/\[[^\]]*\]/g, ' ').replace(/(?:\.\.\.|…)/g, ' '));
+  if (!q) return null;
+  const qWords = [...new Set(q.split(' ').filter((w) => !STOP.has(w)))];
+  if (draft.headline && norm(draft.headline).includes(q)) return null;
+  let best: { at: string; score: number } | null = null;
+  let second = 0;
+  draft.paragraphs.forEach((p, i) => p.sentences.forEach((s, k) => {
+    const t = norm(s.text);
+    const score = t.includes(q) || (q.length > 30 && q.includes(t)) ? 1
+      : qWords.length ? qWords.filter((w) => t.split(' ').includes(w)).length / qWords.length : 0;
+    if (!best || score > best.score) { second = best?.score ?? 0; best = { at: `${i}:${k}`, score }; }
+    else if (score > second) second = score;
+  }));
+  if (!best || (best as { score: number }).score < 2 / 3 || (best as { score: number }).score - second < 0.2) return null;
+  return (best as { at: string }).at;
+}
+
 /** The sentence-level breaches a sentence can simply be cut for: a news figure, an unattributed figure, internal wording. */
 const DROPPABLE = /^paragraph (\d+) sentence (\d+): (?:a figure from a news report|the figure is from|internal wording)/;
 
@@ -175,9 +203,15 @@ export function dropFlaggedSentences(
   if (!issues.length) return null;
   const cut = new Set<string>();
   for (const i of issues) {
+    // Length and paragraph count are re-checked after the cut (validateDraft), so they never block it.
+    if (/^\d+ (?:words; the brief must run|paragraphs; the brief has)/.test(i)) continue;
     const m = DROPPABLE.exec(i);
-    if (!m) return null;
-    cut.add(`${Number(m[1]) - 1}:${Number(m[2]) - 1}`);
+    if (m) { cut.add(`${Number(m[1]) - 1}:${Number(m[2]) - 1}`); continue; }
+    // The claim audit and the source check quote the text instead of naming the sentence: find it.
+    const quoted = QUOTED.exec(i);
+    const at = quoted ? locateSentence(draft, quoted[2]) : null;
+    if (!at) return null;
+    cut.add(at);
   }
   const dropped: string[] = [];
   const kept: Array<{ p: DraftParagraph; links: IncLink[] }> = [];

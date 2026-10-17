@@ -527,7 +527,7 @@ export async function writeBottomLine(db: SupabaseClient, newItems: ItemRow[], o
     if (cut) {
       const again = validateDraft(cut.draft, sources);
       if (!again.issues.length) {
-        log(`bottom line: cut ${cut.dropped.length} sentence(s) that broke the figures rule`);
+        log(`bottom line: cut ${cut.dropped.length} sentence(s) the checks rejected`);
         draft = cut.draft; links = cut.links;
         check = { ...check, ok: true, issues: [], warnings: [...check.warnings, ...again.warnings, ...cut.dropped.map((t) => `cut: ${t}`)] };
       }
