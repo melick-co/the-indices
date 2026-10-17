@@ -380,3 +380,10 @@ body:has(.site-shell--bs) { background: #fdfcf3; }
 .site-shell--bs .inc-teaser-more { font-family: var(--bs-serif); font-size: 13px; }
 .site-shell--bs .inc-teaser-more a { color: var(--bs-ink); border-bottom: 1px solid var(--bs-ink); }
 .site-shell--bs .inc-teaser-date { color: var(--bs-caption); }
+
+/* Two-series line charts: the broadsheet's --pen is its ink, so the second series drew black like the first and the
+   two could not be told apart. On the broadsheet the second series is the caption grey, with its key and end label. */
+.site-shell--bs .story-line-path.alt { stroke: var(--bs-caption); }
+.site-shell--bs .story-line-dot.key.alt,
+.site-shell--bs .story-line-label.key.alt { fill: var(--bs-caption); }
+.site-shell--bs .story-line-legend .swatch.alt { border-top-color: var(--bs-caption); }
