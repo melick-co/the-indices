@@ -166,6 +166,11 @@ assert.ok(itemIssues('The deficit is $30 billion.', 'Treasurer', 'the deficit is
   assert.equal(cut!.dropped.length, 2);
   assert.equal(cut!.draft.paragraphs.length, 2);
   assert.equal(dropFlaggedSentences(d, d.paragraphs.map(() => []), ['footnote 3 links to a page that no longer exists']), null);
+  // Length is re-checked after the cut, so it does not stop one.
+  assert.ok(dropFlaggedSentences(d, d.paragraphs.map(() => []), [
+    '340 words; the brief must run 120 to 320 (aim for 180 to 250)',
+    'claim not supported by stored data: "highest reading in the stored series"',
+  ]));
 }
 
 console.log('australia-inc checks passed');

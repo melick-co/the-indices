@@ -203,6 +203,8 @@ export function dropFlaggedSentences(
   if (!issues.length) return null;
   const cut = new Set<string>();
   for (const i of issues) {
+    // Length and paragraph count are re-checked after the cut (validateDraft), so they never block it.
+    if (/^\d+ (?:words; the brief must run|paragraphs; the brief has)/.test(i)) continue;
     const m = DROPPABLE.exec(i);
     if (m) { cut.add(`${Number(m[1]) - 1}:${Number(m[2]) - 1}`); continue; }
     // The claim audit and the source check quote the text instead of naming the sentence: find it.
