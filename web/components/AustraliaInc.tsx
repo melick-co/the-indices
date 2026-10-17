@@ -56,6 +56,45 @@ const VERDICT: Record<string, string> = {
 const KIND: Record<string, string> = { announcement: 'Announcement', release: 'Release', news: 'In the news' };
 const shortDate = (s: string | null) => (s ? new Date(s).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'Australia/Sydney' }) : '');
 
+/** How many items the wire shows before "Earlier on the wire": about the height of The Bottom Line beside it. */
+const WIRE_SHOWN = 4;
+
+function WireItem({ it }: { it: IncItem }) {
+  const checked = it.claims.filter((c) => VERDICT[c.verdict]);
+  const others = it.links.filter((l) => l.url !== it.url);
+  return (
+    <li className="inc-item">
+      <p className="inc-item-kicker">
+        {[it.publisher, KIND[it.kind] ?? it.kind].filter(Boolean).join(' · ')}
+        {it.published_at ? <span className="inc-item-date"> · {shortDate(it.published_at)}</span> : null}
+      </p>
+      <h3 className="inc-item-hed"><a href={it.url} target="_blank" rel="noreferrer">{it.title}</a></h3>
+      {/* The first lines show; "More" opens the rest of the summary, the checks and the links in place. */}
+      {it.summary && <p className="inc-item-summary">{it.summary}</p>}
+      <details className="inc-item-more">
+        <summary>More<span className="inc-item-less">Less</span></summary>
+        {checked.length > 0 && (
+          <ul className="inc-claims">
+            {checked.map((c, i) => (
+              <li key={i}>
+                <span className={`inc-chip inc-chip-${c.verdict.replace(' ', '-')}`}>{VERDICT[c.verdict]}</span>{' '}
+                {c.text}
+                {c.note && <span className="inc-claim-note"> {c.note}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="inc-item-links">
+          <a href={it.url} target="_blank" rel="noreferrer">Read it at {it.publisher || 'the source'}</a>
+          {others.map((l) => (
+            <span key={l.url}> · <Anchor link={l}>{l.label}</Anchor></span>
+          ))}
+        </p>
+      </details>
+    </li>
+  );
+}
+
 export function IncItemList({ items }: { items: IncItem[] }) {
   if (!items.length) {
     return (
@@ -65,41 +104,22 @@ export function IncItemList({ items }: { items: IncItem[] }) {
       </p>
     );
   }
+  const shown = items.slice(0, WIRE_SHOWN);
+  const earlier = items.slice(WIRE_SHOWN);
   return (
-    <ol className="inc-items">
-      {items.map((it) => {
-        const checked = it.claims.filter((c) => VERDICT[c.verdict]);
-        const others = it.links.filter((l) => l.url !== it.url);
-        return (
-          <li key={it.id} className="inc-item">
-            <p className="inc-item-kicker">
-              {[it.publisher, KIND[it.kind] ?? it.kind].filter(Boolean).join(' · ')}
-              {it.published_at ? <span className="inc-item-date"> · {shortDate(it.published_at)}</span> : null}
-            </p>
-            <h3 className="inc-item-hed"><a href={it.url} target="_blank" rel="noreferrer">{it.title}</a></h3>
-            {it.summary && <p className="inc-item-summary">{it.summary}</p>}
-            {checked.length > 0 && (
-              <ul className="inc-claims">
-                {checked.map((c, i) => (
-                  <li key={i}>
-                    <span className={`inc-chip inc-chip-${c.verdict.replace(' ', '-')}`}>{VERDICT[c.verdict]}</span>{' '}
-                    {c.text}
-                    {c.note && <span className="inc-claim-note"> {c.note}</span>}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {others.length > 0 && (
-              <p className="inc-item-links">
-                {others.map((l, i) => (
-                  <span key={l.url}>{i > 0 ? ' · ' : ''}<Anchor link={l}>{l.label}</Anchor></span>
-                ))}
-              </p>
-            )}
-          </li>
-        );
-      })}
-    </ol>
+    <>
+      <ol className="inc-items">
+        {shown.map((it) => <WireItem key={it.id} it={it} />)}
+      </ol>
+      {earlier.length > 0 && (
+        <details className="inc-earlier">
+          <summary>Earlier on the wire ({earlier.length})</summary>
+          <ol className="inc-items">
+            {earlier.map((it) => <WireItem key={it.id} it={it} />)}
+          </ol>
+        </details>
+      )}
+    </>
   );
 }
 
