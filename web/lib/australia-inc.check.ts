@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   dropFlaggedSentences,
+  locateSentence,
   findListedLink,
   chartPathFor, dataFigures, decide, figuresMissingFrom, filterLinks, internalPathOk, isOfficialUrl, itemIssues, linkify,
   matchesTopics, normaliseDraft, shouldWrite, toCheckable, validateDraft, type BottomLineDraft, type SourceRef,
@@ -123,6 +124,7 @@ assert.ok(itemIssues('The deficit is $30 billion.', 'Treasurer', 'the deficit is
   assert.equal(cut!.draft.paragraphs[0].sentences.length, 1);
   assert.equal(cut!.links.length, 1);
   assert.equal(cut!.dropped.length, 2);
+  // A quote too short or too vague to place still holds the brief.
   assert.equal(dropFlaggedSentences(d, links, ['claim not supported by stored data: "x"']), null);
   assert.equal(dropFlaggedSentences(d, links, []), null);
 }
@@ -140,6 +142,30 @@ assert.ok(itemIssues('The deficit is $30 billion.', 'Treasurer', 'the deficit is
   assert.equal(findListedLink('<a href="/x/tax-reform-fairer-tax-system">Read more</a>', 'Tax reform for a fairer tax system', base),
     'https://ministers.treasury.gov.au/x/tax-reform-fairer-tax-system');
   assert.equal(findListedLink(html, 'Something else entirely', base), null);
+}
+
+// Claim-audit and source-check issues quote the text: the sentence is found and cut; a vague quote holds the brief.
+{
+  const d: BottomLineDraft = { headline: 'Unemployment rises to 4.7 per cent', paragraphs: [
+    { sentences: [
+      { text: 'The ABS said unemployment rose to 4.7 per cent in September, the highest reading in the stored series.', source: null },
+      { text: 'The cash rate is 4.6 per cent.', source: null },
+    ], links: [] },
+    { sentences: [{ text: 'At the G20 Finance Ministers meeting in Bangkok, the Treasurer said the war in the Middle East must end.', source: 1 }], links: [] },
+    { sentences: [{ text: 'APRA published life insurance statistics.', source: 2 }], links: [] },
+  ] };
+  assert.equal(locateSentence(d, 'highest reading in the stored series'), '0:0');
+  assert.equal(locateSentence(d, 'At the G20 Finance Ministers meeting in Bangkok, the Treasurer said the war in the Middle East'), '1:0');
+  assert.equal(locateSentence(d, 'Unemployment rises to 4.7 per cent'), null); // the headline: never cut, so held
+  assert.equal(locateSentence(d, 'something nobody wrote anywhere'), null);
+  const cut = dropFlaggedSentences(d, d.paragraphs.map(() => []), [
+    'claim not supported by stored data: "highest reading in the stored series" (the 2021-10 value is higher)',
+    'source: "At the G20 Finance Ministers meeting in Bangkok, the Treasurer said the war in the Middle East" is not supported by https://x (future tense)',
+  ]);
+  assert.ok(cut);
+  assert.equal(cut!.dropped.length, 2);
+  assert.equal(cut!.draft.paragraphs.length, 2);
+  assert.equal(dropFlaggedSentences(d, d.paragraphs.map(() => []), ['footnote 3 links to a page that no longer exists']), null);
 }
 
 console.log('australia-inc checks passed');
