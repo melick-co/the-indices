@@ -58,6 +58,25 @@ export const gfsId = (sector, suffix) => `gfs_${sector}_${suffix}`;
 export const close = (a, b) => Math.abs(a - b) <= Math.max(5, Math.abs(b) * 0.0005);
 
 /**
+ * Near enough to store with a flag: off by more than rounding but by no more than 0.5% of the balance. The source's
+ * own lines are kept as reported (net lending comes straight from the IMF; nothing is recomputed); the flag goes in the
+ * log and in the series' metadata. The one case so far: Commonwealth 2007-Q2, revenue − expenses = 11,590 against a
+ * reported net operating balance of 11,630 ($40m, 0.34%).
+ */
+export const NEAR_SHARE = 0.005;
+export const near = (a, b) => Math.abs(a - b) <= Math.max(5, Math.abs(b) * NEAR_SHARE);
+
+/**
+ * Quarters published under a sector code but on a different coverage, so they are not that sector's figures. The IMF's
+ * Commonwealth series (S1321) has nothing for 2007-Q4 to 2009-Q4, and its four 2010 quarters carry payroll and
+ * property taxes (levied by the states, not the Commonwealth), employee costs about four times the Commonwealth's
+ * and almost no grants paid: a wider government's accounts, not the Commonwealth's. From 2011-Q1 the series is the
+ * Commonwealth again (grants to the states, no property tax). These quarters are neither stored nor read.
+ */
+export const COVERAGE_BREAKS = /** @type {Record<string, string[]>} */ ({ cwth: ['2010-Q1', '2010-Q2', '2010-Q3', '2010-Q4'], all: [] });
+export const usableQuarter = (sector, period) => !(COVERAGE_BREAKS[sector] ?? []).includes(period);
+
+/**
  * A line's value for one quarter, or null. Optional lines missing from a quarter that has its breakdown (taxes are
  * there) count as zero; a quarter stored as totals only has no breakdown lines at all.
  */
@@ -69,15 +88,22 @@ export function val(q, suffix) {
 
 /**
  * Identity checks for one quarter ({ suffix: $m }). Core identities gate the quarter; breakdown identities gate its
- * breakdown lines. Returns { core: [failures], breakdown: [failures] }, each failure a sentence for the log.
+ * breakdown lines. A core identity that misses by more than rounding but within NEAR_SHARE is a flag, not a failure:
+ * the quarter is stored as reported and the flag is recorded. Returns { core, breakdown, flags }, each a list of
+ * sentences for the log.
  */
 export function checkQuarter(q) {
-  const core = [], breakdown = [];
+  const core = [], breakdown = [], flags = [];
   for (const s of CORE) if (val(q, s) == null) core.push(`${s} missing`);
   if (!core.length) {
     const [rev, exp, nob, ni, nlb] = CORE.map((s) => val(q, s));
-    if (!close(rev - exp, nob)) core.push(`revenue − expenses = ${round(rev - exp)} but net operating balance = ${round(nob)}`);
-    if (!close(nob - ni, nlb)) core.push(`net operating balance − net investment = ${round(nob - ni)} but net lending = ${round(nlb)}`);
+    const identity = (got, want, text) => {
+      if (close(got, want)) return;
+      const off = `${text} (off by ${round(Math.abs(got - want))}, ${((Math.abs(got - want) / Math.abs(want || 1)) * 100).toFixed(2)}%)`;
+      (near(got, want) ? flags : core).push(off);
+    };
+    identity(rev - exp, nob, `revenue − expenses = ${round(rev - exp)} but net operating balance = ${round(nob)}`);
+    identity(nob - ni, nlb, `net operating balance − net investment = ${round(nob - ni)} but net lending = ${round(nlb)}`);
   }
   const sum = (parts) => parts.reduce((t, s) => (t == null || val(q, s) == null ? null : t + val(q, s)), 0);
   for (const [what, parts, total] of [['taxes', TAX_PARTS, 'tax'], ['revenue', REVENUE_PARTS, 'revenue'], ['expenses', EXPENSE_PARTS, 'expense']]) {
@@ -85,7 +111,7 @@ export function checkQuarter(q) {
     if (s == null || t == null) breakdown.push(`${what}: a component is missing`);
     else if (!close(s, t)) breakdown.push(`${what}: components sum to ${round(s)} but the total is ${round(t)}`);
   }
-  return { core, breakdown };
+  return { core, breakdown, flags };
 }
 
 const round = (v) => Math.round(v).toLocaleString('en-AU');
