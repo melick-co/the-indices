@@ -395,3 +395,47 @@ export function findListedLink(html: string, title: string, base: string): strin
   try { return new URL(best.href, base).toString(); } catch { return null; }
 }
 
+/**
+ * The cash rate's path as plain facts for the Bottom Line writer, from the stored decisions (one row per change,
+ * dated by when it took effect). A run of moves is counted from where it started: the year's opening level, or the last
+ * change of direction. "Up 0.75 points across three moves since February" was true but left out February's own rise
+ * (18 October 2026); with the counts given, the writer says "four rises this year, from 3.60 per cent".
+ */
+export function ratePath(rows: Array<{ period: string; value: number }>, day: string): string | null {
+  const moves = [...rows].filter((r) => Number.isFinite(Number(r.value))).sort((a, b) => a.period.localeCompare(b.period))
+    .map((r) => ({ date: r.period.slice(0, 10), value: Number(r.value) }));
+  if (moves.length < 2) return null;
+  const fmt = (v: number) => `${v.toFixed(2)} per cent`;
+  const pts = (d: number) => `${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d).toFixed(2)} points`;
+  const longDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const steps = moves.slice(1).map((m, i) => ({ ...m, change: Math.round((m.value - moves[i].value) * 100) / 100 })).filter((m) => m.change !== 0);
+  const latest = moves[moves.length - 1];
+  const lines = [`The cash rate is ${fmt(latest.value)}, set on ${longDate(latest.date)}.`];
+
+  const year = day.slice(0, 4);
+  const thisYear = steps.filter((s) => s.date.startsWith(year) && s.date <= day);
+  const opening = [...moves].reverse().find((m) => m.date < `${year}-01-01`);
+  if (thisYear.length && opening) {
+    const ups = thisYear.filter((s) => s.change > 0).length, downs = thisYear.length - ups;
+    const kinds = [ups && `${ups} rise${ups === 1 ? '' : 's'}`, downs && `${downs} cut${downs === 1 ? '' : 's'}`].filter(Boolean).join(' and ');
+    lines.push(`This year: ${kinds} (${thisYear.map((s) => longDate(s.date).replace(` ${year}`, '')).join(', ')}), from ${fmt(opening.value)} at the start of ${year} to ${fmt(latest.value)}: ${pts(latest.value - opening.value)}.`);
+  } else if (opening) {
+    lines.push(`No change so far this year; the rate has been ${fmt(latest.value)} since ${longDate(latest.date)}.`);
+  }
+
+  // The current run: back to the last change of direction.
+  const last = steps[steps.length - 1];
+  if (last) {
+    const dir = Math.sign(last.change);
+    let i = steps.length - 1;
+    while (i > 0 && Math.sign(steps[i - 1].change) === dir) i--;
+    const run = steps.slice(i);
+    const before = i > 0 ? steps[i - 1] : null;
+    const from = moves.find((m) => m.date === run[0].date);
+    const start = from ? Math.round((from.value - run[0].change) * 100) / 100 : null;
+    const word = dir > 0 ? 'rise' : 'cut';
+    lines.push(`Current run: ${run.length} ${word}${run.length === 1 ? '' : 's'} in a row since ${start != null ? fmt(start) : 'the last change'}${before ? ` (the last ${dir > 0 ? 'cut' : 'rise'}, on ${longDate(before.date)})` : ''}: ${pts(latest.value - (start ?? latest.value))}.`);
+  }
+  return lines.join(' ');
+}
+

@@ -48,7 +48,7 @@ on:
         options: [rss, trends, trending, trending-review, email, economists, economists-again, economists-dry-run, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, gfs, gfs-dry-run, wb, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, races-replace, house-track, house-track-choose, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, hero-review, story-highlights, story-highlights-dry-run, reel-cut, reel-rewrite, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, australia-inc, australia-inc-dry-run, rub-draft, rub-draft-dry-run, scorecard, scorecard-dry-run, both]
         default: both
       pitch:
-        description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, reel-rewrite, story-refresh(-apply): story slug(s). Space separated.'
+        description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, reel-rewrite, story-refresh(-apply): story slug(s); races: a race or bars video key (race:erp_cob, bars:gov_borrowing). Space separated.'
         required: false
         default: ''
       edits:
@@ -440,7 +440,8 @@ jobs:
 
   races:
     # Bar-chart-race videos (9:16, 16:9, 1:1) with music and data-derived captions, published as a visual.
-    # pitch input = a race key to force (e.g. race:erp_cob). races-dry-run uploads to drafts/ and publishes nothing.
+    # pitch input = a race key to force (e.g. race:erp_cob), or a bars-over-time video (e.g. bars:gov_borrowing, never
+    # rendered by the weekly run). races-dry-run uploads to drafts/ and publishes nothing.
     if: >-
       github.event_name == 'workflow_dispatch' && startsWith(inputs.task, 'races') ||
       github.event_name == 'schedule' && github.event.schedule == '43 22 * * 1'

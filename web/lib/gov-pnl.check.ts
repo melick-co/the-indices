@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { checkQuarter, fyLabel, gfsId, shifts, val, yearStatement, yearSum } from '../../agent/scripts/lib/gfs.mjs';
+import { checkQuarter, fyLabel, gfsId, shifts, usableQuarter, val, yearStatement, yearSum } from '../../agent/scripts/lib/gfs.mjs';
 import { GOV_LINES, commonEnd, consecutiveTail, fiscalYears, govChange, govStatement, sumFour, toQuarters, type Quarters } from './gov-pnl-core';
 
 // A quarter that adds up: Commonwealth, March quarter 2026 (IMF QGFS, $m).
@@ -12,16 +12,30 @@ const good = {
 };
 
 // ---------- identity checks
-assert.deepEqual(checkQuarter(good), { core: [], breakdown: [] });
+assert.deepEqual(checkQuarter(good), { core: [], breakdown: [], flags: [] });
 assert.match(checkQuarter({ ...good, nob: 1500 }).core[0], /revenue − expenses/, 'revenue − expenses must equal the operating balance');
 assert.equal(checkQuarter({ ...good, nlb: 0 }).core.length, 1, 'operating balance − net investment must equal net lending');
 assert.match(checkQuarter({ ...good, nlb: undefined }).core[0], /nlb missing/);
 assert.deepEqual(checkQuarter({ ...good, nob: 1122 }).core, [], 'within rounding ($5m)');
+// Off by more than rounding but within 0.5%: stored as reported, with a flag. Commonwealth 2007-Q2 as the IMF publishes
+// it (totals only): revenue − expenses = 11,590 against a net operating balance of 11,630, $40m or 0.34%.
+const q0702 = { revenue: 81808, expense: 70218, nob: 11630, net_investment: 1369, nlb: 10261 };
+const c0702 = checkQuarter(q0702);
+assert.deepEqual(c0702.core, [], '2007-Q2 is not refused');
+assert.equal(c0702.flags.length, 1, '2007-Q2 is flagged');
+assert.match(c0702.flags[0], /11,590 but net operating balance = 11,630 \(off by 40, 0\.34%\)/);
+const c11650 = checkQuarter({ ...q0702, nob: 11650 });
+assert.equal(c11650.core.length, 1, 'beyond 0.5% ($60m on 11,650 is 0.52%) the quarter is refused');
+assert.match(c11650.core[0], /revenue − expenses/);
+// Quarters published under the Commonwealth code on a wider coverage are not read.
+assert.equal(usableQuarter('cwth', '2010-Q3'), false);
+assert.equal(usableQuarter('cwth', '2011-Q1'), true);
+assert.equal(usableQuarter('all', '2010-Q3'), true);
 assert.equal(checkQuarter({ ...good, tax_income: 130000 }).breakdown.length, 1, 'tax components must sum to taxes');
 assert.equal(checkQuarter({ ...good, interest: 9000 }).breakdown.length, 1, 'expense components must sum to expenses');
 // Optional lines left out of a release count as zero, but only where the quarter has its breakdown.
 const { grants_recv: _g, social_contrib: _s, ...noOptional } = good;
-assert.deepEqual(checkQuarter(noOptional), { core: [], breakdown: [] });
+assert.deepEqual(checkQuarter(noOptional), { core: [], breakdown: [], flags: [] });
 assert.equal(val({ revenue: 1 }, 'tax_payroll'), null, 'a totals-only quarter has no breakdown, not zeros');
 assert.equal(val({ tax: 1 }, 'tax_payroll'), 0);
 assert.equal(val({ tax: 1 }, 'tax_income'), null, 'required lines never default to zero');

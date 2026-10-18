@@ -73,12 +73,13 @@ export default function MakeBoard({ ready, races, pitches, stories, runs, trackB
 
         <section className="mk-card">
           <h2>Race video</h2>
-          <p>A bar-chart race in 9:16, 16:9 and 1:1 with the house track, data-derived captions, flags and a poster; scheduled to YouTube through the queue.</p>
+          <p>A bar-chart race, or a bars-over-time video, in 9:16, 16:9 and 1:1 with the house track, data-derived captions and a poster; scheduled to YouTube through the queue. A draft renders for review and publishes nothing.</p>
           <select className="mk-input" value={pick.race} onChange={(e) => setPick({ ...pick, race: e.target.value })}>
             <option value="">The one that has waited longest</option>
             {races.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
           </select>
-          <button type="button" className="mk-btn" disabled={pending} onClick={() => go('race', pick.race)}>Render the race</button>
+          <button type="button" className="mk-btn" disabled={pending} onClick={() => go('race', pick.race)}>Render the video</button>
+          <button type="button" className="mk-btn" disabled={pending} onClick={() => go('race-draft', pick.race)}>Draft only</button>
         </section>
 
         <section className="mk-card mk-wide">

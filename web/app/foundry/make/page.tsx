@@ -1,16 +1,18 @@
 import { createClient } from '@/lib/supabase-server';
 import { dispatchReady, recentRuns } from '@/lib/github-dispatch';
+import { BAR_VIDEOS } from '@/lib/bars-video';
 import MakeBoard from './MakeBoard';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Make — Foundry' };
 
-/** The races the renderer knows (lib/visuals-race.ts), by key. */
+/** The races the renderer knows (lib/visuals-race.ts), then its bars-over-time videos (lib/bars-video.ts), by key. */
 const RACES = [
   { key: 'race:erp_cob', label: "Australia's immigrants by country of birth" },
   { key: 'race:visitors_country', label: "Where Australia's visitors come from" },
   { key: 'race:residents_trips_country', label: 'Where Australians travel' },
   { key: 'race:gdp_per_capita', label: 'GDP per person in OECD countries' },
+  ...BAR_VIDEOS.map((b) => ({ key: b.key, label: `Bars: ${b.label}` })),
 ];
 
 export default async function MakePage() {
