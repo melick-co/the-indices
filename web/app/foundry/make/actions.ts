@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/auth';
 import { dispatchTask, recentRuns } from '@/lib/github-dispatch';
 import { buildDatasets } from '@/lib/visuals-data';
 
-export type MakeKind = 'article' | 'graphic' | 'race' | 'picture' | 'clip' | 'highlights' | 'brief' | 'house-track';
+export type MakeKind = 'article' | 'graphic' | 'race' | 'race-draft' | 'picture' | 'clip' | 'highlights' | 'brief' | 'house-track';
 
 /**
  * Start one piece of work on the runner. Every pipeline keeps its own checks (fact check, number check, picture
@@ -17,6 +17,8 @@ export async function make(kind: MakeKind, target: string, brief?: string) {
     case 'article': return dispatchTask('articles', { pitch: t });
     case 'graphic': return dispatchTask('visuals', t ? { pitch: t } : {});
     case 'race': return dispatchTask('races', t ? { pitch: t } : {});
+    // Renders to drafts/ for review and publishes nothing (races-dry-run).
+    case 'race-draft': return dispatchTask('races-dry-run', t ? { pitch: t } : {});
     case 'picture': return dispatchTask('hero-image', { pitch: t, ...(brief?.trim() ? { edits: brief.trim() } : {}) });
     case 'clip': return dispatchTask('hero-media', { pitch: t, ...(brief?.trim() ? { edits: brief.trim() } : {}) });
     case 'highlights': return dispatchTask('story-highlights', { pitch: t });

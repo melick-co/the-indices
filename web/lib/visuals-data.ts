@@ -8,6 +8,7 @@ import { entityNames } from '@/lib/entity-names';
 import { loadPnl } from '@/lib/pnl';
 import { shortName } from '@/lib/population';
 import { isCountryItem } from '@/lib/breakdown-categories';
+import type { BarsBar, BarsGroup, BarsSpec } from '@/lib/bars-video-types';
 
 /**
  * Chart-ready datasets for Visuals, built only from stored official series. Each one carries everything the graphic
@@ -16,7 +17,8 @@ import { isCountryItem } from '@/lib/breakdown-categories';
 export type VisualRow = { label: string; code: string; value: number; prior?: number | null; highlight?: boolean };
 export type VisualUnit = Indicator['unit'] | 'aud_m' | 'persons';
 export type VisualSpec = {
-  template: 'ranked' | 'treemap' | 'change' | 'race';
+  /** 'race' and 'bars' are videos (the visuals row is template 'race'); 'bars' draws columns over time on the page. */
+  template: 'ranked' | 'treemap' | 'change' | 'race' | 'bars';
   unit: VisualUnit;
   /** What a value is ("Life satisfaction, 0–10", "People born overseas"). */
   measure: string;
@@ -27,6 +29,8 @@ export type VisualSpec = {
   median?: number; rank?: number; of?: number; bestFirst?: boolean; higherIsBetter?: boolean;
   /** Treemaps: the whole the tiles are shares of. */
   total?: number;
+  /** Bars over time (lib/bars-video-types.ts): every period in order, with its coloured segments. */
+  bars?: BarsBar[]; groups?: BarsGroup[]; axis?: BarsSpec['axis']; legendNote?: string;
 };
 export type Dataset = { key: string; spec: VisualSpec; sources: { org: string; dataset: string; url?: string }[]; context: string;
   /** Extra exact statements the words may rely on (e.g. how a total relates to a headline figure). */
