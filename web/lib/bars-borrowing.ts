@@ -3,11 +3,14 @@
  * (lib/bars-video-types.ts). Pure: lib/bars-video.ts loads the stored series and calls this; bars-borrowing.check.ts
  * tests it.
  *
- * Measure: Commonwealth general government net lending (+) / net borrowing (−), the GFS fiscal balance, from the IMF's
- * Quarterly Government Finance Statistics as reported by the Australian authorities (gfs_cwth_nlb, $ millions),
- * summed over the four quarters of each financial year to June. A bar goes up for borrowing and down for a surplus,
- * so the bar is −(net lending). A year missing any quarter has no bar (a gap, said on screen); nothing is estimated.
- * Shares of GDP use GDP over the same four quarters (ABS national accounts, pnl_gdp), as lib/gov-pnl.ts does.
+ * Measure: the Australian Government general government sector fiscal balance (accrual: revenue less expenses less
+ * net capital investment), outcomes by financial year from Treasury's historical tables, Budget Paper No. 1 Statement 11
+ * Table 11.6 (budget_fiscal_balance_au, $ millions; budget_fiscal_balance_pct_gdp_au, % of GDP as the table prints it;
+ * loaded by agent/scripts/load-budget-history.mjs). One consistent series for every year: the IMF's quarterly GFS has
+ * no Commonwealth figure for 2007–08 to 2010–11.
+ *
+ * Sign: a negative fiscal balance is borrowing. A bar goes up for borrowing and down for a surplus, so the bar is
+ * −(fiscal balance), and its % of GDP likewise. A year with no outcome has no bar (a gap, said on screen).
  */
 import { bnText, type BarsBar, type BarsSpec } from '@/lib/bars-video-types';
 import { GOVERNMENTS, OFFICE_SOURCES, PARTIES, fyName, officeSplit, type Party } from '@/lib/office';
@@ -15,40 +18,25 @@ import { GOVERNMENTS, OFFICE_SOURCES, PARTIES, fyName, officeSplit, type Party }
 /** Labor red and Coalition blue, chosen to clear 3:1 against the race navy and the house paper (checked in the test). */
 export const PARTY_COLOUR: Record<Party, string> = { labor: '#e5534b', coalition: '#3d85d8' };
 
-/** Periods when borrowing rose for reasons outside the budget, named only as timing (never as a cause). */
+/** Periods when borrowing rose for reasons outside the budget, named only as timing (never as a cause). June years. */
 export const EPISODES = [
   { name: 'the global financial crisis', years: [2009, 2010] },
   { name: 'the COVID-19 pandemic', years: [2020, 2021] },
 ];
 
-const juneQuarters = (endYear: number) => [`${endYear - 1}-Q3`, `${endYear - 1}-Q4`, `${endYear}-Q1`, `${endYear}-Q2`];
-
-/** Sum over the four quarters of the financial year ending June `endYear`, or null if any is missing. */
-export function fySum(series: Map<string, number>, endYear: number): number | null {
-  let t = 0;
-  for (const q of juneQuarters(endYear)) {
-    const v = series.get(q);
-    if (v == null || !Number.isFinite(v)) return null;
-    t += v;
-  }
-  return t;
-}
-
-/** One decimal, as a share of GDP: borrowing of 136,106 on GDP of 2,091,023 → 6.5. */
-export const pctOf = (v: number, gdp: number) => Math.round((v / gdp) * 1000) / 10;
+/** The stored period for the financial year ending June `endYear`: 2008 → "2007-08". */
+export const fyKey = (endYear: number) => `${endYear - 1}-${String(endYear).slice(2)}`;
 
 export type BorrowingInput = {
-  /** Commonwealth net lending (+) / borrowing (−) by quarter, $ millions, already limited to usable quarters. */
-  nlb: Map<string, number>;
-  /** GDP by quarter, $ millions. */
-  gdp: Map<string, number>;
+  /** Fiscal balance by financial year ("2024-25"), $ millions: positive a surplus, negative borrowing. Outcomes only. */
+  balance: Map<string, number>;
+  /** The same as % of GDP, as Treasury's table prints it. */
+  pctGdp: Map<string, number>;
   /** Financial years by their June year, inclusive. */
   fromYear: number;
   toYear: number;
-  /** Quarters stored with a flag (period → why), for the sources card. */
-  flagged?: Map<string, string>;
-  /** Why a year has no figure (said once on the sources card). */
-  gapReason?: string;
+  /** Where the figures come from: the stored series' source_dataset and source_url. */
+  source: { dataset: string; url?: string };
 };
 
 type Facts = { opening?: boolean; extreme?: 'up' | 'down'; latest?: boolean; firstSince?: string; after?: { period: string; value: number } };
@@ -113,29 +101,20 @@ export function borrowingCaptions(bars: BarsBar[]): { bar: number; text: string 
   return kept.sort((a, b) => a.bar - b.bar).map(({ bar, text }) => ({ bar, text }));
 }
 
-/** The context line: the largest borrowing years named against the episodes they fall in, as timing only. */
+/**
+ * The context line: the largest borrowing years named against the episodes they fall in, as timing only. The three
+ * largest when all three fall in an episode, else the two largest when both do; otherwise no line.
+ */
 export function contextLine(bars: BarsBar[]): string | null {
-  const top = bars.filter((b) => b.value != null && b.value > 0).sort((a, b) => b.value! - a.value!).slice(0, 2);
-  if (top.length < 2) return null;
   const endYear = (p: string) => Number(p.slice(0, 4)) + 1;
-  const hits = EPISODES.map((e) => ({ e, years: top.filter((b) => e.years.includes(endYear(b.period))).map((b) => b.period) })).filter((h) => h.years.length);
-  if (!hits.length) return null;
-  const named = hits.map((h) => (hits.length > 1 ? `${h.e.name} (${h.years.sort().join(' and ')})` : h.e.name));
-  const which = top.map((b) => b.period).sort().join(' and ');
-  return `The two largest borrowing years in this series, ${which}, coincide with ${named.join(' and ')}.`;
-}
-
-/** Quarters the loader stored with a flag, as its metadata note lists them ("…: 2007-Q2, revenue − expenses …"). */
-export function flaggedFromBasis(basis: string | null | undefined): Map<string, string> {
-  const out = new Map<string, string>();
-  const at = basis?.indexOf('Stored as reported with a flag') ?? -1;
-  if (!basis || at < 0) return out;
-  const list = basis.slice(basis.indexOf(':', at) + 1);
-  for (const part of list.split(';')) {
-    const m = part.trim().match(/^(\d{4}-Q[1-4]), (.+)$/);
-    if (m) out.set(m[1], m[2].replace(/\.$/, ''));
-  }
-  return out;
+  const episodeOf = (b: BarsBar) => EPISODES.find((e) => e.years.includes(endYear(b.period)));
+  const ranked = bars.filter((b) => b.value != null && b.value > 0).sort((a, b) => b.value! - a.value!);
+  const n = ranked.length >= 3 && ranked.slice(0, 3).every(episodeOf) ? 3 : ranked.length >= 2 && ranked.slice(0, 2).every(episodeOf) ? 2 : 0;
+  if (!n) return null;
+  const top = ranked.slice(0, n);
+  const parts = EPISODES.map((e) => ({ e, years: top.filter((b) => episodeOf(b) === e).map((b) => b.period).sort() }))
+    .filter((x) => x.years.length).map((x) => `${x.e.name} (${x.years.join(' and ')})`);
+  return `The ${n === 3 ? 'three' : 'two'} largest borrowing years in this series coincide with ${parts.join(' and ')}.`;
 }
 
 const longDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -153,21 +132,18 @@ export function officeLine(fromYear: number, toYear: number): string {
 }
 
 export function borrowingSpec(input: BorrowingInput): BarsSpec {
-  const { nlb, gdp, fromYear, toYear } = input;
+  const { balance, pctGdp, fromYear, toYear } = input;
   const bars: BarsBar[] = [];
   for (let y = fromYear; y <= toYear; y++) {
-    const lend = fySum(nlb, y);
-    const g = fySum(gdp, y);
-    const value = lend == null ? null : -lend;
+    const fb = balance.get(fyKey(y));
+    const value = fb == null ? null : -fb;
+    const pct = pctGdp.get(fyKey(y));
     const segments = officeSplit(y).map((s) => ({ group: s.party, share: s.share }));
-    bars.push({ period: fyName(y), value, segments: value == null ? [] : segments, pct: value != null && g ? pctOf(value, g) : null });
+    // −0 (a surplus or deficit under 0.05% of GDP) reads as 0.
+    bars.push({ period: fyName(y), value, segments: value == null ? [] : segments, pct: value == null || pct == null ? null : -pct + 0 });
   }
   const first = fyName(fromYear), last = fyName(toYear);
   const missing = bars.filter((b) => b.value == null).map((b) => b.period);
-  const next = toYear + 1;
-  // Quarter → the financial year it belongs to (September and December quarters fall in the year to the next June).
-  const fyOfQuarter = (q: string) => Number(q.slice(0, 4)) + (Number(q.slice(-1)) >= 3 ? 1 : 0);
-  const flaggedYears = [...(input.flagged ?? new Map<string, string>())].filter(([q]) => fyOfQuarter(q) >= fromYear && fyOfQuarter(q) <= toYear);
   const splitYears = bars.map((b, i) => ({ b, s: officeSplit(fromYear + i) })).filter((x) => x.s.length > 1 && x.b.value != null);
   const context = contextLine(bars);
   const known = bars.filter((b) => b.value != null);
@@ -177,7 +153,7 @@ export function borrowingSpec(input: BorrowingInput): BarsSpec {
   return {
     key: 'bars:gov_borrowing',
     title: `Commonwealth borrowing, ${first} to ${last}`,
-    subtitle: 'Net lending or borrowing, Commonwealth general government, $ billion each financial year, coloured by the party in office',
+    subtitle: 'Fiscal balance, Australian Government general government sector, $ billion each financial year, coloured by the party in office',
     unit: 'aud_m',
     axis: { up: 'Borrowed', down: 'Surplus', unitLabel: '$ billion' },
     groups: (['labor', 'coalition'] as Party[]).map((p) => ({ key: p, label: PARTIES[p].inOffice, colour: PARTY_COLOUR[p] })),
@@ -190,15 +166,14 @@ export function borrowingSpec(input: BorrowingInput): BarsSpec {
       ...(context ? [context] : []),
     ],
     sources: [
-      { org: 'IMF', dataset: 'Quarterly Government Finance Statistics, Australia, as reported by the Australian authorities', url: 'https://data.imf.org/en/datasets/IMF.STA:QGFS' },
-      { org: 'ABS', dataset: 'Australian National Accounts, GDP (income), for shares of GDP', url: 'https://data.api.abs.gov.au/rest/data/ABS,ANA_INC' },
+      { org: 'Treasury', dataset: input.source.dataset, ...(input.source.url ? { url: input.source.url } : {}) },
       ...OFFICE_SOURCES,
     ],
     notes: [
-      'Net lending or borrowing (the GFS fiscal balance), accrual basis, current prices: the four quarters of each financial year to June added up.',
-      ...(missing.length ? [`No bar for ${missing.length > 1 ? `${missing[0]} to ${missing.at(-1)}` : missing[0]}: ${input.gapReason ?? 'a quarter of the year is not published'}.`] : []),
-      ...flaggedYears.map(([q, why]) => `${fyName(fyOfQuarter(q))} includes ${q}, which does not quite add up as published: ${why.replace(' (off by ', ', off by $').replace(/, ([\d.]+%)\)$/, 'm ($1)')}. Its net lending is used as reported.`),
-      `${fyName(next)} is not shown: its four quarters are not all published yet.`,
+      'Fiscal balance: revenue less expenses less net capital investment, general government sector, accrual basis, current prices; outcomes from the Final Budget Outcomes. Borrowing (a deficit) is drawn up, a surplus down.',
+      "Shares of GDP as printed in Treasury's table.",
+      ...(missing.length ? [`No bar for ${missing.join(', ')}: no outcome in Treasury's table.`] : []),
+      `${fyName(toYear + 1)} is not shown: Treasury's figure for it is still an estimate.`,
       `Party in office from each Prime Minister's swearing-in day: ${officeLine(fromYear, toYear)}.`,
       ...splitYears.map(({ b, s }) => `${b.period}: ${s.map((x) => `${PARTIES[x.party].label} ${x.days} days`).join(', ')}.`),
     ],

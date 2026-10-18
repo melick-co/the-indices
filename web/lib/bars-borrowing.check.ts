@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { borrowingCaptions, borrowingSpec, contextLine, flaggedFromBasis, fySum, officeLine, pctOf, PARTY_COLOUR } from './bars-borrowing';
-import { GDP, NLB, NLB_BASIS } from './bars-borrowing.fixture';
+import { borrowingCaptions, borrowingSpec, contextLine, fyKey, officeLine, PARTY_COLOUR } from './bars-borrowing';
+import { FISCAL_BALANCE, FISCAL_BALANCE_PCT_GDP, FISCAL_SOURCE } from './bars-borrowing.fixture';
 import { barLabel, barsFrames, barsSeconds, bnText, type BarsBar } from './bars-video-types';
 import { daysInclusive, fyName, officeSplit } from './office';
 import { PAPER } from '../remotion/theme';
@@ -27,43 +27,39 @@ for (let y = 1998; y <= 2026; y++) {
 }
 assert.equal(officeSplit(2008)[0].share, 155 / 366);
 
-// ---------- financial-year sums
-const nlb = new Map(Object.entries(NLB)), gdp = new Map(Object.entries(GDP));
-assert.equal(fySum(nlb, 2007), -1962 + 4065 + 5889 + 10261, 'FY2006–07: September 2006 to June 2007, with the flagged 2007-Q2');
-assert.equal(fySum(nlb, 2007), 18253, 'matches the IMF annual figure for 2007 (QGFS, FREQUENCY=A)');
-assert.equal(fySum(nlb, 2021), -136106);
-assert.equal(fySum(nlb, 2008), null, 'FY2007–08: 2007-Q4 to 2008-Q2 not published');
-assert.equal(fySum(nlb, 2011), null, 'FY2010–11: the 2010 quarters are a coverage break, left out');
-assert.equal(fySum(nlb, 2026), null, 'FY2025–26: the June quarter 2026 is not out');
-
-// ---------- the spec, from the figures the APIs returned
-const spec = borrowingSpec({ nlb, gdp, fromYear: 2006, toYear: 2025, flagged: flaggedFromBasis(NLB_BASIS), gapReason: 'not published' });
+// ---------- the spec, from Treasury's figures (Budget 2026–27 BP1 Statement 11 Table 11.6)
+assert.equal(fyKey(2008), '2007-08', 'the stored period');
+const balance = new Map(Object.entries(FISCAL_BALANCE)), pctGdp = new Map(Object.entries(FISCAL_BALANCE_PCT_GDP));
+const spec = borrowingSpec({ balance, pctGdp, fromYear: 2006, toYear: 2025, source: FISCAL_SOURCE });
 assert.equal(spec.bars.length, 20);
 assert.equal(spec.bars[0].period, '2005–06');
 assert.equal(spec.bars.at(-1)!.period, '2024–25');
-assert.deepEqual(spec.bars.filter((b) => b.value == null).map((b) => b.period), ['2007–08', '2008–09', '2009–10', '2010–11']);
+assert.deepEqual(spec.bars.filter((b) => b.value == null), [], 'every year has a figure: publishable');
 const bar = (p: string) => spec.bars.find((b) => b.period === p)!;
-assert.equal(bar('2005–06').value, -17316, 'a surplus goes below zero');
-assert.equal(bar('2020–21').value, 136106, 'borrowing goes above zero');
-// % of GDP recomputed here from the fixture's quarters, independently of the builder.
-const gdpFy = (y: number) => [`${y - 1}-Q3`, `${y - 1}-Q4`, `${y}-Q1`, `${y}-Q2`].reduce((t, q) => t + GDP[q], 0);
-assert.equal(gdpFy(2021), 488801 + 532595 + 513885 + 555742);
-assert.equal(bar('2020–21').pct, Math.round((136106 / gdpFy(2021)) * 1000) / 10);
+// Sign: a negative fiscal balance is borrowing and goes up; a surplus goes down. The share of GDP turns with it.
+for (const [fy, fb] of Object.entries(FISCAL_BALANCE).filter(([fy]) => fy >= '2005-06')) {
+  const b = bar(fy.replace('-', '–'));
+  assert.equal(b.value, -fb, `${fy}: the bar is minus the fiscal balance`);
+  assert.equal(b.pct, -FISCAL_BALANCE_PCT_GDP[fy] + 0, `${fy}: % of GDP as Treasury prints it, sign turned`);
+}
+assert.equal(bar('2005–06').value, -16094, 'a surplus of $16.1bn goes below zero');
+assert.equal(bar('2020–21').value, 136108, 'a fiscal balance of −$136.1bn is borrowing, above zero');
 assert.equal(bar('2020–21').pct, 6.5);
-assert.equal(bar('2022–23').pct, -0.9, '21,925 / 2,577,014 = 0.85%');
-assert.equal(bar('2024–25').pct, 1.6);
-assert.equal(pctOf(44806, gdpFy(2025)), 1.6);
-// Split bars carry both parties, in the order they held office.
+assert.equal(bar('2009–10').pct, 4.2);
+assert.equal(bar('2022–23').pct, -0.9);
+assert.ok(Object.is(borrowingSpec({ balance: new Map([['2019-20', -5]]), pctGdp: new Map([['2019-20', 0]]), fromYear: 2020, toYear: 2020, source: FISCAL_SOURCE }).bars[0].pct, 0), 'no −0');
+// Split bars carry both parties, in the order they held office; FY2007–08 now draws as two colours.
+assert.deepEqual(bar('2007–08').segments.map((s) => [s.group, s.share]), [['coalition', 155 / 366], ['labor', 211 / 366]]);
 assert.deepEqual(bar('2013–14').segments.map((s) => s.group), ['labor', 'coalition']);
 assert.deepEqual(bar('2021–22').segments.map((s) => s.group), ['coalition', 'labor']);
 assert.equal(bar('2013–14').segments[0].share, 79 / 365);
-assert.deepEqual(bar('2007–08').segments, [], 'no segments where there is no figure');
+assert.deepEqual(bar('2008–09').segments, [{ group: 'labor', share: 1 }]);
 
 // Every caption number is the bar's own figure, as the labels round it.
 assert.deepEqual(spec.captions, [
-  { bar: 0, text: '2005–06: a surplus of $17.3bn' },
-  { bar: 2, text: '2007–08 to 2010–11: no Commonwealth figure' },
-  { bar: 13, text: '2018–19: a surplus of $2.6bn, after borrowing $5.3bn in 2017–18' },
+  { bar: 0, text: '2005–06: a surplus of $16.1bn' },
+  { bar: 3, text: '2008–09: borrowed $30.4bn, after a surplus of $20.5bn in 2007–08' },
+  { bar: 13, text: '2018–19: a surplus of $1.4bn, the first surplus since 2007–08' },
   { bar: 15, text: '2020–21: borrowed $136.1bn (6.5% of GDP), the most in these years' },
   { bar: 17, text: '2022–23: a surplus of $21.9bn (0.9% of GDP), the largest in these years, the first surplus since 2018–19' },
   { bar: 19, text: '2024–25: borrowed $44.8bn (1.6% of GDP), the first borrowing year since 2021–22, the latest full year' },
@@ -71,10 +67,12 @@ assert.deepEqual(spec.captions, [
 for (const c of spec.captions) {
   const b = spec.bars[c.bar];
   if (b.value != null) assert.ok(c.text.includes(bnText(b.value)), `caption ${c.text} carries ${bnText(b.value)}`);
+  const pct = c.text.match(/\(([\d.]+)% of GDP\)/)?.[1];
+  if (pct) assert.equal(Number(pct), Math.abs(b.pct!), `caption ${c.text}: % of GDP is the table's`);
 }
-assert.equal(bnText(136106), '$136.1bn');
-assert.equal(barLabel(136106), '136.1');
-assert.equal(barLabel(-21925, true), '22');
+assert.equal(bnText(136108), '$136.1bn');
+assert.equal(barLabel(136108), '136.1');
+assert.equal(barLabel(-21926, true), '22');
 
 // "The first since" only when every year between has a figure.
 const mk = (vals: (number | null)[]): BarsBar[] => vals.map((v, i) => ({ period: fyName(2001 + i), value: v, segments: [] }));
@@ -82,20 +80,20 @@ const caps = borrowingCaptions(mk([-5, 10, 20, null, 30, 40, -3, 8, 9]));
 assert.ok(!caps.some((c) => /first surplus since/.test(c.text)), 'a gap between surpluses: no "first since"');
 assert.ok(caps.some((c) => c.text === '2003–04: no Commonwealth figure'));
 
-// The context line names an episode only where the largest borrowing years fall in it.
-assert.equal(contextLine(spec.bars), 'The two largest borrowing years in this series, 2019–20 and 2020–21, coincide with the COVID-19 pandemic.');
+// The context line names episodes only where the largest borrowing years fall in them, and only as timing.
+assert.equal(contextLine(spec.bars), 'The three largest borrowing years in this series coincide with the global financial crisis (2009–10) and the COVID-19 pandemic (2019–20 and 2020–21).');
 assert.equal(contextLine(mk([1, 2, 3])), null);
-assert.equal(
-  contextLine([{ period: '2008–09', value: 50, segments: [] }, { period: '2020–21', value: 90, segments: [] }, { period: '2015–16', value: 10, segments: [] }]),
-  'The two largest borrowing years in this series, 2008–09 and 2020–21, coincide with the global financial crisis (2008–09) and the COVID-19 pandemic (2020–21).',
-);
+const ctx = (vals: [string, number][]) => contextLine(vals.map(([period, value]) => ({ period, value, segments: [] })));
+assert.equal(ctx([['2008–09', 50], ['2020–21', 90], ['2015–16', 10]]), 'The two largest borrowing years in this series coincide with the global financial crisis (2008–09) and the COVID-19 pandemic (2020–21).', 'third largest outside an episode: the two');
+assert.equal(ctx([['2019–20', 50], ['2020–21', 90], ['2015–16', 60]]), null, 'second largest outside an episode: no line');
 
 // ---------- the sources card
-assert.deepEqual(flaggedFromBasis(NLB_BASIS), new Map([['2007-Q2', 'revenue − expenses = 11,590 but net operating balance = 11,630 (off by 40, 0.34%)']]));
-assert.deepEqual(flaggedFromBasis('Net lending, quarterly'), new Map());
-assert.ok(spec.notes.some((t) => t.startsWith('2006–07 includes 2007-Q2') && t.includes('off by $40m (0.34%)')));
-assert.ok(spec.notes.includes('2025–26 is not shown: its four quarters are not all published yet.'));
-assert.ok(spec.notes.includes('No bar for 2007–08 to 2010–11: not published.'));
+assert.deepEqual(spec.sources[0], { org: 'Treasury', dataset: FISCAL_SOURCE.dataset, url: FISCAL_SOURCE.url });
+assert.ok(spec.notes.includes("2025–26 is not shown: Treasury's figure for it is still an estimate."));
+assert.ok(spec.notes.includes('2007–08: Coalition 155 days, Labor 211 days.'));
+assert.ok(!spec.notes.some((t) => t.startsWith('No bar')));
+const gappy = borrowingSpec({ balance: new Map([['2019-20', -5]]), pctGdp: new Map(), fromYear: 2020, toYear: 2021, source: FISCAL_SOURCE });
+assert.ok(gappy.notes.includes("No bar for 2020–21: no outcome in Treasury's table."));
 assert.equal(officeLine(2006, 2025), 'Coalition (Howard) to 2 December 2007; Labor (Rudd, Gillard, Rudd) from 3 December 2007; Coalition (Abbott, Turnbull, Morrison) from 18 September 2013; Labor (Albanese) from 23 May 2022');
 assert.equal(officeLine(2015, 2020), 'Coalition (Abbott, Turnbull, Morrison)', 'one government over the whole window: no dates');
 
