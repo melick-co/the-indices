@@ -13,7 +13,9 @@
  *
  * Before anything is stored, every quarter is checked: revenue − expenses = net operating balance, and net operating
  * balance − net acquisition of non-financial assets = net lending/borrowing (within rounding). A quarter that fails
- * is not stored, and the log says why. The breakdown lines of a quarter (taxes, revenue and expense components) are
+ * is not stored, and the log says why; one that misses by more than rounding but within 0.5% (Commonwealth 2007-Q2,
+ * $40m) is stored as reported with a flag in the log and in the series' basis. Quarters the IMF publishes under the
+ * Commonwealth code on a wider coverage (2010, see COVERAGE_BREAKS in lib/gfs.mjs) are not stored. The breakdown lines of a quarter (taxes, revenue and expense components) are
  * stored only if they sum to their totals. A breakdown line that swings by more than three-quarters against the same
  * quarter a year earlier while its total holds is reported for checking (a reclassification or a one-off such as JobKeeper; not enforced, the totals are right).
  *
@@ -26,7 +28,7 @@
  *   node scripts/load-gfs.mjs             upsert
  */
 import { parseSdmxSeries } from './lib/sdmx-json.mjs';
-import { CORE, EXPENSE_PARTS, ITEMS, SECTORS, TAX_PARTS, checkQuarter, fourTo, gfsId, qIndex, qLabel, shifts, val, yearSum } from './lib/gfs.mjs';
+import { CORE, EXPENSE_PARTS, ITEMS, NEAR_SHARE, SECTORS, TAX_PARTS, checkQuarter, fourTo, gfsId, qIndex, qLabel, shifts, usableQuarter, val, yearSum } from './lib/gfs.mjs';
 
 const UA = 'caveat-indices/0.1 (+https://caveat.news)';
 const BASE = 'https://api.imf.org/external/sdmx/3.0/data/dataflow/IMF.STA/QGFS/+';
@@ -65,28 +67,50 @@ export async function fetchAll() {
   return out;
 }
 
-/** Checked quarters: core lines for every quarter that adds up, breakdown lines only where they add up too. */
-export function checked(byQuarter, label) {
+/**
+ * Checked quarters: core lines for every quarter that adds up, breakdown lines only where they add up too. Quarters
+ * whose core identity misses by more than rounding but within 0.5% are kept as reported and listed in `flagged`
+ * (period → sentence); quarters on another sector's coverage (COVERAGE_BREAKS) are dropped.
+ */
+export function checked(byQuarter, label, sector) {
   const keep = new Map();
-  const refused = [], partial = [];
+  const refused = [], partial = [], dropped = [];
+  /** @type {Map<string, string>} */
+  const flagged = new Map();
   for (const [p, q] of [...byQuarter].sort(([a], [b]) => a.localeCompare(b))) {
-    const { core, breakdown } = checkQuarter(q);
+    if (sector && !usableQuarter(sector, p)) { dropped.push(p); continue; }
+    const { core, breakdown, flags } = checkQuarter(q);
     if (core.length) { refused.push(`${p}: ${core.join('; ')}`); continue; }
+    if (flags.length) flagged.set(p, flags.join('; '));
     if (breakdown.length) {
       partial.push(`${p}: ${breakdown.join('; ')}`);
       keep.set(p, Object.fromEntries(CORE.map((s) => [s, q[s]])));
     } else keep.set(p, q);
   }
-  console.log(`${label}: ${keep.size} quarters pass (${[...keep.keys()][0]} to ${[...keep.keys()].at(-1)}), ${refused.length} refused, ${partial.length} stored without breakdown`);
+  console.log(`${label}: ${keep.size} quarters pass (${[...keep.keys()][0]} to ${[...keep.keys()].at(-1)}), ${refused.length} refused, ${flagged.size} flagged, ${partial.length} stored without breakdown`);
+  if (dropped.length) console.log(`  DROPPED ${dropped.join(', ')}: published on another sector's coverage (COVERAGE_BREAKS in lib/gfs.mjs)`);
   for (const r of refused) console.log(`  REFUSED ${r}`);
+  for (const [p, f] of flagged) console.log(`  FLAGGED ${p} (stored as reported): ${f}`);
   for (const r of partial.slice(-8)) console.log(`  totals only ${r}`);
   if (partial.length > 8) console.log(`  (${partial.length - 8} earlier quarters stored as totals only)`);
-  return keep;
+  return { keep, flagged };
+}
+
+/**
+ * The metadata note for quarters stored with a flag (core identity off by more than rounding, within 0.5%), limited
+ * to the quarters this series has.
+ */
+export function flagNote(flagged, rows) {
+  const here = [...flagged].filter(([p]) => rows.some((r) => r.period === p));
+  if (!here.length) return '';
+  return `. Stored as reported with a flag (an identity off by more than rounding but within ${NEAR_SHARE * 100}%): ${here.map(([p, f]) => `${p}, ${f}`).join('; ')}`;
 }
 
 export async function loadGfs({ dry = false } = {}) {
   const raw = await fetchAll();
-  const data = { cwth: checked(raw.cwth, 'Commonwealth (S1321)'), all: checked(raw.all, 'All governments (S13)') };
+  const cwth = checked(raw.cwth, 'Commonwealth (S1321)', 'cwth'), all = checked(raw.all, 'All governments (S13)', 'all');
+  const data = { cwth: cwth.keep, all: all.keep };
+  const flagged = { cwth: cwth.flagged, all: all.flagged };
   if (!data.cwth.size || !data.all.size) throw new Error('No quarter passed the checks; nothing stored.');
 
   // The latest four quarters both have, as the page will show them.
@@ -124,7 +148,7 @@ export async function loadGfs({ dry = false } = {}) {
       if (!rows.length) continue;
       await upsertSeries(db, {
         metric_id: id, name: `${who}: ${name}`, unit: 'AUD millions',
-        basis: `${name}, ${who.toLowerCase()}, GFS statement of operations, accrual, current prices, original, quarterly`,
+        basis: `${name}, ${who.toLowerCase()}, GFS statement of operations, accrual, current prices, original, quarterly${flagNote(flagged[sector], rows)}`,
         direction: 'neutral', category: 'government_finance', source_tier: 2, source_org: 'IMF',
         source_dataset: 'Quarterly Government Finance Statistics (QGFS), reported by the Australian authorities (IMF Data API)',
         source_url: `${BASE}/AUS.SOO.${SECTORS[sector]}.${code}.Q`,

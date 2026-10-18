@@ -32,7 +32,7 @@ export function VisualPoster({ v, compact = false }: { v: Visual; compact?: bool
   );
 }
 
-const KIND: Record<Visual['template'], string> = { ranked: 'Ranking', treemap: 'Breakdown', change: 'Change', race: 'Video' };
+const KIND: Record<Visual['template'], string> = { ranked: 'Ranking', treemap: 'Breakdown', change: 'Change', race: 'Video', bars: 'Video' };
 
 /** A gallery card: a fixed-height thumbnail (a video frame for races), the title, a one-line teaser, kind and date. */
 export function VisualCard({ v }: { v: Visual }) {

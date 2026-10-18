@@ -147,7 +147,55 @@ function ChangeBars({ s, thumb = false }: { s: VisualSpec; thumb?: boolean }) {
   );
 }
 
+/**
+ * Bars over time (a bars video's page): one column per period from zero, up for the `axis.up` side, each split into
+ * its coloured segments; periods with no figure are left as a gap marked n/a.
+ */
+function TimeBars({ s, thumb = false }: { s: VisualSpec; thumb?: boolean }) {
+  const bars = s.bars ?? [];
+  const colour = Object.fromEntries((s.groups ?? []).map((g) => [g.key, g.colour]));
+  const W = thumb ? 480 : 760, H = thumb ? 480 : 380, padL = 44, padR = 8, top = thumb ? 16 : 40, bottom = 26;
+  const vals = bars.map((b) => b.value).filter((v): v is number => v != null);
+  const hi = Math.max(0, ...vals), lo = Math.min(0, ...vals);
+  const y = (v: number) => top + ((hi - v) / (hi - lo || 1)) * (H - top - bottom - 14);
+  const colW = (W - padL - padR) / Math.max(1, bars.length), bw = colW * 0.72;
+  const bn = (v: number) => (Math.abs(v) / 1000).toFixed(Math.abs(v) >= 1e5 ? 0 : 1);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="vz-svg" role="img" aria-label={`${s.measure}, ${s.priorPeriod} to ${s.period}`}>
+      {!thumb && (
+        <g className="vz-legend">
+          {(s.groups ?? []).map((g, i) => (
+            <g key={g.key}><rect x={padL + i * 170} y={6} width={11} height={11} rx={2} fill={g.colour} /><text x={padL + i * 170 + 16} y={16}>{g.label}</text></g>
+          ))}
+          {s.axis && <text x={padL} y={32}>{s.axis.unitLabel}: {s.axis.up.toLowerCase()} above zero, {s.axis.down.toLowerCase()} below</text>}
+        </g>
+      )}
+      <line x1={padL} x2={W - padR} y1={y(0)} y2={y(0)} stroke="#121a2b" strokeWidth={1} />
+      {bars.map((b, i) => {
+        const x = padL + i * colW + (colW - bw) / 2, cx = padL + i * colW + colW / 2;
+        const label = (i % 5 === 0 || i === bars.length - 1) && <text x={cx} y={H - 8} textAnchor="middle" className="vz-label">{b.period}</text>;
+        if (b.value == null) return <g key={b.period}><text x={cx} y={y(0) - 4} textAnchor="middle" className="vz-value">n/a</text>{label}</g>;
+        const full = Math.abs(y(b.value) - y(0));
+        let acc = 0;
+        return (
+          <g key={b.period}>
+            <title>{`${b.period}: ${s.axis && b.value >= 0 ? s.axis.up : s.axis?.down ?? ''} ${chartValue(Math.abs(b.value), s.unit)}`}</title>
+            {b.segments.map((g) => {
+              const a = acc * full, z = (acc + g.share) * full;
+              acc += g.share;
+              return <rect key={g.group} x={x} width={bw} y={b.value! >= 0 ? y(0) - z : y(0) + a} height={Math.max(0, z - a)} fill={colour[g.group] ?? '#c3cad6'} />;
+            })}
+            {!thumb && <text x={cx} y={b.value >= 0 ? y(b.value) - 4 : y(b.value) + 12} textAnchor="middle" className="vz-value">{bn(b.value)}</text>}
+            {label}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 export function VisualChart({ spec, thumb = false }: { spec: VisualSpec; thumb?: boolean }) {
+  if (spec.template === 'bars') return <TimeBars s={spec} thumb={thumb} />;
   // A race's page shows its final standings as ranked bars; the videos carry the motion.
   if (spec.template === 'ranked' || spec.template === 'race') return <RankedBars s={spec} thumb={thumb} />;
   if (spec.template === 'treemap') return <Treemap s={spec} />;

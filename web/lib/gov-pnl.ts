@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
 import { loadObservations } from '@/lib/chart-from-data';
-import { CORE, ITEMS, gfsId, qIndex, qLabel } from '../../agent/scripts/lib/gfs.mjs';
+import { CORE, ITEMS, gfsId, qIndex, qLabel, usableQuarter } from '../../agent/scripts/lib/gfs.mjs';
 import { commonEnd, fiscalYears, govStatement, sumFour, toQuarters, type GovPnlData, type Sector } from '@/lib/gov-pnl-core';
 
 export type { GovPnlData, GovStatement } from '@/lib/gov-pnl-core';
@@ -19,9 +19,10 @@ export async function loadGovPnl(): Promise<GovPnlData | null> {
       const obs = await loadObservations(db, gfsId(sector, suffix)).catch(() => []);
       for (const o of obs) if (o.entity === 'AUS') rows.push({ suffix, period: o.period, value: o.value });
     }));
-    // A quarter counts only with every core line (the loader stores nothing less).
+    // A quarter counts only with every core line (the loader stores nothing less), and never one published on another
+    // sector's coverage (the 2010 quarters under the Commonwealth code, stored before the loader dropped them).
     const q = toQuarters(rows);
-    for (const [p, v] of q) if (CORE.some((s: string) => v[s] == null)) q.delete(p);
+    for (const [p, v] of q) if (CORE.some((s: string) => v[s] == null) || !usableQuarter(sector, p)) q.delete(p);
     return q;
   };
   const [cwth, all] = await Promise.all([load('cwth'), load('all')]);
