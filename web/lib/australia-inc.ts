@@ -284,7 +284,7 @@ export const CHART_PATHS: Map<string, { path: string; label: string }> = new Map
 /** The Caveat page that charts a stored series, if one does. */
 export const chartPathFor = (metricId: string | null | undefined) => (metricId ? CHART_PATHS.get(metricId) ?? null : null);
 
-const FIXED_PATHS = new Set<string>([IX.home, IX.economy, IX.qol, IX.sentiment, IX.polls, IX.population, IX.pnl, IX.visuals, '/australia-inc',
+const FIXED_PATHS = new Set<string>([IX.home, IX.economy, IX.qol, IX.sentiment, IX.polls, IX.population, IX.pnl, IX.visuals, '/australia-inc', '/australia-inc/scorecard',
   ...ECONOMY_SECTION_IDS.map((s) => `${IX.economy}/${s}`), ...[...CHART_PATHS.values()].map((c) => c.path)]);
 
 /** Caveat pages a Bottom Line may link to: the indices and their charts, a published story or its evidence. */

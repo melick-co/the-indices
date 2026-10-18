@@ -9,7 +9,8 @@
     "reel-cut": "tsx --import ./scripts/node-shims.mjs scripts/reel-cut.ts",
     "check:reel-cut": "tsx lib/reel-cut.check.ts",
     "check:australia-inc": "tsx lib/australia-inc.check.ts",
-    "check:gov-pnl": "tsx lib/gov-pnl.check.ts"
+    "check:gov-pnl": "tsx lib/gov-pnl.check.ts",
+    "check:scorecard": "tsx lib/scorecard.check.ts"
   },
   "dependencies": {
     "@hallelx/youtube-transcript": "0.2.0",

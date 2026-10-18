@@ -19,7 +19,7 @@ type Doc = { url: string; title?: string | null; body: string };
 
 const MARKER = /\[\^(\d+)\]/g;
 const STOP = new Set('the a an and or of to in on for by with as at from that this its it is are was were be has have had will would its their there which into than over after before since about more most also been not but per cent'.split(' '));
-const norm = (t: string) => t.toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
+export const norm = (t: string) => t.toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
 // Words worth matching on: content words, plus numbers and dates ("4.60", "18/11/2026").
 // Hyphens and slashes split too, so "2025-01-23" and "23/10/2026" share their parts with written dates.
 const terms = (t: string) => new Set(norm(t).replace(/[^a-z0-9'. ]/g, ' ').replace(/[.,](?!\d)/g, ' ').split(' ')

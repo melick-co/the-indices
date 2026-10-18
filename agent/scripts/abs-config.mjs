@@ -217,6 +217,22 @@ export const ABS_SERIES = [
     source_id: 'abs_cpi',
     verified: true,
   },
+  // Homes completed, for the government scorecard's Housing Accord count (1.2 million from 1 July 2024) and its
+  // Outcomes. Original, not seasonally adjusted, because the scorecard sums quarters (Oct 2026; key checked with
+  // `peek BUILDING_ACTIVITY M7.AUS.CUR.TOT.9.100.10.Q`: 2024-Q3 46,436 ... 2026-Q2 47,637).
+  {
+    metric_id: 'dwelling_completions_au',
+    name: 'Dwelling units completed, Australia (total residential, original)',
+    dataflow: 'BUILDING_ACTIVITY',
+    dataKey: 'M7.AUS.CUR.TOT.9.100.10.Q', // units completed | Australia | (current price) | total work | total sectors | total residential | original | quarterly
+    lastN: 48,
+    unit: 'dwellings',
+    basis: 'Dwelling units completed, total residential, total sectors, total work, original, quarterly (ABS Building Activity)',
+    direction: 'neutral',
+    category: 'housing',
+    source_id: 'abs_building',
+    verified: true,
+  },
 ];
 
 /**

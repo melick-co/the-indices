@@ -381,6 +381,64 @@ body:has(.site-shell--bs) { background: #fdfcf3; }
 .site-shell--bs .inc-teaser-more a { color: var(--bs-ink); border-bottom: 1px solid var(--bs-ink); }
 .site-shell--bs .inc-teaser-date { color: var(--bs-caption); }
 
+/* The scorecard (/australia-inc/scorecard). Neutral throughout: no good/bad colours, arrows show direction only. */
+.site-shell--bs .inc-head-flag a { color: inherit; }
+.site-shell--bs .sc-teaser { font-size: 15px; margin: 12px auto 0; max-width: 640px; }
+.site-shell--bs .sc-teaser-flag { font-family: var(--bs-sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-right: 4px; }
+.site-shell--bs .sc-teaser a,
+.site-shell--bs .sc-page a { color: var(--bs-ink); border-bottom: 1px solid var(--bs-rule); text-decoration: none; }
+.site-shell--bs .sc-toggle { display: inline-flex; border: 1px solid var(--bs-ink); margin: 14px 0 0; max-width: 100%; }
+.site-shell--bs .sc-page .sc-toggle-opt,
+.site-shell--bs .sc-toggle-opt { font-family: var(--bs-sans); font-size: 13px; padding: 6px 14px; color: var(--bs-ink); border: 0; text-decoration: none; }
+.site-shell--bs .sc-page .sc-toggle-opt.is-on,
+.site-shell--bs .sc-toggle-opt.is-on { background: var(--bs-ink); color: var(--bs-white); }
+.site-shell--bs .sc-toggle-opt + .sc-toggle-opt { border-left: 1px solid var(--bs-ink); }
+.site-shell--bs .sc-summary { font-family: var(--bs-serif); font-size: 17px; margin: 14px 0 0; }
+.site-shell--bs .sc-section { margin: 0 0 44px; }
+.site-shell--bs .sc-sub { font-family: var(--bs-sans); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin: 20px 0 6px; }
+.site-shell--bs .sc-faint { color: var(--bs-caption); }
+.site-shell--bs .sc-promises,
+.site-shell--bs .sc-outcomes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 0 32px; }
+.site-shell--bs .sc-promise,
+.site-shell--bs .sc-outcome { border-top: 1px solid var(--bs-ink); padding: 12px 0 20px; min-width: 0; overflow-wrap: anywhere; }
+.site-shell--bs .sc-promise-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.site-shell--bs .sc-promise-hed,
+.site-shell--bs .sc-outcome-hed { font-family: var(--bs-serif); font-weight: 400; font-size: 20px; line-height: 1.25; letter-spacing: -0.01em; margin: 0 0 8px; }
+.site-shell--bs .sc-chip { flex: none; font-family: var(--bs-sans); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid var(--bs-ink); padding: 2px 6px; white-space: nowrap; }
+.site-shell--bs .sc-chip-not-yet-rated { border-color: var(--bs-mute); color: var(--bs-caption); }
+.site-shell--bs .sc-quote { margin: 0 0 10px; padding: 0 0 0 12px; border-left: 3px solid var(--bs-rule); font-size: 15px; line-height: 1.45; }
+.site-shell--bs .sc-quote p { margin: 0 0 4px; font-style: italic; }
+.site-shell--bs .sc-quote footer { font-size: 13px; color: var(--bs-caption); }
+.site-shell--bs .sc-facts,
+.site-shell--bs .sc-vals { margin: 0; font-size: 14px; line-height: 1.45; }
+.site-shell--bs .sc-facts > div { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 8px; padding: 3px 0; }
+.site-shell--bs .sc-facts dt,
+.site-shell--bs .sc-vals dt { font-family: var(--bs-sans); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--bs-caption); }
+.site-shell--bs .sc-facts dd,
+.site-shell--bs .sc-vals dd { margin: 0; }
+.site-shell--bs .sc-bar { height: 6px; background: var(--bs-recess); margin: 10px 0 8px; }
+.site-shell--bs .sc-bar span { display: block; height: 100%; background: var(--bs-ink); }
+.site-shell--bs .sc-promise-foot,
+.site-shell--bs .sc-note,
+.site-shell--bs .sc-control,
+.site-shell--bs .sc-oecd,
+.site-shell--bs .sc-source,
+.site-shell--bs .sc-issue { font-size: 13px; line-height: 1.45; margin: 6px 0 0; }
+.site-shell--bs .sc-promise-foot,
+.site-shell--bs .sc-note { color: var(--bs-caption); }
+.site-shell--bs .sc-control-label { font-weight: 600; }
+.site-shell--bs .sc-series + .sc-series { margin-top: 10px; padding-top: 8px; border-top: 1px dotted var(--bs-rule); }
+.site-shell--bs .sc-label { display: block; font-size: 14px; margin-bottom: 4px; }
+.site-shell--bs .sc-vals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.site-shell--bs .sc-vals dd { font-family: var(--bs-serif); font-size: 17px; }
+.site-shell--bs .sc-vals .sc-faint { display: block; font-family: var(--bs-sans); font-size: 11px; }
+.site-shell--bs .sc-mark { font-size: 12px; }
+.site-shell--bs .sc-awaiting ul,
+.site-shell--bs .sc-method ul { padding-left: 18px; font-size: 15px; line-height: 1.5; }
+.site-shell--bs .sc-awaiting li,
+.site-shell--bs .sc-method li { margin-bottom: 8px; }
+.site-shell--bs .sc-method { max-width: 760px; margin-bottom: 48px; }
+
 /* Two-series line charts: the broadsheet's --pen is its ink, so the second series drew black like the first and the
    two could not be told apart. On the broadsheet the second series is the caption grey, with its key and end label. */
 .site-shell--bs .story-line-path.alt { stroke: var(--bs-caption); }

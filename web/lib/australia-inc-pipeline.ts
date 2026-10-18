@@ -12,6 +12,7 @@ import { auditClaims } from '@/lib/claim-audit';
 import { verifySourcedStatements } from '@/lib/source-check';
 import { pdfText } from '@/lib/pdf-text';
 import { sydneyDay } from '@/lib/dates';
+import { recentRatingChanges } from '@/lib/scorecard-pipeline';
 import {
   BOTTOM_LINE_TOPICS, chartPathFor, dataFigures, decide, figuresMissingFrom, filterLinks, isOfficialUrl, isSourcedSentence,
   dropFlaggedSentences, findListedLink, itemIssues, linkablePaths, matchesTopics, normaliseDraft, normaliseLinks, sentenceText, shouldWrite, toCheckable, validateDraft,
@@ -374,7 +375,8 @@ export async function recheckAdopted(db: SupabaseClient, opts: { dry: boolean; l
 
 // ---------------------------------------------------------------------------------------------------- 3. the bottom line
 
-function writePrompt(day: string, sources: Array<SourceRef & { summary: string; claims: IncClaim[] }>, reference: unknown, stories: Array<{ slug: string; title: string }>, issues: string[] = [], previous?: BottomLineDraft) {
+function writePrompt(day: string, sources: Array<SourceRef & { summary: string; claims: IncClaim[] }>, reference: unknown, stories: Array<{ slug: string; title: string }>, issues: string[] = [], previous?: BottomLineDraft,
+  scorecard: Awaited<ReturnType<typeof recentRatingChanges>> = []) {
   return `${CHARTER}
 
 Write today's Bottom Line (${day}), the brief daily intro to Australia Inc.: Caveat's running commentary on how the
@@ -414,7 +416,14 @@ ${JSON.stringify(reference)}
 
 Caveat stories that may be relevant:
 ${JSON.stringify(stories)}
-${issues.length ? `\nYour previous draft was held for these problems. Fix every one; cut a sentence rather than keep a problem.\n${issues.map((i) => `- ${i}`).join('\n')}\nPrevious draft:\n${JSON.stringify(previous)}\n` : ''}
+${scorecard.length ? `
+Rating changes on Caveat's government scorecard since yesterday (optional; mention one only if it matters today). Each
+rating is mechanical: the pace achieved on a government target divided by the pace needed, from the official series
+named. Attribute it to the scorecard and name the official series ("on Caveat's scorecard, the Housing Accord target
+moved to behind, on ABS figures for homes completed"); give no figures beyond those in the stored reference; never
+call a rating good or bad. Link it with kind "chart" to /australia-inc/scorecard.
+${JSON.stringify(scorecard.map(({ metric_id: _m, ...r }) => r))}
+` : ''}${issues.length ? `\nYour previous draft was held for these problems. Fix every one; cut a sentence rather than keep a problem.\n${issues.map((i) => `- ${i}`).join('\n')}\nPrevious draft:\n${JSON.stringify(previous)}\n` : ''}
 Reply with JSON only:
 {"headline": "…", "paragraphs": [{"sentences": [{"text": "…", "source": 1 | null}], "links": [{"label": "…", "url": "…", "kind": "source" | "chart" | "story"}]}]}`;
 }
@@ -500,24 +509,27 @@ export async function writeBottomLine(db: SupabaseClient, newItems: ItemRow[], o
   // A claim's request to the source scout (needs) is plumbing, not something the brief reports.
   const sources = items.map((i, k) => ({ n: k + 1, title: i.title, url: i.url, publisher: i.publisher ?? '', official: isOfficialUrl(i.url), summary: i.summary ?? '', claims: ((i.claims ?? []) as IncClaim[]).map(({ needs: _needs, ...rest }) => rest) }));
   const cat = await catalogue(db);
-  const metricIds = [...new Set(['cash_rate_au', 'unemployment_rate_au', ...sources.flatMap((s) => s.claims.map((c) => c.metric_id).filter((x): x is string => Boolean(x)))])].filter((id) => cat.ids.has(id));
+  // The scorecard's rating changes since yesterday, an optional source (empty before migration 49).
+  const scorecard = await recentRatingChanges(db);
+  const metricIds = [...new Set(['cash_rate_au', 'unemployment_rate_au', ...sources.flatMap((s) => s.claims.map((c) => c.metric_id).filter((x): x is string => Boolean(x))),
+    ...scorecard.map((r) => r.metric_id).filter((x): x is string => Boolean(x))])].filter((id) => cat.ids.has(id));
   const reference = await buildReference(db, metricIds, { history: 12 });
   const { data: storyRows } = await db.from('stories').select('slug, title').eq('status', 'published').order('published', { ascending: false }).limit(40);
   const stories = (storyRows ?? []) as Array<{ slug: string; title: string }>;
   const known: KnownPaths = { stories: new Set(stories.map((s) => s.slug)) };
 
-  let draft = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories), { label: 'bottom line', maxTokens: 4000 }));
+  let draft = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories, [], undefined, scorecard), { label: 'bottom line', maxTokens: 4000 }));
   // One rewrite for the brief's own rules before the expensive checks.
   const first = validateDraft(draft, sources);
   if (first.issues.length) {
     log(`bottom line: rewriting for ${first.issues.length} issue(s)`);
-    draft = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories, first.issues, draft), { label: 'bottom line rewrite', maxTokens: 4000 }));
+    draft = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories, first.issues, draft, scorecard), { label: 'bottom line rewrite', maxTokens: 4000 }));
   }
   let { check, links } = await checkBottomLine(db, draft, sources, metricIds, known);
   // Up to two revision rounds with the full findings, then the verdict stands.
   for (let round = 1; round <= 2 && !check.ok && check.audited; round++) {
     log(`bottom line: held for ${check.issues.length} issue(s); revision ${round}`);
-    const revised = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories, check.issues, draft), { label: `bottom line revision ${round}`, maxTokens: 4000 }));
+    const revised = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories, check.issues, draft, scorecard), { label: `bottom line revision ${round}`, maxTokens: 4000 }));
     const again = await checkBottomLine(db, revised, sources, metricIds, known);
     draft = revised; check = again.check; links = again.links;
   }
