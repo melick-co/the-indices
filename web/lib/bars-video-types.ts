@@ -18,6 +18,11 @@ export type BarsBar = {
   segments: { group: string; share: number }[];
   /** The value as a share of something (e.g. % of GDP), for captions and the page. */
   pct?: number | null;
+  /**
+   * The part the trimmed pass takes out (e.g. an emergency package's cost), in the bar's units, signed toward the up
+   * side. The trimmed value is value − trim. Absent: the bar is the same in both views.
+   */
+  trim?: number;
 };
 export type BarsSpec = {
   key: string;
@@ -35,6 +40,11 @@ export type BarsSpec = {
   captions: { bar: number; text: string }[];
   /** The caveat card: one line each. */
   caveat: string[];
+  /**
+   * A second pass over the finished chart: the bars' `trim` parts, drawn hatched while the chart builds, animate away
+   * and the bars settle at value − trim, leaving a faint outline of the full bar.
+   */
+  trim?: { legend: string; heading: string; captions: { bar: number; text: string }[] };
   sources: { org: string; dataset: string; url?: string }[];
   /** Extra lines for the sources card (what is excluded, how years are split). */
   notes: string[];
@@ -48,17 +58,25 @@ export const barStepSeconds = (bars: number) => Math.min(1.5, Math.max(0.8, 25 /
 /** A bar grows over this share of its step. */
 export const BAR_GROW_SHARE = 0.6;
 export const BARS_HOLD_SECONDS = 4;
-export const BARS_CAVEAT_SECONDS = 5.5;
-export const BARS_SOURCES_SECONDS = 6;
+/** The trimmed pass: the heading alone, then the parts animate away, then each trimmed caption, then a hold. */
+export const TRIM_LEAD_SECONDS = 1.5;
+export const TRIM_ANIMATE_SECONDS = 2;
+export const TRIM_CAPTION_SECONDS = 3.5;
+export const TRIM_HOLD_SECONDS = 2;
+export const BARS_CAVEAT_SECONDS = 7;
+export const BARS_SOURCES_SECONDS = 7;
 export const BARS_OUTRO_SECONDS = 3.5;
 
 export const barsBuildEnd = (s: BarsSpec) => BARS_INTRO_SECONDS + barStepSeconds(s.bars.length) * s.bars.length;
-export const barsCaveatStart = (s: BarsSpec) => barsBuildEnd(s) + BARS_HOLD_SECONDS;
+export const barsTrimStart = (s: BarsSpec) => barsBuildEnd(s) + BARS_HOLD_SECONDS;
+export const trimSeconds = (s: BarsSpec) =>
+  s.trim ? TRIM_LEAD_SECONDS + TRIM_ANIMATE_SECONDS + TRIM_CAPTION_SECONDS * s.trim.captions.length + TRIM_HOLD_SECONDS : 0;
+export const barsCaveatStart = (s: BarsSpec) => barsTrimStart(s) + trimSeconds(s);
 export const barsSourcesStart = (s: BarsSpec) => barsCaveatStart(s) + BARS_CAVEAT_SECONDS;
 export const barsOutroStart = (s: BarsSpec) => barsSourcesStart(s) + BARS_SOURCES_SECONDS;
 export const barsSeconds = (s: BarsSpec) => barsOutroStart(s) + BARS_OUTRO_SECONDS;
 export const barsFrames = (s: BarsSpec) => Math.round(barsSeconds(s) * BARS_FPS);
-/** The poster: the finished chart, halfway through the hold. */
+/** The poster: the finished (shaded) chart, halfway through the hold. */
 export const barsPosterFrame = (s: BarsSpec) => Math.round((barsBuildEnd(s) + BARS_HOLD_SECONDS / 2) * BARS_FPS);
 
 /** $ millions as the bars label them: $ billion, one decimal, or whole when space is tight. */

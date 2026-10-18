@@ -12,16 +12,16 @@ export const BAR_VIDEOS = [{ key: 'bars:gov_borrowing', label: 'Commonwealth bor
 
 type Db = ReturnType<typeof createClient>;
 
-const FISCAL = 'budget_fiscal_balance_au', FISCAL_PCT = 'budget_fiscal_balance_pct_gdp_au';
+const UCB = 'budget_underlying_cash_balance_au', UCB_PCT = 'budget_underlying_cash_balance_pct_gdp_au';
 
-/** Commonwealth borrowing: the 20 latest financial years with an outcome in Treasury's historical table. */
+/** Commonwealth borrowing: the 20 latest financial years with an outcome in Treasury's historical table (underlying cash balance, Table 11.1). */
 async function govBorrowing(db: Db): Promise<BarsSpec | null> {
   const series = async (id: string) => new Map((await loadObservations(db, id).catch(() => [])).filter((o) => o.entity === 'AUS').map((o) => [o.period, o.value]));
-  const [balance, pctGdp] = await Promise.all([series(FISCAL), series(FISCAL_PCT)]);
+  const [balance, pctGdp] = await Promise.all([series(UCB), series(UCB_PCT)]);
   const years = [...balance.keys()].filter((p) => /^\d{4}-\d{2}$/.test(p)).map((p) => Number(p.slice(0, 4)) + 1).sort((a, b) => a - b);
   if (!years.length) return null;
   const toYear = years.at(-1)!;
-  const { data: meta } = await db.from('metrics').select('source_dataset, source_url').eq('metric_id', FISCAL).maybeSingle();
+  const { data: meta } = await db.from('metrics').select('source_dataset, source_url').eq('metric_id', UCB).maybeSingle();
   return borrowingSpec({
     balance, pctGdp, fromYear: toYear - 19, toYear,
     source: { dataset: (meta?.source_dataset as string | undefined) ?? 'Budget Paper No. 1, Statement 11: Historical Australian Government Data, Table 11.6', url: (meta?.source_url as string | undefined) ?? undefined },
