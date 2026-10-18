@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   dropFlaggedSentences,
+  ratePath,
   locateSentence,
   findListedLink,
   chartPathFor, dataFigures, decide, figuresMissingFrom, filterLinks, internalPathOk, isOfficialUrl, itemIssues, linkify,
@@ -171,6 +172,22 @@ assert.ok(itemIssues('The deficit is $30 billion.', 'Treasurer', 'the deficit is
     '340 words; the brief must run 120 to 320 (aim for 180 to 250)',
     'claim not supported by stored data: "highest reading in the stored series"',
   ]));
+}
+
+// The rate path counts a run from where it started: four rises in 2026 from 3.60, not three since February.
+{
+  const rows = [
+    { period: '2026-09-30', value: 4.6 }, { period: '2026-05-06', value: 4.35 }, { period: '2026-03-18', value: 4.1 },
+    { period: '2026-02-04', value: 3.85 }, { period: '2025-08-13', value: 3.6 }, { period: '2025-05-21', value: 3.85 },
+    { period: '2025-02-19', value: 4.1 }, { period: '2023-11-08', value: 4.35 },
+  ];
+  const p = ratePath(rows, '2026-10-18')!;
+  assert.match(p, /The cash rate is 4\.60 per cent, set on 30 September 2026\./);
+  assert.match(p, /This year: 4 rises \(4 February, 18 March, 6 May, 30 September\), from 3\.60 per cent at the start of 2026 to 4\.60 per cent: \+1\.00 points\./);
+  assert.match(p, /Current run: 4 rises in a row since 3\.60 per cent \(the last cut, on 13 August 2025\): \+1\.00 points\./);
+  // A year with no moves yet says so.
+  assert.match(ratePath(rows, '2027-01-20')!, /No change so far this year/);
+  assert.equal(ratePath([{ period: '2026-01-01', value: 4 }], '2026-10-18'), null);
 }
 
 console.log('australia-inc checks passed');
