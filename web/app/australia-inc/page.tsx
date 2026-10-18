@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import SiteFooter from '@/components/SiteFooter';
-import { BottomLineEmpty, BottomLineView, IncItemList } from '@/components/AustraliaInc';
+import { BottomLineEmpty, BottomLineView, IncItemList, ScorecardTeaser } from '@/components/AustraliaInc';
 import { GovPnlView } from '@/components/dashboard/GovPnl';
 import { PnlView } from '@/components/dashboard/Pnl';
 import { loadIncItems, loadLatestBottomLine } from '@/lib/australia-inc-loader';
 import { loadGovPnl } from '@/lib/gov-pnl';
+import { loadScorecardSummary } from '@/lib/scorecard-loader';
 import { loadPnl } from '@/lib/pnl';
 import { IX } from '@/lib/indices-paths';
 
@@ -21,7 +22,7 @@ export async function generateMetadata() {
 }
 
 export default async function AustraliaIncSection() {
-  const [bl, items, pnl, gov] = await Promise.all([loadLatestBottomLine(), loadIncItems(30), loadPnl().catch(() => null), loadGovPnl().catch(() => null)]);
+  const [bl, items, pnl, gov, scorecard] = await Promise.all([loadLatestBottomLine(), loadIncItems(30), loadPnl().catch(() => null), loadGovPnl().catch(() => null), loadScorecardSummary()]);
   return (
     <>
       <div className="inc-page">
@@ -29,6 +30,7 @@ export default async function AustraliaIncSection() {
           <p className="inc-head-flag">A running commentary</p>
           <h1 className="inc-head-name">Australia Inc.</h1>
           <p className="inc-head-dek">How the country is being run, and what it does to the nation&apos;s bottom line.</p>
+          <ScorecardTeaser summary={scorecard} />
         </header>
 
         <div className="inc-grid">

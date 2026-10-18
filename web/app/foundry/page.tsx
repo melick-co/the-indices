@@ -60,6 +60,7 @@ export default async function NewsdeskPage() {
   const [
     runs, ghRuns, wire, feedsRes, queueNext, queueFlagged, drafts, published, revisions,
     bottomLines, rubs, incNew, sourceSugs, topicSugs, econNotes, inboxNew, trending, pitches, calendar,
+    scLog, scHeld,
   ] = await Promise.all([
     q(db.from('agent_runs').select('ran_at, quiet_day, pitched, candidates, notes').order('ran_at', { ascending: false }).limit(3)),
     safe<RunSummary[]>(recentRuns(6), []),
@@ -92,6 +93,11 @@ export default async function NewsdeskPage() {
     q(db.from('events').select('event_id, title, institution, series, kind, scheduled_at, status, source_url')
       .gte('scheduled_at', nowIso).lte('scheduled_at', in14).in('status', ['scheduled', 'due'])
       .order('scheduled_at', { ascending: true }).limit(8)),
+    // The government scorecard (migration 49): the week's changes and anything held by the strict check. Visibility,
+    // not approval: the agent keeps the list.
+    q(db.from('scorecard_log').select('slug, kind, from_value, to_value, created_at', { count: 'exact' })
+      .gte('created_at', new Date(now.getTime() - 7 * 864e5).toISOString()).order('created_at', { ascending: false }).limit(3)),
+    q(db.from('scorecard_commitments').select('slug, title', { count: 'exact' }).eq('status', 'held').limit(3)),
   ]);
 
   // The Australia Inc beat: its own latest items, when feeds carry a beat.
@@ -434,6 +440,15 @@ export default async function NewsdeskPage() {
             </li>
             <li className="nd-row">
               <div className="nd-row-main">
+                <span className={scHeld.count ? 'nd-label is-bad' : 'nd-label'}>Scorecard changes</span>
+                {scLog.rows
+                  ? <Link href="/australia-inc/scorecard" className="nd-row-title">{scLog.rows[0] ? scorecardChange(scLog.rows[0]) : 'No changes this week'}</Link>
+                  : <span className="nd-faint">Not set up yet (migration 49)</span>}
+                {scLog.rows && <span className="nd-meta">{scLog.count ?? scLog.rows.length} this week{scHeld.count ? ` · ${scHeld.count} held by the check` : ''}</span>}
+              </div>
+            </li>
+            <li className="nd-row">
+              <div className="nd-row-main">
                 <span className={rubPending.length ? 'nd-label is-bad' : 'nd-label'}>The Rub</span>
                 {rubRows
                   ? <Link href="/foundry/rub" className="nd-row-title">{rubLatest ? rowTitle(rubLatest) : 'No columns yet'}</Link>
@@ -446,6 +461,13 @@ export default async function NewsdeskPage() {
       </div>
     </main>
   );
+}
+
+/** One scorecard log line: "housing-accord…: rating on track -> behind". */
+function scorecardChange(r: Row): string {
+  const what = r.kind === 'rating' ? 'rating' : r.kind;
+  const move = r.from_value || r.to_value ? `: ${r.from_value ?? 'none'} -> ${r.to_value ?? 'none'}` : '';
+  return `${r.slug} ${what}${r.kind === 'rating' || r.kind === 'held' || r.kind === 'activated' ? move : ''}`.slice(0, 140);
 }
 
 function PanelHead({ id, title, status }: { id?: string; title: string; status?: string }) {

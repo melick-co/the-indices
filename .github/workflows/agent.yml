@@ -36,12 +36,16 @@ on:
     - cron: '47 18 * * *'
     # The Rub (Column 8): one draft a week, Monday about 5:30am Sydney (web/scripts/rub-draft.ts). Never publishes.
     - cron: '29 18 * * 0'
+    # The government scorecard (web/scripts/scorecard.ts): weekly, Thursday about 7am Sydney, after the week's releases
+    # have loaded (the daily sources run picks up Building Activity, CPI, Labour Force and GFS). Keeps the commitment
+    # list, re-checks every quote, logs rating changes for The Bottom Line.
+    - cron: '53 19 * * 3'
   workflow_dispatch:
     inputs:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, economists, economists-again, economists-dry-run, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, gfs, gfs-dry-run, wb, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, races-replace, house-track, house-track-choose, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, hero-review, story-highlights, story-highlights-dry-run, reel-cut, reel-rewrite, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, australia-inc, australia-inc-dry-run, rub-draft, rub-draft-dry-run, both]
+        options: [rss, trends, trending, trending-review, email, economists, economists-again, economists-dry-run, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, gfs, gfs-dry-run, wb, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, races-replace, house-track, house-track-choose, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, hero-review, story-highlights, story-highlights-dry-run, reel-cut, reel-rewrite, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, australia-inc, australia-inc-dry-run, rub-draft, rub-draft-dry-run, scorecard, scorecard-dry-run, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, reel-rewrite, story-refresh(-apply): story slug(s); races: a race or bars video key (race:erp_cob, bars:gov_borrowing). Space separated.'
@@ -347,6 +351,34 @@ jobs:
         run: >-
           npx tsx --import ./scripts/node-shims.mjs scripts/australia-inc.ts
           ${{ inputs.task == 'australia-inc-dry-run' && '--dry-run' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  scorecard:
+    # The government scorecard (web/scripts/scorecard.ts): draft or update the federal government's measurable
+    # commitments from official documents, strict check each (quote in the document + source check, fail closed: held
+    # otherwise), rate live ones from stored series, log changes (scorecard_log), request missing official series.
+    if: >-
+      github.event_name == 'workflow_dispatch' && startsWith(inputs.task, 'scorecard') ||
+      github.event_name == 'schedule' && github.event.schedule == '53 19 * * 3'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run: { working-directory: web }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm ci --silent
+      - run: npm install @supabase/supabase-js --no-save --silent
+        working-directory: agent
+      - name: Government scorecard
+        run: >-
+          npx tsx --import ./scripts/node-shims.mjs scripts/scorecard.ts
+          ${{ inputs.task == 'scorecard-dry-run' && '--dry-run' || '' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

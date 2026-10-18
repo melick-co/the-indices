@@ -10,6 +10,7 @@
     "check:reel-cut": "tsx lib/reel-cut.check.ts",
     "check:australia-inc": "tsx lib/australia-inc.check.ts",
     "check:gov-pnl": "tsx lib/gov-pnl.check.ts",
+    "check:scorecard": "tsx lib/scorecard.check.ts",
     "check:bars-borrowing": "tsx lib/bars-borrowing.check.ts"
   },
   "dependencies": {
