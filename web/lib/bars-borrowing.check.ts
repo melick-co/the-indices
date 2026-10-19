@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { CAVEAT, PARTY_COLOUR, borrowingCaptions, borrowingSpec, desc, fyKey, officeLine, trimCaptions } from './bars-borrowing';
+import { COLOUR_CAVEAT, EMERGENCY_CAVEAT, PARTY_COLOUR, borrowingCaptions, borrowingSpec, contextLine, desc, fyKey, officeLine, trimCaptions } from './bars-borrowing';
 import { UCB, UCB_PCT_GDP, UCB_SOURCE } from './bars-borrowing.fixture';
 import { barLabel, barsFrames, barsSeconds, bnText, type BarsBar } from './bars-video-types';
 import { EMERGENCY_PACKAGES } from './emergency-packages';
@@ -24,10 +24,29 @@ assert.deepEqual(split(2024), [['labor', 366]]);
 assert.deepEqual(split(2012), [['labor', 366]], 'FY2011–12 has 29 February 2012');
 for (let y = 1998; y <= 2026; y++) assert.ok(Math.abs(officeSplit(y).reduce((t, x) => t + x.share, 0) - 1) < 1e-12, `${fyName(y)} shares sum to 1`);
 
+function mk0(vals: (number | null)[]): BarsBar[] { return vals.map((v, i) => ({ period: fyName(2001 + i), value: v, segments: [] })); }
+
 // ---------- the spec, from Treasury's figures (Budget 2026–27 BP1 Statement 11 Table 11.1)
 assert.equal(fyKey(2008), '2007-08', 'the stored period');
 const balance = new Map(Object.entries(UCB)), pctGdp = new Map(Object.entries(UCB_PCT_GDP));
 const spec = borrowingSpec({ balance, pctGdp, fromYear: 2006, toYear: 2025, source: UCB_SOURCE });
+// The emergency packages are parked: off by default, kept and tested for later.
+const espec = borrowingSpec({ balance, pctGdp, fromYear: 2006, toYear: 2025, source: UCB_SOURCE, emergency: true });
+assert.equal(spec.trim, undefined, 'plain video: no trimmed pass');
+assert.ok(spec.bars.every((b) => b.trim === undefined), 'plain video: nothing shaded');
+assert.deepEqual(spec.sources.map((s) => s.org), ['Treasury', 'National Archives of Australia', 'Parliament of Australia'], 'no package documents');
+assert.ok(!spec.notes.some((t) => /Hatched|package|trimmed/i.test(t)), 'no package or estimate notes');
+assert.deepEqual(spec.caveat, [
+  'Colour shows which party was in office, not what caused the result.',
+  'The three largest deficits in this series coincide with the global financial crisis (2009–10) and the COVID-19 pandemic (2019–20 and 2020–21).',
+]);
+assert.equal(spec.caveat[0], COLOUR_CAVEAT);
+// The three largest deficits on the cash measure, checked from the figures: 2020–21, 2019–20, 2009–10.
+assert.deepEqual(Object.entries(UCB).filter(([fy]) => fy >= '2005-06').sort((a, b) => a[1] - b[1]).slice(0, 3).map(([fy]) => fy), ['2020-21', '2019-20', '2009-10']);
+assert.equal(contextLine(mk0([1, 2, 3])), null);
+const ctx = (vals: [string, number][]) => contextLine(vals.map(([period, value]) => ({ period, value, segments: [] })));
+assert.equal(ctx([['2008–09', 50], ['2020–21', 90], ['2015–16', 10]]), 'The two largest deficits in this series coincide with the global financial crisis (2008–09) and the COVID-19 pandemic (2020–21).', 'third largest outside an episode: the two');
+assert.equal(ctx([['2019–20', 50], ['2020–21', 90], ['2015–16', 60]]), null, 'second largest outside an episode: no line');
 assert.equal(spec.title, 'Commonwealth deficits and surpluses, 2005–06 to 2024–25');
 assert.match(spec.subtitle, /^Underlying cash balance, Australian Government general government sector/);
 assert.equal(spec.bars.length, 20);
@@ -48,13 +67,14 @@ assert.deepEqual(bar('2013–14').segments.map((s) => s.group), ['labor', 'coali
 assert.deepEqual(bar('2021–22').segments.map((s) => s.group), ['coalition', 'labor']);
 
 // ---------- the emergency packages: Treasury's year-by-year costings, no year apportioned here
-const trims = Object.fromEntries(spec.bars.filter((b) => b.trim).map((b) => [b.period, b.trim]));
+const trims = Object.fromEntries(espec.bars.filter((b) => b.trim).map((b) => [b.period, b.trim]));
 assert.deepEqual(trims, {
   '2008–09': 26587, '2009–10': 22352, '2010–11': 12716, '2011–12': 5056,
   '2019–20': 56712, '2020–21': 145909, '2021–22': 53896, '2022–23': 32713, '2023–24': 13266, '2024–25': 8993,
 });
-for (const p of EMERGENCY_PACKAGES) for (const y of p.years) assert.equal(bar(y.fy.replace('-', '–')).trim, y.cost, `${p.key} ${y.fy}`);
-const trimmedOf = (p: string) => bar(p).value! - (bar(p).trim ?? 0);
+const ebar = (p: string) => espec.bars.find((b) => b.period === p)!;
+for (const p of EMERGENCY_PACKAGES) for (const y of p.years) assert.equal(ebar(y.fy.replace('-', '–')).trim, y.cost, `${p.key} ${y.fy}`);
+const trimmedOf = (p: string) => ebar(p).value! - (ebar(p).trim ?? 0);
 assert.equal(trimmedOf('2009–10'), 54494 - 22352);
 assert.equal(trimmedOf('2020–21'), -11738, "a costing larger than the year's deficit leaves a surplus");
 assert.equal(trimmedOf('2022–23'), -22064 - 32713, 'a surplus year with package costs: a larger surplus without them');
@@ -75,15 +95,15 @@ for (const c of spec.captions) {
   if (pct) assert.equal(Number(pct), Math.abs(b.pct!), `caption ${c.text}: % of GDP is the table's`);
 }
 // The trimmed view: each package's costliest year, full and trimmed, computed from the same figures.
-assert.equal(spec.trim!.heading, 'Without the GFC and COVID-19 emergency packages');
-assert.equal(spec.trim!.legend, 'Emergency measures (Treasury costing)');
-assert.deepEqual(spec.trim!.captions, [
+assert.equal(espec.trim!.heading, 'Without the GFC and COVID-19 emergency packages');
+assert.equal(espec.trim!.legend, 'Emergency measures (Treasury costing)');
+assert.deepEqual(espec.trim!.captions, [
   { bar: 3, text: '2008–09: a deficit of $27.0bn; without the GFC stimulus packages, a deficit of $0.4bn' },
   { bar: 15, text: '2020–21: a deficit of $134.2bn; without the COVID-19 response measures, a surplus of $11.7bn' },
 ]);
 assert.equal(desc(27013 - 26587), 'a deficit of $0.4bn');
 assert.equal(desc(134171 - 145909), 'a surplus of $11.7bn');
-assert.deepEqual(trimCaptions(spec.bars, []), []);
+assert.deepEqual(trimCaptions(espec.bars, []), []);
 assert.equal(bnText(134171), '$134.2bn');
 assert.equal(barLabel(-22064, true), '22');
 
@@ -105,30 +125,31 @@ assert.deepEqual(barParts(-22064, 32713, 0), { d: -22064, w: -54777, solid: [-22
 assert.deepEqual(barParts(-22064, 32713, 1).solid, [-54777, 0]);
 assert.deepEqual(barParts(48456, 0, 0.5), { d: 48456, w: 48456, solid: [0, 48456], hatched: null }, 'no package: unchanged');
 
-// ---------- the caveat card and sources card
-assert.deepEqual(spec.caveat, CAVEAT);
-assert.deepEqual(spec.caveat, [
+// ---------- the caveat card and sources card (the emergency version, parked)
+assert.deepEqual(espec.caveat, EMERGENCY_CAVEAT);
+assert.deepEqual(espec.caveat, [
   'Colour shows which party was in office, not what caused the result.',
   "Recessions also cut tax revenue; that shortfall is not in Treasury's package costings, so it stays in the trimmed bars.",
   'The size and design of each package were government decisions; the trimmed bars exclude the packages as Treasury costed them, not what would otherwise have happened.',
 ]);
-assert.deepEqual(spec.sources.map((s) => s.org), ['Treasury', 'Treasury', 'Treasury', 'National Archives of Australia', 'Parliament of Australia']);
+assert.deepEqual(espec.sources.map((s) => s.org), ['Treasury', 'Treasury', 'Treasury', 'National Archives of Australia', 'Parliament of Australia']);
 assert.match(spec.sources[0].dataset, /Table 11\.1$/);
-assert.match(spec.sources[1].dataset, /2009-10 Budget, Budget Paper No\. 1, Statement 4.*Table 1: The components of fiscal policy/);
-assert.match(spec.sources[2].dataset, /2021-22 Budget fact sheet: Recovery and response support/);
+assert.match(espec.sources[1].dataset, /2009-10 Budget, Budget Paper No\. 1, Statement 4.*Table 1: The components of fiscal policy/);
+assert.match(espec.sources[2].dataset, /2021-22 Budget fact sheet: Recovery and response support/);
 assert.ok(spec.notes.includes("2025–26 is not shown: Treasury's figure for it is still an estimate."));
-assert.ok(spec.notes.some((t) => t.startsWith('Hatched, 2008–09 to 2011–12: the GFC stimulus packages')));
-assert.ok(spec.notes.some((t) => t.startsWith('Hatched, 2019–20 to 2024–25: the COVID-19 response measures')));
-assert.ok(spec.notes.includes("Where a package's costing is larger than that year's deficit (2020–21, 2021–22), the trimmed bar is a surplus."));
+assert.ok(espec.notes.some((t) => t.startsWith('Hatched, 2008–09 to 2011–12: the GFC stimulus packages')));
+assert.ok(espec.notes.some((t) => t.startsWith('Hatched, 2019–20 to 2024–25: the COVID-19 response measures')));
+assert.ok(espec.notes.includes("Where a package's costing is larger than that year's deficit (2020–21, 2021–22), the trimmed bar is a surplus."));
 assert.ok(spec.notes.includes('2007–08: Coalition 155 days, Labor 211 days.'));
 assert.equal(officeLine(2006, 2025), 'Coalition (Howard) to 2 December 2007; Labor (Rudd, Gillard, Rudd) from 3 December 2007; Coalition (Abbott, Turnbull, Morrison) from 18 September 2013; Labor (Albanese) from 23 May 2022');
 assert.equal(officeLine(2015, 2020), 'Coalition (Abbott, Turnbull, Morrison)', 'one government over the whole window: no dates');
-const gappy = borrowingSpec({ balance: new Map([['2019-20', -5]]), pctGdp: new Map(), fromYear: 2020, toYear: 2021, source: UCB_SOURCE, packages: [] });
+const gappy = borrowingSpec({ balance: new Map([['2019-20', -5]]), pctGdp: new Map(), fromYear: 2020, toYear: 2021, source: UCB_SOURCE, emergency: true, packages: [] });
 assert.ok(gappy.notes.includes("No bar for 2020–21: no outcome in Treasury's table."));
 assert.equal(gappy.trim, undefined, 'no packages: no trimmed pass');
 
 // ---------- house style: Australian English, no em dashes, the caveat about timing never about cause
-const words = [spec.title, spec.subtitle, spec.legendNote ?? '', ...spec.captions.map((c) => c.text), ...spec.trim!.captions.map((c) => c.text), spec.trim!.heading, ...spec.caveat, ...spec.notes, ...spec.takeaways].join('\n');
+const words = [spec.title, spec.subtitle, spec.legendNote ?? '', ...spec.captions.map((c) => c.text), ...espec.trim!.captions.map((c) => c.text), espec.trim!.heading, ...spec.caveat, ...espec.caveat, ...spec.notes, ...espec.notes, ...spec.takeaways].join('\n');
+assert.ok(!/\b(caus|because|due to|led to|blame)/i.test(spec.caveat.slice(1).join(' ')), 'the context line is timing, never cause');
 assert.ok(!words.includes('—'), 'no em dashes');
 
 // ---------- colours: each clears 3:1 (graphics) against the video's navy and the house paper
@@ -142,8 +163,9 @@ for (const [party, colour] of Object.entries(PARTY_COLOUR)) {
   assert.ok(contrast(colour, PAPER) >= 3, `${party} on paper: ${contrast(colour, PAPER).toFixed(2)}`);
 }
 
-// ---------- length: about a minute
-assert.ok(barsSeconds(spec) >= 50 && barsSeconds(spec) <= 65, `${barsSeconds(spec)}s`);
+// ---------- length: about 47 seconds plain, about a minute with the trimmed pass
+assert.ok(barsSeconds(spec) >= 40 && barsSeconds(spec) <= 50, `${barsSeconds(spec)}s`);
+assert.ok(barsSeconds(espec) >= 55 && barsSeconds(espec) <= 65, `${barsSeconds(espec)}s`);
 assert.equal(barsFrames(spec), Math.round(barsSeconds(spec) * 30));
 
 console.log(`bars-borrowing checks passed (${barsSeconds(spec).toFixed(1)}s video)`);

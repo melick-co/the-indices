@@ -11,7 +11,8 @@
  * Sign: a negative balance is a deficit. A bar goes up for a deficit and down for a surplus, so the bar is −(balance),
  * and its % of GDP likewise. A year with no outcome has no bar (a gap, said on screen).
  *
- * Trim: each year's emergency package cost as Treasury costed it (lib/emergency-packages.ts) widened the deficit, so
+ * Emergency packages (off unless `emergency: true`; parked by the editor, October 2026, because the only year-by-year
+ * costings are 2009 and 2021 estimates that exceed what was spent). When on, each year's emergency package cost as Treasury costed it (lib/emergency-packages.ts) widened the deficit, so
  * the trimmed bar is the bar less that cost. It can go below zero: where Treasury's costing is larger than the deficit,
  * the trimmed bar is a surplus. In a year split between governments, the trimmed part splits with the bar, in
  * proportion (Treasury's costings are by year only).
@@ -36,9 +37,33 @@ export type BorrowingInput = {
   toYear: number;
   /** Where the figures come from: the stored series' source_dataset and source_url. */
   source: { dataset: string; url?: string };
-  /** The emergency packages to shade and trim (default: both, as Treasury costed them). */
+  /** Shade the emergency packages and add the trimmed pass. Off by default: nothing from the packages renders. */
+  emergency?: boolean;
+  /** The emergency packages to shade and trim when `emergency` is on (default: both, as Treasury costed them). */
   packages?: EmergencyPackage[];
 };
+
+/** Periods named in the context line, only as timing (never as a cause). June years. */
+export const EPISODES = [
+  { name: 'the global financial crisis', years: [2009, 2010] },
+  { name: 'the COVID-19 pandemic', years: [2020, 2021] },
+];
+
+/**
+ * The context line: the largest deficits named against the episodes they fall in, as timing only. The three largest
+ * when all three fall in an episode, else the two largest when both do; otherwise no line.
+ */
+export function contextLine(bars: BarsBar[]): string | null {
+  const endYear = (p: string) => Number(p.slice(0, 4)) + 1;
+  const episodeOf = (b: BarsBar) => EPISODES.find((e) => e.years.includes(endYear(b.period)));
+  const ranked = bars.filter((b) => b.value != null && b.value > 0).sort((a, b) => b.value! - a.value!);
+  const n = ranked.length >= 3 && ranked.slice(0, 3).every(episodeOf) ? 3 : ranked.length >= 2 && ranked.slice(0, 2).every(episodeOf) ? 2 : 0;
+  if (!n) return null;
+  const top = ranked.slice(0, n);
+  const parts = EPISODES.map((e) => ({ e, years: top.filter((b) => episodeOf(b) === e).map((b) => b.period).sort() }))
+    .filter((x) => x.years.length).map((x) => `${x.e.name} (${x.years.join(' and ')})`);
+  return `The ${n === 3 ? 'three' : 'two'} largest deficits in this series coincide with ${parts.join(' and ')}.`;
+}
 
 type Facts = { opening?: boolean; extreme?: 'up' | 'down'; latest?: boolean; firstSince?: string; after?: { period: string; value: number } };
 
@@ -135,7 +160,10 @@ export function officeLine(fromYear: number, toYear: number): string {
   }).join('; ');
 }
 
-export const CAVEAT = [
+export const COLOUR_CAVEAT = 'Colour shows which party was in office, not what caused the result.';
+
+/** The caveat card with the emergency packages shown (parked). */
+export const EMERGENCY_CAVEAT = [
   'Colour shows which party was in office, not what caused the result.',
   'Recessions also cut tax revenue; that shortfall is not in Treasury\'s package costings, so it stays in the trimmed bars.',
   'The size and design of each package were government decisions; the trimmed bars exclude the packages as Treasury costed them, not what would otherwise have happened.',
@@ -143,7 +171,8 @@ export const CAVEAT = [
 
 export function borrowingSpec(input: BorrowingInput): BarsSpec {
   const { balance, pctGdp, fromYear, toYear } = input;
-  const packages = input.packages ?? EMERGENCY_PACKAGES;
+  const emergency = input.emergency ?? false;
+  const packages = emergency ? (input.packages ?? EMERGENCY_PACKAGES) : [];
   const costOf = new Map(packages.flatMap((p) => p.years.map((y) => [y.fy, y.cost] as const)));
   const bars: BarsBar[] = [];
   for (let y = fromYear; y <= toYear; y++) {
@@ -182,7 +211,7 @@ export function borrowingSpec(input: BorrowingInput): BarsSpec {
     legendNote: 'Two colours in one bar: the government changed that year, split by days in office',
     bars,
     captions: borrowingCaptions(bars),
-    caveat: CAVEAT,
+    caveat: emergency ? EMERGENCY_CAVEAT : [COLOUR_CAVEAT, ...(contextLine(bars) ? [contextLine(bars)!] : [])],
     ...(trimmed.length ? {
       trim: {
         legend: 'Emergency measures (Treasury costing)',

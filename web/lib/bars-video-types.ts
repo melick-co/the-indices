@@ -63,8 +63,9 @@ export const TRIM_LEAD_SECONDS = 1.5;
 export const TRIM_ANIMATE_SECONDS = 2;
 export const TRIM_CAPTION_SECONDS = 3.5;
 export const TRIM_HOLD_SECONDS = 2;
-export const BARS_CAVEAT_SECONDS = 7;
-export const BARS_SOURCES_SECONDS = 7;
+/** The caveat and sources cards: longer when the trimmed pass adds lines to read. */
+export const caveatSeconds = (s: BarsSpec) => (s.trim ? 7 : 5.5);
+export const sourcesSeconds = (s: BarsSpec) => (s.trim ? 7 : 6);
 export const BARS_OUTRO_SECONDS = 3.5;
 
 export const barsBuildEnd = (s: BarsSpec) => BARS_INTRO_SECONDS + barStepSeconds(s.bars.length) * s.bars.length;
@@ -72,8 +73,8 @@ export const barsTrimStart = (s: BarsSpec) => barsBuildEnd(s) + BARS_HOLD_SECOND
 export const trimSeconds = (s: BarsSpec) =>
   s.trim ? TRIM_LEAD_SECONDS + TRIM_ANIMATE_SECONDS + TRIM_CAPTION_SECONDS * s.trim.captions.length + TRIM_HOLD_SECONDS : 0;
 export const barsCaveatStart = (s: BarsSpec) => barsTrimStart(s) + trimSeconds(s);
-export const barsSourcesStart = (s: BarsSpec) => barsCaveatStart(s) + BARS_CAVEAT_SECONDS;
-export const barsOutroStart = (s: BarsSpec) => barsSourcesStart(s) + BARS_SOURCES_SECONDS;
+export const barsSourcesStart = (s: BarsSpec) => barsCaveatStart(s) + caveatSeconds(s);
+export const barsOutroStart = (s: BarsSpec) => barsSourcesStart(s) + sourcesSeconds(s);
 export const barsSeconds = (s: BarsSpec) => barsOutroStart(s) + BARS_OUTRO_SECONDS;
 export const barsFrames = (s: BarsSpec) => Math.round(barsSeconds(s) * BARS_FPS);
 /** The poster: the finished (shaded) chart, halfway through the hold. */
