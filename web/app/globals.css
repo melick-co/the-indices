@@ -5016,6 +5016,19 @@ a.dx-driver:hover { background: #f5f7fb; }
 .pq-kind-rules legend { font-weight: 700; padding: 0 4px; }
 .pq-kind-rules > label:first-of-type { flex-direction: row; align-items: center; }
 .pq-days { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.pq-li { border: 1px solid #e6eaf1; border-radius: 8px; padding: 12px 14px; background: #fbfcfe; display: flex; flex-direction: column; gap: 8px; }
+.pq-li-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.pq-li-head .pq-h { margin: 0; }
+.pq-li-rule { font-size: .78rem; color: #5b6b85; flex: 1 1 320px; }
+.pq-li-mode { display: flex; gap: 4px; }
+.pq-li-note { margin: 0; font-size: .8rem; color: #33415e; }
+.pq-li-copy { margin: 6px 0 0; white-space: pre-wrap; font-size: .84rem; color: #1d2a48; line-height: 1.45; }
+.pq-li-text { width: 100%; margin-top: 6px; font-size: .84rem; line-height: 1.45; resize: vertical; }
+.pq-li-checks { font-size: .74rem; color: #5b6b85; margin-top: 6px; }
+.pq-li-ok { color: #22753a; font-weight: 600; } .pq-li-bad { color: #a32d24; }
+.pq-li-issues { margin: 4px 0 0; padding-left: 18px; font-size: .76rem; color: #a32d24; }
+.pq-li-recent { margin: 0; padding-left: 18px; font-size: .76rem; color: #5b6b85; }
+.pq-chan.c-review { background: #fff4d6; color: #8a6100; } .pq-chan.c-approved { background: #e3f4e6; color: #22753a; } .pq-chan.c-held { background: #fbe7e5; color: #a32d24; }
 @media (max-width: 640px) { .pq-row-main { flex-wrap: wrap; } .pq-cal { grid-template-columns: 1fr 1fr; } }
 
 /* The story in three numbers (components/StoryHighlights.tsx): the top-of-story graphic. */

@@ -1,12 +1,16 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { CHANNELS, WEEKDAYS, type Channel, type QueueItem, type QueueKind, type QueuePost, type ScheduleRules } from '@/lib/content-queue';
-import { planNow, publishNow, reschedule, saveRules, setStatus } from './actions';
+import { CHANNELS, WEEKDAYS, cadenceChannels, channelMode, type Channel, type QueueItem, type QueueKind, type QueuePost, type ScheduleRules } from '@/lib/content-queue';
+import { LINKEDIN_LIMITS, type LintIssue } from '@/lib/social/linkedin-copy';
+import { approveLinkedin, editLinkedin, planNow, publishNow, reschedule, saveRules, setChannelMode, setStatus, skipLinkedin } from './actions';
 
 const KIND_LABEL: Record<QueueKind, string> = { article: 'Article', visual: 'Graphic', race: 'Race video', breaking: 'Breaking', hero_video: 'Hero video', reel: 'Reel' };
 const CHANNEL_LABEL: Record<Channel, string> = { site: 'Site', youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', facebook: 'Facebook', x: 'X', linkedin: 'LinkedIn' };
-const POST_LABEL: Record<string, string> = { planned: 'planned', scheduled: 'scheduled', posted: 'posted', failed: 'failed', skipped: 'skipped', not_connected: 'not connected' };
+const POST_LABEL: Record<string, string> = {
+  planned: 'planned', scheduled: 'scheduled', posted: 'posted', failed: 'failed', skipped: 'skipped', not_connected: 'not connected',
+  review: 'waiting for approval', approved: 'approved', held: 'held: fails checks',
+};
 const PLANNED_KINDS: QueueKind[] = ['article', 'visual', 'race'];
 
 function useTz(tz: string) {
@@ -29,7 +33,7 @@ type Ctx = {
 
 const previewUrl = (i: QueueItem) => (i.kind === 'visual' || i.kind === 'race' ? `/indices/visuals/${i.ref_slug}` : `/stories/${i.ref_slug}`) + (i.status === 'published' ? '' : '?preview=1');
 
-export default function QueueBoard({ rules, items, posts }: { rules: ScheduleRules; items: QueueItem[]; posts: QueuePost[] }) {
+export default function QueueBoard({ rules, items, posts, linkedinReady }: { rules: ScheduleRules; items: QueueItem[]; posts: QueuePost[]; linkedinReady: boolean }) {
   const t = useTz(rules.timezone);
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
@@ -79,6 +83,8 @@ export default function QueueBoard({ rules, items, posts }: { rules: ScheduleRul
       {msg && <p className="pq-msg">{msg}</p>}
       {planLog && <pre className="pq-log">{planLog.length ? planLog.join('\n') : 'Nothing ready to schedule.'}</pre>}
       {showRules && <RulesForm rules={rules} onSave={(r) => run(() => saveRules(r), 'Rules saved.')} pending={pending} />}
+
+      <LinkedinPanel {...ctx} items={items} posts={posts.filter((p) => p.channel === 'linkedin')} ready={linkedinReady} />
 
       <section>
         <h2 className="pq-h">Calendar</h2>
@@ -199,7 +205,7 @@ function RulesForm({ rules, onSave, pending }: { rules: ScheduleRules; onSave: (
               })}
             </div>
             <div className="pq-days">Channels
-              {CHANNELS.map((c) => (
+              {CHANNELS.filter((c) => !cadenceChannels(r).has(c)).map((c) => (
                 <label key={c} className="pq-check"><input type="checkbox" checked={(r.channels[k] ?? []).includes(c)} disabled={c === 'site'} onChange={(e) => {
                   const cur = r.channels[k] ?? ['site'];
                   set({ channels: { ...r.channels, [k]: CHANNELS.filter((x) => x === 'site' || (x === c ? e.target.checked : cur.includes(x))) } });
@@ -211,5 +217,94 @@ function RulesForm({ rules, onSave, pending }: { rules: ScheduleRules; onSave: (
       })}
       <button type="submit" className="pq-btn primary" disabled={pending}>Save rules</button>
     </form>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------------- LinkedIn
+
+const OPEN_LI = ['review', 'held', 'approved', 'scheduled', 'failed', 'planned'];
+
+function LinkedinPanel({ t, rules, pending, run, items, posts, ready }: Ctx & { items: QueueItem[]; posts: QueuePost[]; ready: boolean }) {
+  const mode = channelMode(rules, 'linkedin');
+  const cad = rules.cadence?.linkedin;
+  const open = posts.filter((p) => OPEN_LI.includes(p.status)).sort((a, b) => (a.scheduled_at ?? '').localeCompare(b.scheduled_at ?? ''));
+  const recent = posts.filter((p) => p.status === 'posted' || p.status === 'skipped').sort((a, b) => (b.scheduled_at ?? '').localeCompare(a.scheduled_at ?? '')).slice(0, 5);
+  const connected = (rules.connected ?? []).includes('linkedin');
+  return (
+    <section className="pq-li">
+      <div className="pq-li-head">
+        <h2 className="pq-h">LinkedIn</h2>
+        <span className="pq-li-rule">One post {cad ? `${cad.days.map((d) => d[0].toUpperCase() + d.slice(1)).join('/')} at ${cad.slot}` : 'a weekday'}: the day&apos;s lead story, else a graphic or race from that day or the day before.</span>
+        <div className="pq-li-mode" role="group" aria-label="LinkedIn mode">
+          {(['review', 'auto'] as const).map((m) => (
+            <button key={m} type="button" className={`pq-btn small${mode === m ? ' primary' : ''}`} aria-pressed={mode === m} disabled={pending || mode === m}
+              onClick={() => { if (m === 'review' || confirm('Auto: posts that pass the checks go out at their slot without approval. Switch?')) run(() => setChannelMode('linkedin', m), m === 'auto' ? 'LinkedIn on auto.' : 'LinkedIn on review.'); }}>
+              {m === 'review' ? 'Review first' : 'Auto'}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="pq-li-note">
+        {mode === 'review' ? 'Review: each post waits here for your approval and goes out at its slot (at once if the slot has passed).' : 'Auto: posts that pass the checks go out at their slot. Held posts still wait for you.'}
+        {' '}{connected ? 'Connected.' : ready ? 'Credentials set; connects on the first post.' : 'Not connected yet: drafts are planned, nothing posts until the LinkedIn secrets are set.'}
+      </p>
+      {open.length ? <div className="pq-list">{open.map((p) => <LinkedinRow key={p.id} p={p} q={items.find((i) => i.id === p.queue_id)} t={t} pending={pending} run={run} />)}</div>
+        : <p className="pq-empty">No LinkedIn post planned. The next run plans the coming weekday once its lead story is scheduled.</p>}
+      {recent.length > 0 && (
+        <ul className="pq-li-recent">
+          {recent.map((p) => {
+            const q = items.find((i) => i.id === p.queue_id);
+            return <li key={p.id}>{p.scheduled_at ? t.dayLabel(p.scheduled_at) : ''} · {q?.title ?? 'piece'} · {p.status === 'posted' && p.external_url ? <a href={p.external_url} target="_blank" rel="noreferrer">posted</a> : `${POST_LABEL[p.status]}${p.error ? ` (${p.error})` : ''}`}</li>;
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function LinkedinRow({ p, q, t, pending, run }: Pick<Ctx, 't' | 'pending' | 'run'> & { p: QueuePost; q?: QueueItem }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(p.caption ?? '');
+  const [issues, setIssues] = useState<LintIssue[] | null>(null);
+  const lint = issues ?? p.lint ?? [];
+  const busy = p.status === 'planned';
+  const firstLine = (p.caption ?? '').split('\n')[0] ?? '';
+  return (
+    <article className={`pq-row pq-li-row s-${p.status}`}>
+      <div className="pq-row-main">
+        <span className={`pq-chan c-${p.status}`}>{POST_LABEL[p.status] ?? p.status}</span>
+        <div className="pq-row-text">
+          <div className="pq-meta">{p.scheduled_at ? `${t.dayLabel(p.scheduled_at)}, ${t.time(p.scheduled_at)}` : 'No slot'} · {q ? <a className="pq-title" href={previewUrl(q)} target="_blank" rel="noreferrer">{q.title}</a> : 'piece not in view'}{q && q.status !== 'published' ? ` (site: ${q.status})` : ''}</div>
+          {editing ? (
+            <textarea className="pq-input pq-li-text" rows={12} value={text} onChange={(e) => setText(e.target.value)} aria-label="LinkedIn post text" />
+          ) : (
+            <p className="pq-li-copy">{p.caption || <em>No copy yet.</em>}</p>
+          )}
+          <div className="pq-li-checks">
+            {editing ? `${text.trim().length} characters (${LINKEDIN_LIMITS.minChars} to ${LINKEDIN_LIMITS.maxChars}); first line ${text.split('\n')[0].length}/${LINKEDIN_LIMITS.firstLine}`
+              : `${(p.caption ?? '').trim().length} characters; first line ${firstLine.length}/${LINKEDIN_LIMITS.firstLine}`}
+            {' · '}{lint.length ? <strong className="pq-li-bad">{lint.length} check{lint.length > 1 ? 's' : ''} failed</strong> : <span className="pq-li-ok">Checks passed</span>}
+          </div>
+          {lint.length > 0 && <ul className="pq-li-issues">{lint.map((i, n) => <li key={n}>{i.message}</li>)}</ul>}
+          {p.error && p.status !== 'held' && <p className="pq-li-issues">{p.error}</p>}
+        </div>
+      </div>
+      {!busy && (
+        <div className="pq-actions">
+          {editing ? (
+            <>
+              <button type="button" className="pq-btn primary" disabled={pending} onClick={() => run(async () => { const found = await editLinkedin(p.id, text); setIssues(found); if (!found.length) setEditing(false); }, 'Saved and checked.')}>Save and check</button>
+              <button type="button" className="pq-btn" disabled={pending} onClick={() => { setEditing(false); setText(p.caption ?? ''); setIssues(null); }}>Cancel</button>
+            </>
+          ) : (
+            <>
+              {p.status !== 'approved' && <button type="button" className="pq-btn primary" disabled={pending || lint.length > 0 || !p.caption} onClick={() => run(() => approveLinkedin(p.id), 'Approved: it goes out at its slot.')}>Approve</button>}
+              <button type="button" className="pq-btn" disabled={pending} onClick={() => { setText(p.caption ?? ''); setEditing(true); }}>Edit</button>
+              <button type="button" className="pq-btn danger" disabled={pending} onClick={() => { if (confirm('Skip this LinkedIn post? The day goes without one.')) run(() => skipLinkedin(p.id), 'Skipped.'); }}>Skip</button>
+            </>
+          )}
+        </div>
+      )}
+    </article>
   );
 }
