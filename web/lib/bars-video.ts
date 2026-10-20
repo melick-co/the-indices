@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
 import { loadObservations } from '@/lib/chart-from-data';
-import { COVERAGE_BREAKS, gfsId, usableQuarter } from '../../agent/scripts/lib/gfs.mjs';
-import { borrowingSpec, flaggedFromBasis } from '@/lib/bars-borrowing';
+import { borrowingSpec } from '@/lib/bars-borrowing';
 import type { BarsSpec } from '@/lib/bars-video-types';
 
 /**
@@ -13,24 +12,19 @@ export const BAR_VIDEOS = [{ key: 'bars:gov_borrowing', label: 'Commonwealth bor
 
 type Db = ReturnType<typeof createClient>;
 
-/** The last financial year (by its June year) whose four quarters are all in `series`. */
-function lastCompleteYear(series: Map<string, number>): number | null {
-  const junes = [...series.keys()].filter((p) => p.endsWith('-Q2')).map((p) => Number(p.slice(0, 4))).sort((a, b) => b - a);
-  return junes.find((y) => [`${y - 1}-Q3`, `${y - 1}-Q4`, `${y}-Q1`, `${y}-Q2`].every((q) => series.has(q))) ?? null;
-}
+const UCB = 'budget_underlying_cash_balance_au', UCB_PCT = 'budget_underlying_cash_balance_pct_gdp_au';
 
-/** Commonwealth borrowing: the 20 latest complete financial years. */
+/** Commonwealth borrowing: the 20 latest financial years with an outcome in Treasury's historical table (underlying cash balance, Table 11.1). */
 async function govBorrowing(db: Db): Promise<BarsSpec | null> {
-  const obs = (await loadObservations(db, gfsId('cwth', 'nlb')).catch(() => [])).filter((o) => o.entity === 'AUS' && usableQuarter('cwth', o.period));
-  if (!obs.length) return null;
-  const nlb = new Map(obs.map((o) => [o.period, o.value]));
-  const gdp = new Map((await loadObservations(db, 'pnl_gdp').catch(() => [])).filter((o) => o.entity === 'AUS').map((o) => [o.period, o.value]));
-  const toYear = lastCompleteYear(nlb);
-  if (!toYear) return null;
-  const { data: meta } = await db.from('metrics').select('basis').eq('metric_id', gfsId('cwth', 'nlb')).maybeSingle();
+  const series = async (id: string) => new Map((await loadObservations(db, id).catch(() => [])).filter((o) => o.entity === 'AUS').map((o) => [o.period, o.value]));
+  const [balance, pctGdp] = await Promise.all([series(UCB), series(UCB_PCT)]);
+  const years = [...balance.keys()].filter((p) => /^\d{4}-\d{2}$/.test(p)).map((p) => Number(p.slice(0, 4)) + 1).sort((a, b) => a - b);
+  if (!years.length) return null;
+  const toYear = years.at(-1)!;
+  const { data: meta } = await db.from('metrics').select('source_dataset, source_url').eq('metric_id', UCB).maybeSingle();
   return borrowingSpec({
-    nlb, gdp, fromYear: toYear - 19, toYear, flagged: flaggedFromBasis(meta?.basis as string | undefined),
-    gapReason: `the IMF's quarterly series has no Commonwealth quarters from 2007-Q4 to 2009-Q4, and publishes ${COVERAGE_BREAKS.cwth[0]} to ${COVERAGE_BREAKS.cwth.at(-1)} on a wider coverage than the Commonwealth`,
+    balance, pctGdp, fromYear: toYear - 19, toYear,
+    source: { dataset: (meta?.source_dataset as string | undefined) ?? 'Budget Paper No. 1, Statement 11: Historical Australian Government Data, Table 11.6', url: (meta?.source_url as string | undefined) ?? undefined },
   });
 }
 

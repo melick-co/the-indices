@@ -10,8 +10,9 @@
     "check:reel-cut": "tsx lib/reel-cut.check.ts",
     "check:australia-inc": "tsx lib/australia-inc.check.ts",
     "check:gov-pnl": "tsx lib/gov-pnl.check.ts",
-    "check:scorecard": "tsx lib/scorecard.check.ts",
-    "check:bars-borrowing": "tsx lib/bars-borrowing.check.ts"
+    "check:bars-borrowing": "tsx lib/bars-borrowing.check.ts",
+    "check:emergency-packages": "tsx lib/emergency-packages.check.ts",
+    "check:scorecard": "tsx lib/scorecard.check.ts"
   },
   "dependencies": {
     "@hallelx/youtube-transcript": "0.2.0",
