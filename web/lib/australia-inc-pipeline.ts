@@ -12,9 +12,10 @@ import { auditClaims } from '@/lib/claim-audit';
 import { verifySourcedStatements } from '@/lib/source-check';
 import { pdfText } from '@/lib/pdf-text';
 import { sydneyDay } from '@/lib/dates';
+import { recentRatingChanges } from '@/lib/scorecard-pipeline';
 import {
   BOTTOM_LINE_TOPICS, chartPathFor, dataFigures, decide, figuresMissingFrom, filterLinks, isOfficialUrl, isSourcedSentence,
-  dropFlaggedSentences, findListedLink, itemIssues, linkablePaths, matchesTopics, normaliseDraft, normaliseLinks, sentenceText, shouldWrite, toCheckable, validateDraft,
+  dropFlaggedSentences, findListedLink, ratePath, itemIssues, linkablePaths, matchesTopics, normaliseDraft, normaliseLinks, sentenceText, shouldWrite, toCheckable, validateDraft,
   VERDICTS, type BottomLineCheck, type BottomLineDraft, type IncClaim, type IncKind, type IncLink, type KnownPaths, type SourceRef, type Verdict,
 } from '@/lib/australia-inc';
 
@@ -374,7 +375,8 @@ export async function recheckAdopted(db: SupabaseClient, opts: { dry: boolean; l
 
 // ---------------------------------------------------------------------------------------------------- 3. the bottom line
 
-function writePrompt(day: string, sources: Array<SourceRef & { summary: string; claims: IncClaim[] }>, reference: unknown, stories: Array<{ slug: string; title: string }>, issues: string[] = [], previous?: BottomLineDraft) {
+function writePrompt(day: string, sources: Array<SourceRef & { summary: string; claims: IncClaim[] }>, reference: unknown, stories: Array<{ slug: string; title: string }>, issues: string[] = [], previous?: BottomLineDraft,
+  scorecard: Awaited<ReturnType<typeof recentRatingChanges>> = [], rates?: string | null) {
   return `${CHARTER}
 
 Write today's Bottom Line (${day}), the brief daily intro to Australia Inc.: Caveat's running commentary on how the
@@ -393,7 +395,10 @@ Rules (a sentence that breaks one holds the whole brief):
   said it). A news outlet's figures are NEVER repeated, not even approximately ("fallen sharply", not "7.1 per cent"):
   report what the outlet reported without the number.
 - Read the stored series before describing a trend: say a rate is rising only if its listed readings rise, and name
-  a cycle (easing, tightening) only when the readings show it. Prefer one series per point; do not stack every figure.
+  a cycle (easing, tightening) only when the readings show it.
+- Count a run of interest-rate moves from where it started, using the cash rate's path below: "four rises this year,
+  from 3.60 per cent", "up a point since the last cut in August 2025". Never measure from a date that leaves out that
+  date's own move ("since February" when February had a rise), and never give a count or total the path doesn't. Prefer one series per point; do not stack every figure.
 - Do not mention data sets, checks or "reference data" at all: the reader sees findings, not plumbing.
 - Lead with government announcements and official releases where there are any; news coverage comes after.
 - At most 250 words. Count them. Cut a paragraph rather than run over.
@@ -409,12 +414,19 @@ Rules (a sentence that breaks one holds the whole brief):
 Sources (official = an Australian government body):
 ${JSON.stringify(sources.map((s) => ({ n: s.n, publisher: s.publisher, official: s.official, title: s.title, url: s.url, summary: s.summary, claims: s.claims })), null, 1)}
 
-Stored reference (latest reading and earlier readings, newest first, per series):
+${rates ? `The cash rate's path (computed from the stored RBA decisions; use these counts and starting points exactly):\n${rates}\n\n` : ''}Stored reference (latest reading and earlier readings, newest first, per series):
 ${JSON.stringify(reference)}
 
 Caveat stories that may be relevant:
 ${JSON.stringify(stories)}
-${issues.length ? `\nYour previous draft was held for these problems. Fix every one; cut a sentence rather than keep a problem.\n${issues.map((i) => `- ${i}`).join('\n')}\nPrevious draft:\n${JSON.stringify(previous)}\n` : ''}
+${scorecard.length ? `
+Rating changes on Caveat's government scorecard since yesterday (optional; mention one only if it matters today). Each
+rating is mechanical: the pace achieved on a government target divided by the pace needed, from the official series
+named. Attribute it to the scorecard and name the official series ("on Caveat's scorecard, the Housing Accord target
+moved to behind, on ABS figures for homes completed"); give no figures beyond those in the stored reference; never
+call a rating good or bad. Link it with kind "chart" to /australia-inc/scorecard.
+${JSON.stringify(scorecard.map(({ metric_id: _m, ...r }) => r))}
+` : ''}${issues.length ? `\nYour previous draft was held for these problems. Fix every one; cut a sentence rather than keep a problem.\n${issues.map((i) => `- ${i}`).join('\n')}\nPrevious draft:\n${JSON.stringify(previous)}\n` : ''}
 Reply with JSON only:
 {"headline": "…", "paragraphs": [{"sentences": [{"text": "…", "source": 1 | null}], "links": [{"label": "…", "url": "…", "kind": "source" | "chart" | "story"}]}]}`;
 }
@@ -500,24 +512,30 @@ export async function writeBottomLine(db: SupabaseClient, newItems: ItemRow[], o
   // A claim's request to the source scout (needs) is plumbing, not something the brief reports.
   const sources = items.map((i, k) => ({ n: k + 1, title: i.title, url: i.url, publisher: i.publisher ?? '', official: isOfficialUrl(i.url), summary: i.summary ?? '', claims: ((i.claims ?? []) as IncClaim[]).map(({ needs: _needs, ...rest }) => rest) }));
   const cat = await catalogue(db);
-  const metricIds = [...new Set(['cash_rate_au', 'unemployment_rate_au', ...sources.flatMap((s) => s.claims.map((c) => c.metric_id).filter((x): x is string => Boolean(x)))])].filter((id) => cat.ids.has(id));
+  // The scorecard's rating changes since yesterday, an optional source (empty before migration 49).
+  const scorecard = await recentRatingChanges(db);
+  const metricIds = [...new Set(['cash_rate_au', 'unemployment_rate_au', ...sources.flatMap((s) => s.claims.map((c) => c.metric_id).filter((x): x is string => Boolean(x))),
+    ...scorecard.map((r) => r.metric_id).filter((x): x is string => Boolean(x))])].filter((id) => cat.ids.has(id));
   const reference = await buildReference(db, metricIds, { history: 12 });
+  const { data: rateRows } = await db.from('observations').select('period, value').eq('metric_id', 'cash_rate_au').eq('entity', 'AUS')
+    .order('period', { ascending: false }).limit(60);
+  const rates = ratePath((rateRows ?? []) as Array<{ period: string; value: number }>, day);
   const { data: storyRows } = await db.from('stories').select('slug, title').eq('status', 'published').order('published', { ascending: false }).limit(40);
   const stories = (storyRows ?? []) as Array<{ slug: string; title: string }>;
   const known: KnownPaths = { stories: new Set(stories.map((s) => s.slug)) };
 
-  let draft = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories), { label: 'bottom line', maxTokens: 4000 }));
+  let draft = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories, [], undefined, scorecard, rates), { label: 'bottom line', maxTokens: 4000 }));
   // One rewrite for the brief's own rules before the expensive checks.
   const first = validateDraft(draft, sources);
   if (first.issues.length) {
     log(`bottom line: rewriting for ${first.issues.length} issue(s)`);
-    draft = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories, first.issues, draft), { label: 'bottom line rewrite', maxTokens: 4000 }));
+    draft = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories, first.issues, draft, scorecard, rates), { label: 'bottom line rewrite', maxTokens: 4000 }));
   }
   let { check, links } = await checkBottomLine(db, draft, sources, metricIds, known);
   // Up to two revision rounds with the full findings, then the verdict stands.
   for (let round = 1; round <= 2 && !check.ok && check.audited; round++) {
     log(`bottom line: held for ${check.issues.length} issue(s); revision ${round}`);
-    const revised = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories, check.issues, draft), { label: `bottom line revision ${round}`, maxTokens: 4000 }));
+    const revised = normaliseDraft(await callClaudeJson(writePrompt(day, sources, reference, stories, check.issues, draft, scorecard, rates), { label: `bottom line revision ${round}`, maxTokens: 4000 }));
     const again = await checkBottomLine(db, revised, sources, metricIds, known);
     draft = revised; check = again.check; links = again.links;
   }
