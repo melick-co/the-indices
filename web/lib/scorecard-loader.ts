@@ -18,6 +18,7 @@ export type CommitmentRow = Commitment & {
   id: string; slug: string; title: string; quote: string; source_url: string; source_title: string | null; source_date: string | null;
   metric_id: string | null; target_unit: string | null; baseline_period: string | null; status: 'active' | 'awaiting_data' | 'held' | 'retired';
   series_label: string | null; data_note: string | null; rating: string | null; updated_at: string | null;
+  check?: { basis?: { start_basis?: string | null }; verified_against?: 'live' | 'cache' | null; document_fetched_at?: string | null } | null;
 };
 
 export type ScoredCommitment = CommitmentRow & { a: Assessment; seriesHref: string | null; seriesName: string | null };
@@ -39,7 +40,7 @@ export type ScorecardData = {
   summary: string;
 };
 
-const COLS = 'id, slug, title, quote, source_url, source_title, source_date, metric_id, series_label, target_value, target_unit, target_date, start_date, direction, baseline_value, baseline_period, method, status, data_note, rating, updated_at';
+const COLS = 'id, slug, title, quote, source_url, source_title, source_date, metric_id, series_label, target_value, target_unit, target_date, start_date, direction, baseline_value, baseline_period, method, status, data_note, rating, updated_at, check';
 
 async function commitments(db: SupabaseClient): Promise<CommitmentRow[] | null> {
   try {
