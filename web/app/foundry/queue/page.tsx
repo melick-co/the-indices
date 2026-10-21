@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
 import { loadRules, type QueueItem, type QueuePost } from '@/lib/content-queue';
+import { linkedinConfigured } from '@/lib/social/linkedin';
 import QueueBoard from './QueueBoard';
 
 export const dynamic = 'force-dynamic';
@@ -28,11 +29,12 @@ export default async function QueuePage() {
       <p className="measure pq-intro">
         Finished articles, graphics and race videos wait here for a slot. The scheduling assistant fills the calendar
         within the rules below and writes a caption for each channel; at each slot the piece goes live on the site.
-        Anything you schedule by hand stays where you put it. Breaking stories skip the queue.
+        Anything you schedule by hand stays where you put it. Breaking stories skip the queue. LinkedIn gets one post
+        each weekday morning, which waits for your approval below while LinkedIn is on review.
       </p>
       {!rules.installed
         ? <p className="pq-note">The queue tables aren&apos;t installed yet: run <code>agent/supabase/42_production_queue.sql</code> in the Supabase SQL editor. Until then, everything publishes as soon as it&apos;s made.</p>
-        : <QueueBoard rules={rules} items={items} posts={posts} />}
+        : <QueueBoard rules={rules} items={items} posts={posts} linkedinReady={linkedinConfigured()} />}
     </main>
   );
 }

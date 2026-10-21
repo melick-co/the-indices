@@ -31,6 +31,10 @@ on:
     - cron: '11 19 * * *'
     - cron: '11 1 * * *'
     - cron: '11 7 * * *'
+    # LinkedIn (web/scripts/linkedin-post.ts): LinkedIn cannot schedule, so this plans the weekday post and sends what
+    # is cleared and due, every 30 minutes Sunday to Thursday 20:00-23:59 UTC = Monday to Friday about 7-11am Sydney
+    # (AEDT; 6-10am AEST). Review mode posts only what an editor approved on the Queue page.
+    - cron: '13,43 20-23 * * 0-4'
     # Australia Inc.: the commentary and The Bottom Line, about 5:47am Sydney (AEDT; 4:47am AEST) so a late start still
     # lands before breakfast (web/scripts/australia-inc.ts).
     - cron: '47 18 * * *'
@@ -45,7 +49,7 @@ on:
       task:
         description: 'Which task to run'
         type: choice
-        options: [rss, trends, trending, trending-review, email, economists, economists-again, economists-dry-run, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, gfs, gfs-dry-run, budget-history, budget-history-dry-run, wb, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, races-replace, house-track, house-track-choose, schedule, schedule-list, schedule-reupload-youtube, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, hero-review, story-highlights, story-highlights-dry-run, reel-cut, reel-rewrite, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, australia-inc, australia-inc-dry-run, rub-draft, rub-draft-dry-run, scorecard, scorecard-dry-run, both]
+        options: [rss, trends, trending, trending-review, email, economists, economists-again, economists-dry-run, daily, sources, oecd, polls, polls-dry-run, population, population-dry-run, pnl, pnl-dry-run, gfs, gfs-dry-run, budget-history, budget-history-dry-run, wb, visuals, visuals-dry-run, visuals-list, races, races-dry-run, races-list, races-replace, house-track, house-track-choose, schedule, schedule-list, schedule-reupload-youtube, linkedin-post, linkedin-plan, articles, articles-dry-run, articles-draft, media-smoke, media-smoke-video, hero-media, hero-brief, hero-review, story-highlights, story-highlights-dry-run, reel-cut, reel-rewrite, story-refresh, story-refresh-apply, story-revision-show, story-revision-edit, story-revision-recheck, story-revision-discard, story-figures, story-charts, story-audit, story-rename, story-notes, story-restore-notes, dashboard-check, story-drafts, story-publish, events-calendar, events-backfill, events-history, events-watch, events-list, events-cpi, story-sources, documents, hero-image, scout, scout-dry-run, refresh, metric-links, metric-links-apply, australia-inc, australia-inc-dry-run, rub-draft, rub-draft-dry-run, scorecard, scorecard-dry-run, both]
         default: both
       pitch:
         description: 'articles: pitch id(s) to rerun; scout: metric id(s) to look for; hero-media, reel-cut, reel-rewrite, story-refresh(-apply): story slug(s); races: a race or bars video key (race:erp_cob, bars:gov_borrowing). Space separated.'
@@ -410,6 +414,40 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          LINKEDIN_CLIENT_ID: ${{ secrets.LINKEDIN_CLIENT_ID }}
+          LINKEDIN_CLIENT_SECRET: ${{ secrets.LINKEDIN_CLIENT_SECRET }}
+          LINKEDIN_REFRESH_TOKEN: ${{ secrets.LINKEDIN_REFRESH_TOKEN }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          LINKEDIN_ORG_URN: ${{ secrets.LINKEDIN_ORG_URN }}
+
+  linkedin-post:
+    # LinkedIn (web/scripts/linkedin-post.ts): plan the weekday post (the day's lead story, else a graphic or race, drafted
+    # and checked) and send whatever is cleared and due. linkedin-plan drafts only and posts nothing.
+    if: >-
+      github.event_name == 'workflow_dispatch' && (inputs.task == 'linkedin-post' || inputs.task == 'linkedin-plan') ||
+      github.event_name == 'schedule' && github.event.schedule == '13,43 20-23 * * 0-4'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency: { group: linkedin-post, cancel-in-progress: false }
+    defaults:
+      run: { working-directory: web }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm ci --silent
+      - name: LinkedIn
+        run: npx tsx --import ./scripts/node-shims.mjs scripts/linkedin-post.ts ${{ inputs.task == 'linkedin-plan' && '--plan' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LINKEDIN_CLIENT_ID: ${{ secrets.LINKEDIN_CLIENT_ID }}
+          LINKEDIN_CLIENT_SECRET: ${{ secrets.LINKEDIN_CLIENT_SECRET }}
+          LINKEDIN_REFRESH_TOKEN: ${{ secrets.LINKEDIN_REFRESH_TOKEN }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          LINKEDIN_ORG_URN: ${{ secrets.LINKEDIN_ORG_URN }}
 
   house-track:
     # The house theme for videos (web/scripts/house-track.ts): three original candidates, or make one the house track
@@ -468,6 +506,11 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          LINKEDIN_CLIENT_ID: ${{ secrets.LINKEDIN_CLIENT_ID }}
+          LINKEDIN_CLIENT_SECRET: ${{ secrets.LINKEDIN_CLIENT_SECRET }}
+          LINKEDIN_REFRESH_TOKEN: ${{ secrets.LINKEDIN_REFRESH_TOKEN }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          LINKEDIN_ORG_URN: ${{ secrets.LINKEDIN_ORG_URN }}
 
   rub-draft:
     # The Rub (Column 8): draft one column from this week's trends, run the strict check (figure check and claim audit,

@@ -7,6 +7,11 @@
  * per channel with the model; the slots, caps and gaps are always the rules', never the model's. At the slot,
  * publish_due_content() (pg_cron) publishes on the site. Social channels are planned but stay 'not_connected' until
  * each account is connected.
+ *
+ * Some channels run on their own cadence instead of one post per piece (rules.cadence): LinkedIn gets one post per
+ * weekday at about 8am Sydney, the day's lead story, else a graphic or race from that day or the day before
+ * (planCadence, web/lib/social/linkedin-plan.ts). Each channel also has a mode (rules.channelModes): 'review' holds
+ * every post for an editor's one-click approval on the Queue page; 'auto' posts at the slot. Same checks either way.
  */
 import type { createClient } from '@/lib/supabase-server';
 
@@ -30,6 +35,20 @@ export type ScheduleRules = {
   channels: Partial<Record<QueueKind, Channel[]>>;
   /** Channels whose credentials have worked (the poster records this), so their posts are planned as scheduled. */
   connected?: Channel[];
+  /** 'review': each post waits for an editor's approval; 'auto': it goes out at its slot. Unset means auto. */
+  channelModes?: Partial<Record<Channel, ChannelMode>>;
+  /** Channels planned on their own cadence (one post a day) rather than one post per piece. */
+  cadence?: Partial<Record<Channel, Cadence>>;
+};
+
+export type ChannelMode = 'review' | 'auto';
+export type Weekday = (typeof WEEKDAYS)[number];
+export type Cadence = {
+  /** Sydney wall-clock time of the day's post. */
+  slot: string;
+  days: Weekday[];
+  /** How many days ahead to plan (0 = today only). Short, so a better lead story can still take the slot. */
+  aheadDays: number;
 };
 
 export const DEFAULT_RULES: ScheduleRules = {
@@ -38,10 +57,27 @@ export const DEFAULT_RULES: ScheduleRules = {
   slots: { article: ['07:00', '12:30'], visual: ['09:30', '15:00'], race: ['18:00'] },
   days: { race: ['tue', 'wed', 'thu'] },
   channels: {
-    article: ['site', 'x', 'linkedin', 'facebook'],
-    visual: ['site', 'instagram', 'facebook', 'x', 'linkedin'],
-    race: ['site', 'youtube', 'tiktok', 'instagram', 'facebook', 'x', 'linkedin'],
+    article: ['site', 'x', 'facebook'],
+    visual: ['site', 'instagram', 'facebook', 'x'],
+    race: ['site', 'youtube', 'tiktok', 'instagram', 'facebook', 'x'],
   },
+  // LinkedIn: one post a weekday at 8am, no weekends to start with. Review first: nothing posts without approval.
+  channelModes: { linkedin: 'review' },
+  cadence: { linkedin: { slot: '08:00', days: ['mon', 'tue', 'wed', 'thu', 'fri'], aheadDays: 1 } },
+};
+
+/** A channel's mode; LinkedIn defaults to review even if a stored rule set predates the setting. */
+export const channelMode = (rules: ScheduleRules, ch: Channel): ChannelMode =>
+  rules.channelModes?.[ch] ?? DEFAULT_RULES.channelModes?.[ch] ?? 'auto';
+
+/** Channels on their own cadence: never planned per piece, even if a stored rule set still lists them. */
+export const cadenceChannels = (rules: ScheduleRules): Set<Channel> =>
+  new Set(Object.keys({ ...DEFAULT_RULES.cadence, ...rules.cadence }) as Channel[]);
+
+/** The per-piece channels for a kind (the site plus every channel not on its own cadence). */
+export const pieceChannels = (rules: ScheduleRules, kind: QueueKind): Channel[] => {
+  const own = cadenceChannels(rules);
+  return (rules.channels[kind] ?? ['site']).filter((c) => !own.has(c));
 };
 
 export type QueueItem = {
@@ -49,7 +85,13 @@ export type QueueItem = {
   status: QueueStatus; priority: number; scheduled_at: string | null; published_at: string | null;
   scheduled_by: 'assistant' | 'editor' | null; reason: string | null; error: string | null; created_at: string;
 };
-export type QueuePost = { id: string; queue_id: string; channel: Channel; status: string; scheduled_at: string | null; posted_at: string | null; caption: string | null; external_url: string | null; error: string | null };
+export type QueuePost = {
+  id: string; queue_id: string; channel: Channel; status: string; scheduled_at: string | null; posted_at: string | null;
+  caption: string | null; external_url: string | null; error: string | null;
+  /** The copy check's findings (LinkedIn; 50_linkedin_channel.sql). Empty when the copy passed. */
+  lint?: { code: string; message: string }[] | null;
+  approved_at?: string | null;
+};
 
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL || 'https://caveat.news').replace(/\/$/, '');
 export const itemUrl = (i: { kind: QueueKind; ref_slug: string }) =>
@@ -80,7 +122,7 @@ export async function enqueue(db: Db, item: { kind: QueueKind; ref_slug: string;
 // ---------------------------------------------------------------------------------------------------- time
 
 /** Parts of an instant in a time zone. */
-function zoned(d: Date, tz: string) {
+export function zoned(d: Date, tz: string) {
   const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', weekday: 'short', hourCycle: 'h23' })
     .formatToParts(d).map((x) => [x.type, x.value]));
   return { day: `${p.year}-${p.month}-${p.day}`, weekday: String(p.weekday).toLowerCase().slice(0, 3), minutes: Number(p.hour) * 60 + Number(p.minute) };
@@ -101,7 +143,7 @@ export function wallTime(day: string, hhmm: string, tz: string): Date {
   return new Date(t);
 }
 
-const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T12:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
+export const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T12:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 /** Monday of the day's week, as YYYY-MM-DD: the week a weekly cap counts in. */
 function weekOf(day: string) {
   const dow = new Date(`${day}T12:00:00Z`).getUTCDay();
@@ -150,6 +192,83 @@ export function planSlots(rules: ScheduleRules, items: { id: string; kind: Queue
   return out;
 }
 
+// ---------------------------------------------------------------------------------------------------- cadence
+
+/** A piece a cadence channel could post: its site time is when it went (or goes) live. */
+export type CadenceCandidate = { id: string; kind: QueueKind; status: QueueStatus; siteAt: Date };
+/** A cadence post already planned for a day. */
+export type CadenceExisting = { postId: string; day: string; queueId: string; kind: QueueKind; status: string };
+export type CadencePlan = { day: string; at: Date; pick: CadenceCandidate; replaces?: string };
+
+const LEAD_KINDS: QueueKind[] = ['article', 'breaking'];
+const FALLBACK_KINDS: QueueKind[] = ['visual', 'race'];
+/** Post statuses an editor has not yet acted on, so a better pick may still replace them. */
+const REPLACEABLE = new Set(['review', 'held', 'scheduled']);
+
+/**
+ * The piece for a day's slot: the day's lead story (the newest article live on the site by the slot that day), else
+ * the newest graphic or race live by the slot and published that day or the day before. Pieces already used on the
+ * channel are skipped. Pure, so the rule can be tested.
+ */
+export function pickForSlot(candidates: CadenceCandidate[], day: string, slotAt: Date, tz: string, used: Set<string>): CadenceCandidate | null {
+  const live = candidates.filter((c) => !used.has(c.id) && (c.status === 'scheduled' || c.status === 'published') && c.siteAt.getTime() <= slotAt.getTime());
+  const newest = (xs: CadenceCandidate[]) => xs.sort((a, b) => b.siteAt.getTime() - a.siteAt.getTime())[0] ?? null;
+  const lead = newest(live.filter((c) => LEAD_KINDS.includes(c.kind) && zoned(c.siteAt, tz).day === day));
+  if (lead) return lead;
+  const yesterday = addDays(day, -1);
+  return newest(live.filter((c) => FALLBACK_KINDS.includes(c.kind) && [day, yesterday].includes(zoned(c.siteAt, tz).day)));
+}
+
+/**
+ * Plan a cadence channel: for today and the next aheadDays, on the allowed weekdays, one post at the slot. A day that
+ * already has a post keeps it, unless an editor has not acted on it yet, it is a graphic or race, and a lead story
+ * has since been scheduled for that day: then the story replaces it. Today's slot is planned up to two hours after
+ * it passes (a late runner still posts the morning's story); after that the day is left alone.
+ */
+export function planCadence(cadence: Cadence, tz: string, candidates: CadenceCandidate[], existing: CadenceExisting[], used: Set<string>, now: Date): CadencePlan[] {
+  const out: CadencePlan[] = [];
+  const taken = new Set(used);
+  const today = zoned(now, tz).day;
+  for (let i = 0; i <= cadence.aheadDays; i++) {
+    const day = addDays(today, i);
+    if (!cadence.days.includes(zoned(wallTime(day, '12:00', tz), tz).weekday as Weekday)) continue;
+    const at = wallTime(day, cadence.slot, tz);
+    if (at.getTime() < now.getTime() - 2 * 36e5) continue;
+    const have = existing.find((e) => e.day === day);
+    if (have) {
+      if (!REPLACEABLE.has(have.status) || LEAD_KINDS.includes(have.kind) || at.getTime() <= now.getTime()) continue;
+      const better = pickForSlot(candidates.filter((c) => LEAD_KINDS.includes(c.kind)), day, at, tz, taken);
+      if (better) { out.push({ day, at, pick: better, replaces: have.postId }); taken.add(better.id); }
+      continue;
+    }
+    const pick = pickForSlot(candidates, day, at, tz, taken);
+    if (pick) { out.push({ day, at, pick }); taken.add(pick.id); }
+  }
+  return out;
+}
+
+/** Posts older than this past their slot are not sent: a morning post that missed the morning is skipped. */
+export const CADENCE_STALE_MS = 6 * 36e5;
+export type CadenceDecision = 'post' | 'wait' | 'stale' | 'withdraw' | 'unplan';
+
+/**
+ * What the poster does with a cadence post now. Review mode posts only what an editor approved; auto mode posts what
+ * passed the checks ('scheduled') or was approved. Nothing posts before its slot or before the piece is live on the
+ * site (the link must work). A piece held, removed or failed in the queue is withdrawn (deleted if already posted);
+ * one sent back to 'ready' loses its slot, so the day can be planned again.
+ */
+export function cadenceDecision(mode: ChannelMode, post: { status: string; scheduled_at: string | null }, queueStatus: QueueStatus, now: Date): CadenceDecision {
+  if (['held', 'cancelled', 'failed'].includes(queueStatus)) return post.status === 'skipped' ? 'wait' : 'withdraw';
+  if (post.status === 'posted' || post.status === 'skipped' || post.status === 'planned') return 'wait';
+  if (queueStatus === 'ready') return 'unplan';
+  const slot = post.scheduled_at ? Date.parse(post.scheduled_at) : NaN;
+  if (!Number.isFinite(slot)) return 'wait';
+  if (now.getTime() - slot > CADENCE_STALE_MS) return 'stale';
+  const cleared = mode === 'review' ? post.status === 'approved' : post.status === 'approved' || post.status === 'scheduled';
+  if (!cleared || slot > now.getTime() || queueStatus !== 'published') return 'wait';
+  return 'post';
+}
+
 // ---------------------------------------------------------------------------------------------------- assistant
 
 type Advice = { order: string[]; notes: Record<string, string>; captions: Record<string, Partial<Record<Channel, string>>> };
@@ -166,7 +285,7 @@ async function advise(items: QueueItem[], upcoming: { title: string; at: string 
   const fallback: Advice = { order: [...items].sort((a, b) => b.priority - a.priority || a.created_at.localeCompare(b.created_at)).map((i) => i.id), notes: {}, captions: {} };
   const key = process.env.ANTHROPIC_API_KEY?.trim();
   if (!key || !items.length) return fallback;
-  const pieces = items.map((i) => ({ id: i.id, kind: i.kind, title: i.title, summary: i.summary, channels: (rules.channels[i.kind] ?? []).filter((c) => c !== 'site'), waiting_since: i.created_at.slice(0, 10) }));
+  const pieces = items.map((i) => ({ id: i.id, kind: i.kind, title: i.title, summary: i.summary, channels: pieceChannels(rules, i.kind).filter((c) => c !== 'site'), waiting_since: i.created_at.slice(0, 10) }));
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -178,7 +297,8 @@ async function advise(items: QueueItem[], upcoming: { title: string; at: string 
           'Order the ready pieces for publication: timely pieces first (tied to a coming data release or a topic in the news), then variety, so the same topic does not run back to back, then the oldest.',
           'For each piece, write one short note on why it sits where it does, and a caption for each listed social channel.',
           'Captions: Australian English, no em dashes, plain and factual, no hype. Use only numbers that appear in the title or summary, and name what each number measures exactly as the piece does (trips abroad by Australians are not visitors; residents born overseas are not arrivals). No more than two hashtags. Do not include a link (it is added).',
-          'x: under 240 characters. linkedin: two or three sentences. instagram, facebook, tiktok, youtube: one or two sentences.',
+          // LinkedIn copy is written separately, on its own cadence (web/lib/social/linkedin-copy.ts).
+          'x: under 240 characters. instagram, facebook, tiktok, youtube: one or two sentences.',
           'Reply with JSON only: {"order":[ids],"notes":{id:text},"captions":{id:{channel:text}}}.',
         ].join(' '),
         messages: [{ role: 'user', content: JSON.stringify({ pieces, coming_releases: upcoming, recently_published: recent }) }],
@@ -237,7 +357,7 @@ export async function scheduleContent(db: Db, log: (m: string) => void = console
       .eq('id', item.id).eq('status', 'ready');
     if (error) { lines.push(`  failed   ${item.title}: ${error.message}`); continue; }
     const source = `${item.title} ${item.summary ?? ''}`;
-    const posts = (rules.channels[item.kind] ?? ['site']).map((channel) => {
+    const posts = pieceChannels(rules, item.kind).map((channel) => {
       const draft = advice.captions[item.id]?.[channel];
       const caption = channel === 'site' ? null : (draft && captionNumbersOk(draft, source) ? draft : item.title);
       return { queue_id: item.id, channel, status: connected.has(channel) ? 'scheduled' : 'not_connected', scheduled_at: when, caption, updated_at: now.toISOString() };

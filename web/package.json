@@ -12,7 +12,9 @@
     "check:gov-pnl": "tsx lib/gov-pnl.check.ts",
     "check:bars-borrowing": "tsx lib/bars-borrowing.check.ts",
     "check:emergency-packages": "tsx lib/emergency-packages.check.ts",
-    "check:scorecard": "tsx lib/scorecard.check.ts"
+    "check:scorecard": "tsx lib/scorecard.check.ts",
+    "check:content-queue": "tsx lib/content-queue.check.ts",
+    "check:linkedin": "tsx lib/social/linkedin.check.ts"
   },
   "dependencies": {
     "@hallelx/youtube-transcript": "0.2.0",
