@@ -40,13 +40,18 @@ export const SEED: CommitmentDraft[] = [
     source_url: 'https://www.dcceew.gov.au/climate-change/emissions-reduction',
     source_title: 'Reducing emissions (Department of Climate Change, Energy, the Environment and Water)',
     source_date: null,
-    metric_id: null,
-    series_label: 'National Greenhouse Gas Inventory: net emissions including land use (DCCEEW)',
-    data_note: 'Needs Australia\'s net greenhouse gas emissions (National Greenhouse Gas Inventory, DCCEEW), with the 2005 level, from an official machine-readable source.',
-    target_value: 43, target_unit: '% below 2005', start_date: '2022-05-21', target_date: '2030-12-31',
-    direction: 'decrease', baseline_value: null, baseline_period: '2005', method: 'change',
+    // The department measures the target on net emissions including LULUCF over the year to each quarter, against the
+    // year to June 2005 ("the baseline year for Australia's 43% reduction by 2030 target", Quarterly Update, March 2026).
+    // The series is that per cent change (negative = below 2005), loaded by agent/scripts/load-official-workbooks.mjs
+    // from the Quarterly Update's data workbook. Rated as a level falling to -43: the reference level is the series'
+    // own (it moves with each inventory revision), so no fixed baseline_value is stored.
+    metric_id: 'emissions_change_from_2005_au',
+    series_label: 'National Greenhouse Gas Inventory Quarterly Update (DCCEEW): emissions including LULUCF over the year to each quarter, per cent change on the year to June 2005',
+    data_note: 'Measured from the data workbook of DCCEEW\'s Quarterly Update of Australia\'s National Greenhouse Gas Inventory; rated once the series is stored.',
+    target_value: -43, target_unit: '% change on 2005 levels', start_date: '2022-05-21', target_date: '2030-12-31',
+    direction: 'decrease', baseline_value: null, baseline_period: '2004-05', method: 'level',
     target_text: '43% below 2005 levels', deadline_text: 'by 2030',
-    start_basis: 'Pace is counted from the start of the government\'s first term (21 May 2022), the term in which the target was legislated. "By 2030" is read as the end of 2030.',
+    start_basis: 'Pace is counted from the start of the government\'s first term (21 May 2022), the term in which the target was legislated: the starting reading is the year to June 2022. Measured as the department measures the target: net emissions including land use (LULUCF) over the year to each quarter, against the year to June 2005, the target\'s baseline year. "By 2030" is read as the end of 2030.',
     needs: { series: 'Australia net greenhouse gas emissions including LULUCF, National Greenhouse Gas Inventory', org: 'DCCEEW' },
   },
   {
@@ -56,13 +61,17 @@ export const SEED: CommitmentDraft[] = [
     source_url: 'https://www.dcceew.gov.au/energy/renewable/capacity-investment-scheme',
     source_title: 'Capacity Investment Scheme (Department of Climate Change, Energy, the Environment and Water)',
     source_date: null,
-    metric_id: null,
-    series_label: 'Australian Energy Statistics: renewable share of electricity generation (DCCEEW)',
-    data_note: 'Needs the renewable share of Australian electricity generation (Australian Energy Statistics, Table O, DCCEEW) from an official machine-readable source.',
-    target_value: 82, target_unit: '% of electricity generation', start_date: '2022-05-21', target_date: '2030-12-31',
+    // The 82% target is for on-grid electricity: DCCEEW publishes on-grid generation as Australian Energy Statistics
+    // supplementary statistics "to track progress towards Australia's target to reach 82% renewable electricity on-grid
+    // by 2030" (pumped hydro excluded). Table O covers all generation, off-grid included, so it is not the target's
+    // measure (loaded as context: renewable_share_generation_au). Calendar years: the 2030 reading is the year named.
+    metric_id: 'renewable_share_ongrid_au',
+    series_label: 'Australian Energy Statistics (DCCEEW): renewable share of on-grid electricity generation, calendar year',
+    data_note: 'Measured from DCCEEW\'s Australian Energy Statistics on-grid generation statistics; rated once the series is stored.',
+    target_value: 82, target_unit: '% of on-grid electricity generation', start_date: '2022-05-21', target_date: '2030-12-31',
     direction: 'increase', baseline_value: null, baseline_period: null, method: 'share',
     target_text: '82% renewable electricity', deadline_text: 'by 2030',
-    start_basis: 'Pace is counted from the start of the government\'s first term (21 May 2022), the term in which the target was set. "By 2030" is read as the end of 2030.',
+    start_basis: 'Pace is counted from the start of the government\'s first term (21 May 2022), the term in which the target was set: the starting reading is calendar 2022. Measured on the department\'s on-grid generation statistics, published to track this target (pumped hydro excluded); years the department marks as estimates are not used. "By 2030" is read as the end of 2030.',
     needs: { series: 'Renewable share of electricity generation, Australia, Australian Energy Statistics Table O', org: 'DCCEEW' },
   },
   {
@@ -72,13 +81,16 @@ export const SEED: CommitmentDraft[] = [
     source_url: 'https://www.health.gov.au/sites/default/files/2025-03/budget-2025-26-strengthening-medicare-more-bulk-billing.pdf',
     source_title: 'Budget 2025–26: Strengthening Medicare, more bulk billing (Department of Health, Disability and Ageing)',
     source_date: '2025-03-25',
-    metric_id: null,
-    series_label: 'Medicare statistics: GP non-referred attendances bulk billed (Department of Health, Disability and Ageing)',
-    data_note: 'Needs the GP bulk billing rate (Medicare quarterly statistics, Department of Health, Disability and Ageing) from an official machine-readable source.',
+    // "9 in 10 GP visits" is the services measure: the share of GP non-referred attendances bulk billed (Medicare
+    // quarterly statistics, state and territory, Table 1), not the patient bulk billing rate (the share of patients all
+    // of whose GP services were bulk billed). Quarterly and seasonal; pace runs from the March quarter 2025 reading.
+    metric_id: 'gp_bulk_billing_rate_au',
+    series_label: 'Medicare quarterly statistics (Department of Health, Disability and Ageing): GP non-referred attendances bulk billed, per cent of services',
+    data_note: 'Measured from the Department of Health, Disability and Ageing\'s Medicare quarterly statistics (state and territory); rated once the series is stored.',
     target_value: 90, target_unit: '% of GP visits bulk billed', start_date: '2025-03-25', target_date: '2030-12-31',
     direction: 'increase', baseline_value: null, baseline_period: null, method: 'level',
     target_text: '9 in 10 GP visits', deadline_text: 'by 2030',
-    start_basis: 'Pace is counted from the 2025–26 Budget (25 March 2025), which set the target. "By 2030" is read as the end of 2030.',
+    start_basis: 'Pace is counted from the 2025–26 Budget (25 March 2025), which set the target: the starting reading is the March quarter 2025. Measured as the share of GP services (visits) bulk billed, the measure the target names, not the share of patients bulk billed for every visit. "By 2030" is read as the end of 2030.',
     needs: { series: 'GP non-referred attendances bulk billing rate, Medicare quarterly statistics', org: 'Department of Health, Disability and Ageing' },
   },
 ];
