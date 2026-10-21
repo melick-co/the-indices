@@ -116,7 +116,8 @@ const MAX_PDF_BYTES = 40 * 1024 * 1024;
  */
 export async function fetchDocument(url, opts = {}) {
   try {
-    const res = await fetch(url, { headers: UA, signal: AbortSignal.timeout(60000), redirect: 'follow' });
+    // opts.headers: extra or replacement request headers (the scorecard sends browser-like ones; see web/lib/official-fetch.ts).
+    const res = await fetch(url, { headers: { ...UA, ...(opts.headers ?? {}) }, signal: AbortSignal.timeout(60000), redirect: 'follow' });
     if (!res.ok) return { error: `HTTP ${res.status}` };
     const type = res.headers.get('content-type') ?? '';
     if (/application\/pdf/i.test(type) || /\.pdf($|\?)/i.test(res.url || url)) {

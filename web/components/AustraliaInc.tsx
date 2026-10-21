@@ -227,6 +227,8 @@ function PromiseCard({ p }: { p: ScoredCommitment }) {
         </div>
       )}
       <p className="sc-promise-foot">
+        {p.check?.basis?.start_basis ? <>Pace counted from {longDate(p.start_date)}. {p.check.basis.start_basis}{' '}</> : null}
+        {p.check?.verified_against === 'cache' && p.check.document_fetched_at ? <>Quote checked against the copy of the source stored on {longDate(p.check.document_fetched_at)}.{' '}</> : null}
         {a.note}{' '}
         Series: {p.seriesHref
           ? (external ? <a href={p.seriesHref} target="_blank" rel="noreferrer">{p.seriesName}</a> : <Link href={p.seriesHref}>{p.seriesName}</Link>)
@@ -317,7 +319,8 @@ export function ScorecardMethodology() {
       <h2 id="sc-method-title" className="inc-section-head">How the scorecard works</h2>
       <h3 className="sc-sub">Promises</h3>
       <ul>
-        <li>A promise is listed only when its target is quoted word for word from an official document (a minister&apos;s release, budget papers, legislation or a department&apos;s program page), the quote is found in the document&apos;s own text, and a separate check confirms the target as we read it. Anything short of that is held back, not shown.</li>
+        <li>A promise is listed only when its target is quoted word for word from an official document (a minister&apos;s release, budget papers, legislation or a department&apos;s program page), the quote is found in the document&apos;s own text, and a separate check confirms the target as we read it. Anything short of that is held back, not shown. When an official page cannot be reached, the quote is checked against the copy we stored when it last could be, and the promise says so.</li>
+        <li>The start date used for pace is our choice, not the document&apos;s, unless the document states one: each promise gives its start date and the reason for it.</li>
         <li>Each promise is measured by an official statistical series. Where none can be loaded yet, the promise is listed as awaiting data and the series is requested.</li>
         <li>Our agent keeps the list each week and after relevant releases. Every addition, change, removal and rating change is logged.</li>
         <li>Pace achieved is the average progress per year since the promise started counting. Pace needed is the distance left to the target divided by the time left to the deadline.</li>

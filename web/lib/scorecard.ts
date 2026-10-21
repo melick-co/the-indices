@@ -346,6 +346,11 @@ export type CommitmentDraft = {
   target_value: number; target_unit: string; target_date: string; start_date: string;
   direction: 'increase' | 'decrease'; baseline_value: number | null; baseline_period: string | null; method: Method;
   needs?: { series: string; org: string } | null;
+  /** The target and the deadline exactly as the quote prints them ("43% below 2005 levels", "by 2030"). */
+  target_text?: string | null;
+  deadline_text?: string | null;
+  /** Why pace is counted from start_date: our methodology choice, never sent to the source check as the source's words. */
+  start_basis?: string | null;
 };
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -387,6 +392,7 @@ export function normaliseDraft(raw: unknown): { ok: true; draft: CommitmentDraft
       target_value: target, target_unit: str(r.target_unit), target_date: end, start_date: start,
       direction: str(r.direction) === 'decrease' ? 'decrease' : 'increase', baseline_value: Number.isFinite(bv) ? bv : null,
       baseline_period: str(r.baseline_period) || null, method, needs: needs?.series && needs.org ? needs : null,
+      target_text: str(r.target_text) || null, deadline_text: str(r.deadline_text) || null, start_basis: str(r.start_basis) || null,
     },
   };
 }
@@ -395,4 +401,138 @@ export function normaliseDraft(raw: unknown): { ok: true; draft: CommitmentDraft
 export function changedFields(a: Partial<CommitmentDraft>, b: Partial<CommitmentDraft>): string[] {
   const keys: Array<keyof CommitmentDraft> = ['quote', 'source_url', 'target_value', 'target_unit', 'target_date', 'start_date', 'method', 'direction', 'metric_id', 'baseline_value'];
   return keys.filter((k) => String(a[k] ?? '') !== String(b[k] ?? ''));
+}
+
+// ---------------------------------------------------------------------------------------------------- what the source check sees
+
+/** Lower case, curly quotes and dashes straightened, spaces collapsed: for comparing quoted words. */
+const plain = (t: string) => String(t ?? '').toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[‐‑‒–—]/g, '-').replace(/\s+/g, ' ').trim();
+
+const WORD_NUMBERS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+
+/** Every figure a phrase prints: "1.2 million" as 1,200,000, "43%" as 43, "9 in 10" as 90. */
+export function figuresIn(text: string): number[] {
+  const t = plain(text).replace(/(\d),(\d{3})/g, '$1$2');
+  const out: number[] = [];
+  for (const m of t.matchAll(/(\d+(?:\.\d+)?)\s*(million|billion|thousand)?/g)) {
+    const mult = m[2] === 'billion' ? 1e9 : m[2] === 'million' ? 1e6 : m[2] === 'thousand' ? 1e3 : 1;
+    out.push(Number(m[1]) * mult);
+  }
+  for (const m of t.matchAll(/(\d+)\s+(?:in|out of)\s+(\d+)/g)) out.push((Number(m[1]) / Number(m[2])) * 100);
+  return out;
+}
+
+const near = (a: number, b: number) => Math.abs(a - b) <= Math.max(1e-9, Math.abs(b) * 1e-6);
+
+/**
+ * The checks on what we read from the quote, before anything goes to the source check: the target and deadline phrases
+ * are the quote's own words, the target value is a figure the target phrase prints, and the deadline is the year the
+ * deadline phrase prints (or the start year plus the years it states: "over five years, from 1 July 2024").
+ */
+export function readingIssues(d: Pick<CommitmentDraft, 'quote' | 'target_text' | 'deadline_text' | 'target_value' | 'target_date'>): string[] {
+  const issues: string[] = [];
+  const q = plain(d.quote);
+  const tt = plain(d.target_text ?? '');
+  const dt = plain(d.deadline_text ?? '');
+  if (!tt) issues.push('no target phrase from the quote');
+  else if (!q.includes(tt)) issues.push(`the target phrase "${d.target_text}" is not in the quote`);
+  if (!dt) issues.push('no deadline phrase from the quote');
+  else if (!q.includes(dt)) issues.push(`the deadline phrase "${d.deadline_text}" is not in the quote`);
+  if (tt && !figuresIn(tt).some((n) => near(n, Math.abs(d.target_value)))) issues.push(`the target value ${d.target_value} is not a figure in "${d.target_text}"`);
+  if (dt) {
+    const year = Number(d.target_date.slice(0, 4));
+    const span = /\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten) years?\b.*?\bfrom\b.*?\b(\d{4})\b/.exec(dt);
+    const ok = span ? Number(span[2]) + (WORD_NUMBERS[span[1]] ?? Number(span[1])) === year
+      : [...dt.matchAll(/\b(\d{4})\b/g)].some((m) => Number(m[1]) === year);
+    if (!ok) issues.push(`the deadline ${d.target_date} is not what "${d.deadline_text}" says`);
+  }
+  return issues;
+}
+
+/**
+ * The statement the source check judges: only the quote, with the target and deadline as the quote prints them. The
+ * start date and baseline used for pace are our methodology, shown on the page with their reason, and never put to the
+ * source check as something the document said.
+ */
+export function claimSentence(d: Pick<CommitmentDraft, 'quote' | 'target_text' | 'deadline_text'>): string {
+  return `The government stated a target of ${d.target_text} ${d.deadline_text}: "${d.quote}"[^1]`;
+}
+
+// ---------------------------------------------------------------------------------------------------- duplicates and measurability
+
+const SUBJECTS: Array<[RegExp, string]> = [
+  [/emission|greenhouse|net zero/i, 'emissions'],
+  [/renewabl/i, 'renewable-electricity'],
+  [/bulk[- ]?bill/i, 'bulk-billing'],
+  [/\bhomes?\b|dwelling|housing accord/i, 'homes'],
+];
+
+/** The subject a commitment is about, for deduplication and series requests. */
+export function subjectOf(d: Pick<CommitmentDraft, 'title' | 'metric_id'> & { target_text?: string | null }): string {
+  const text = `${d.title} ${d.target_text ?? ''}`;
+  return SUBJECTS.find(([rx]) => rx.test(text))?.[1] ?? (d.metric_id ? `metric:${d.metric_id}` : slugify(d.title));
+}
+
+/**
+ * Candidates without duplicates, first wins (seed entries are listed first, so they are kept). One commitment per
+ * subject, deadline year and target value; and one per subject and deadline year from the same document (the 90 per cent
+ * bulk billing target and the "18 million extra visits" in the same budget paper).
+ */
+export function dedupeCandidates<T extends CommitmentDraft>(list: T[]): { kept: T[]; dropped: Array<{ draft: T; duplicateOf: string }> } {
+  const kept: T[] = [];
+  const dropped: Array<{ draft: T; duplicateOf: string }> = [];
+  for (const d of list) {
+    const subject = subjectOf(d);
+    const year = d.target_date.slice(0, 4);
+    const same = kept.find((k) => k.slug === d.slug || (subjectOf(k) === subject && k.target_date.slice(0, 4) === year
+      && (near(Math.abs(k.target_value), Math.abs(d.target_value)) || k.source_url === d.source_url)));
+    if (same) dropped.push({ draft: d, duplicateOf: same.slug });
+    else kept.push(d);
+  }
+  return { kept, dropped };
+}
+
+/** The scorecard rates targets due within the next two terms; later ones (2035, net zero by 2050) are left out. */
+export const MAX_DEADLINE = '2031-12-31';
+
+/** Publishers of official statistics we may ask for. */
+const OFFICIAL_ORG = /\babs\b|bureau of statistics|\brba\b|reserve bank|treasury|dcceew|climate change, energy|department of health|health, disability|\baemo\b|energy market operator|clean energy regulator|\baihw\b|institute of health and welfare|\boecd\b|\bimf\b|world bank|\bbis\b|services australia|department of education|\bdewr\b|employment and workplace relations/i;
+/** Program counts, contracts and forecasts: not statistics. */
+const NOT_STATISTIC = /forecast|projection|projected|capacity investment scheme|\bcis\b|tender|auction|underwrit|contract|gigawatt|\bgw\b|funding|budget measure/i;
+
+/**
+ * Whether a candidate can be measured: a series in the catalogue, or a plausible official statistic to request.
+ * Neither means it is left out, and nothing is requested for it.
+ */
+export function measurability(d: CommitmentDraft, catalogue: Set<string>): { ok: true; via: 'series' | 'request' } | { ok: false; reason: string } {
+  if (d.target_date > MAX_DEADLINE) return { ok: false, reason: `deadline ${d.target_date.slice(0, 4)} is beyond the scorecard's horizon (${MAX_DEADLINE.slice(0, 4)})` };
+  if (NOT_STATISTIC.test(`${d.title} ${d.target_text ?? ''}`)) return { ok: false, reason: 'a program count or contract, not an official statistic' };
+  if (d.metric_id && (catalogue.has(d.metric_id) || d.metric_id.startsWith('cpi:'))) return { ok: true, via: 'series' };
+  const req = requestFor(d);
+  if (req && OFFICIAL_ORG.test(req.org) && !NOT_STATISTIC.test(req.series)) return { ok: true, via: 'request' };
+  return { ok: false, reason: 'no official series in the catalogue and no official statistic to request' };
+}
+
+/** One request per subject, under one fixed wording, so repeated runs and differently worded drafts never file twice. */
+export const CANONICAL_REQUESTS: Record<string, { series: string; org: string }> = {
+  emissions: { series: 'Australia net greenhouse gas emissions including LULUCF, National Greenhouse Gas Inventory', org: 'DCCEEW' },
+  'renewable-electricity': { series: 'Renewable share of electricity generation, Australia, Australian Energy Statistics Table O', org: 'DCCEEW' },
+  'bulk-billing': { series: 'GP non-referred attendances bulk billing rate, Medicare quarterly statistics', org: 'Department of Health, Disability and Ageing' },
+  homes: { series: 'Dwelling units completed, total residential, total sectors, quarterly, original (Building Activity, Australia)', org: 'ABS' },
+};
+
+/** The request for a commitment's missing series: the subject's fixed wording where there is one, else a normalised key. */
+export function requestFor(d: Pick<CommitmentDraft, 'title' | 'metric_id' | 'needs'> & { target_text?: string | null }): { key: string; series: string; org: string } | null {
+  const subject = subjectOf(d);
+  const fixed = CANONICAL_REQUESTS[subject];
+  if (fixed) return { key: subject, ...fixed };
+  if (!d.needs) return null;
+  return { key: seriesKey(d.needs.series), series: d.needs.series, org: d.needs.org };
+}
+
+/** A series name reduced to its sorted content words, so rewordings of one series share a key. */
+export function seriesKey(series: string): string {
+  const stop = new Set(['the', 'and', 'for', 'per', 'cent', 'percent', 'australia', 'australian', 'total', 'of', 'in', 'by']);
+  const words = plain(series).replace(/\([^)]*\)/g, ' ').replace(/[^a-z0-9 ]/g, ' ').split(' ').filter((w) => w.length > 1 && !stop.has(w));
+  return [...new Set(words)].sort().join('-').slice(0, 80);
 }

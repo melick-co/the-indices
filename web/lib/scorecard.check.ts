@@ -5,6 +5,11 @@ import {
 } from './scorecard';
 import { OUTCOMES, CPI_NOTE } from './scorecard-outcomes';
 import { SEED } from './scorecard-seed';
+import { BACKOFF_MS, chooseDocument, fetchLive, retryable, type Fetched } from './official-fetch';
+import {
+  CANONICAL_REQUESTS, MAX_DEADLINE, claimSentence, dedupeCandidates, figuresIn, measurability, readingIssues, requestFor, seriesKey,
+  type CommitmentDraft,
+} from './scorecard';
 
 // ---------- terms and the toggle
 assert.equal(termOf(undefined), '2025');
@@ -158,4 +163,109 @@ assert.equal(inflation.secondary?.metric_id, 'trimmed_mean_cpi_au', 'headline CP
 assert.match(CPI_NOTE, /trimmed mean is the RBA's preferred measure of underlying inflation/);
 assert.match(OUTCOMES.find((o) => o.key === 'cash-rate')!.control, /independent/);
 
-console.log('scorecard checks passed');
+
+// ---------- fetching: retries, and the stored copy when the live page cannot be read
+assert.equal(retryable('HTTP 503'), true, 'maintenance or a blocked runner');
+assert.equal(retryable('HTTP 429'), true);
+assert.equal(retryable('fetch failed'), true);
+assert.equal(retryable('The operation was aborted due to timeout'), true);
+assert.equal(retryable('HTTP 404'), false, 'a missing page is not retried');
+assert.equal(retryable('not an HTML page or PDF (image/png)'), false);
+assert.equal(retryable(undefined), false);
+assert.deepEqual(BACKOFF_MS, [2000, 6000, 15000]);
+const url = 'https://treasury.gov.au/policy-topics/housing/accord';
+const cached = { body: 'stored text', title: 'Accord', fetched_at: '2026-10-19T08:00:00Z' };
+let pick = chooseDocument(url, { body: 'live text', title: 'Accord' }, cached);
+assert.ok(pick.ok && pick.via === 'live' && pick.doc.body === 'live text', 'the live page wins');
+pick = chooseDocument(url, { error: 'HTTP 503' }, cached);
+assert.ok(pick.ok && pick.via === 'cache' && pick.doc.body === 'stored text' && pick.fetched_at === cached.fetched_at, 'the stored copy when the live page fails');
+assert.ok(pick.ok && /HTTP 503/.test(pick.note) && /2026-10-19/.test(pick.note), 'and it says so, with the date');
+pick = chooseDocument(url, { error: 'HTTP 503' }, null);
+assert.ok(!pick.ok && /HTTP 503/.test(pick.error) && /no stored copy/.test(pick.error), 'neither: held with the reason');
+assert.equal(chooseDocument('https://web.archive.org/web/2026/https://treasury.gov.au/x', { body: 'x' }, cached).ok, false, 'never a mirror');
+assert.equal(chooseDocument('https://example.com/accord', { error: 'HTTP 503' }, cached).ok, false);
+
+// ---------- what the source check is asked: the quote, with the target and deadline as it prints them
+for (const sd of SEED) {
+  assert.deepEqual(readingIssues(sd), [], `seed ${sd.slug} reads its target and deadline from the quote`);
+  const sentence = claimSentence(sd);
+  assert.ok(sentence.includes(`"${sd.quote}"`), 'the quote verbatim');
+  assert.ok(!/counted from|December|January/.test(sentence), `no start date or inferred month (${sd.slug})`);
+  assert.ok(sd.start_basis && sd.start_basis.length > 20, `${sd.slug} records why pace starts when it does`);
+}
+const emissions = SEED.find((x) => x.slug.startsWith('emissions'))!;
+assert.equal(claimSentence(emissions), `The government stated a target of 43% below 2005 levels by 2030: "${emissions.quote}"[^1]`);
+assert.ok(figuresIn('1.2 million new well-located homes').includes(1_200_000));
+assert.ok(figuresIn('9 in 10 GP visits').includes(90));
+assert.ok(figuresIn('82% renewable electricity').includes(82));
+assert.match(readingIssues({ ...emissions, target_value: 45 }).join(), /target value 45/);
+assert.match(readingIssues({ ...emissions, target_date: '2031-12-31' }).join(), /deadline/);
+assert.match(readingIssues({ ...emissions, deadline_text: 'by December 2030' }).join(), /not in the quote/);
+assert.match(readingIssues({ ...emissions, target_text: null }).join(), /no target phrase/);
+const accordSeed = SEED.find((x) => x.slug.startsWith('housing'))!;
+assert.equal(accordSeed.target_date, '2029-06-30');
+assert.deepEqual(readingIssues(accordSeed), [], '"over five years, from 1 July 2024" ends in 2029');
+assert.match(readingIssues({ ...accordSeed, target_date: '2030-06-30' }).join(), /deadline/);
+
+// ---------- duplicates and what cannot be measured (the first dry run's 13 candidates)
+const draft = (over: Partial<CommitmentDraft>): CommitmentDraft => ({
+  slug: 'x', title: 'x', quote: 'x', source_url: 'https://www.dcceew.gov.au/climate-change/emissions-reduction', source_title: null, source_date: null,
+  metric_id: null, series_label: null, data_note: null, target_value: 1, target_unit: '', target_date: '2030-12-31', start_date: '2022-05-21',
+  direction: 'increase', baseline_value: null, baseline_period: null, method: 'level', needs: null, ...over,
+});
+const firstRun = [
+  ...SEED,
+  draft({ slug: 'emissions-reduction-2030', title: 'Reduce greenhouse gas emissions to 43% below 2005 levels by 2030', target_value: -43, needs: { series: 'Australian greenhouse gas emissions, percentage change from 2005 baseline', org: 'DCCEEW' } }),
+  draft({ slug: 'emissions-reduction-2035', title: 'Reduce greenhouse gas emissions to 62–70% below 2005 levels by 2035', target_value: -62, target_date: '2035-12-31', needs: { series: 'Australian greenhouse gas emissions, net total (Mt CO2-e)', org: 'DCCEEW' } }),
+  draft({ slug: 'net-zero-2050', title: 'Achieve net zero greenhouse gas emissions by 2050', target_value: 0, target_date: '2050-12-31' }),
+  draft({ slug: 'renewable-electricity-82pct-2030', title: 'Achieve 82% renewable electricity on the grid by 2030', target_value: 82, source_url: 'https://www.dcceew.gov.au/energy/renewable/capacity-investment-scheme', needs: { series: 'Renewable electricity share of national on-grid generation (percent)', org: 'AEMO / DCCEEW' } }),
+  draft({ slug: 'cis-capacity-40gw-2030', title: 'Deliver an additional 40 GW of new renewable and dispatchable capacity through the Capacity Investment Scheme by 2030', target_value: 40, source_url: 'https://www.dcceew.gov.au/energy/renewable/capacity-investment-scheme' }),
+  draft({ slug: 'cis-renewable-generation-26gw-2030', title: 'Deliver 26 GW of new renewable generation capacity through the Capacity Investment Scheme by 2030', target_value: 26, source_url: 'https://www.dcceew.gov.au/energy/renewable/capacity-investment-scheme' }),
+  draft({ slug: 'cis-dispatchable-14gw-2030', title: 'Deliver 14 GW of new clean dispatchable capacity through the Capacity Investment Scheme by 2030', target_value: 14, source_url: 'https://www.dcceew.gov.au/energy/renewable/capacity-investment-scheme' }),
+  draft({ slug: 'bulk-billing-rate-9-in-10-2030', title: 'Achieve 9 in 10 GP consultations bulk billed by 2030', target_value: 90, source_url: SEED[3].source_url }),
+  draft({ slug: 'bulk-billed-gp-visits-additional-18m-2030', title: 'Deliver an additional 18 million bulk billed GP visits each year by 2030', target_value: 18_000_000, source_url: SEED[3].source_url }),
+];
+const deduped = dedupeCandidates(firstRun);
+assert.deepEqual(deduped.kept.slice(0, 4).map((k) => k.slug), SEED.map((k) => k.slug), 'seed entries win');
+// The same target twice, and the scheme capacities on the 82 per cent page (same subject, year and document), fold into
+// the seed entries.
+assert.deepEqual(deduped.dropped.map((d) => d.draft.slug).sort(), ['bulk-billed-gp-visits-additional-18m-2030', 'bulk-billing-rate-9-in-10-2030',
+  'cis-capacity-40gw-2030', 'cis-renewable-generation-26gw-2030', 'emissions-reduction-2030', 'renewable-electricity-82pct-2030']);
+const catalogue = new Set(['dwelling_completions_au']);
+assert.deepEqual(deduped.kept.filter((k) => measurability(k, catalogue).ok).map((k) => k.slug), SEED.map((k) => k.slug), 'the 2035 and 2050 targets and the scheme capacities are left out');
+assert.equal(MAX_DEADLINE, '2031-12-31');
+const why = (slug: string) => { const m = measurability(deduped.kept.find((k) => k.slug === slug)!, catalogue); return m.ok ? '' : m.reason; };
+assert.match(why('net-zero-2050'), /horizon/);
+assert.match(why('emissions-reduction-2035'), /horizon/);
+assert.match(why('cis-dispatchable-14gw-2030'), /program count or contract/);
+const via = (d: CommitmentDraft) => { const m = measurability(d, catalogue); return m.ok ? m.via : m.reason; };
+assert.equal(via(SEED[0]), 'series');
+assert.equal(via(SEED[1]), 'request');
+assert.match(String(via(draft({ title: 'More widgets by 2030', target_value: 5 }))), /no official series/, 'no series and nothing official to request: left out, no request');
+
+// ---------- one series request per subject, however the draft words it
+assert.equal(requestFor(firstRun[4])!.key, 'emissions');
+assert.equal(requestFor(firstRun[5])!.series, requestFor(SEED[1])!.series, 'every emissions draft files the one emissions request');
+assert.equal(requestFor(firstRun[7])!.series, CANONICAL_REQUESTS['renewable-electricity'].series);
+assert.equal(new Set(firstRun.map((d) => requestFor(d)?.key).filter(Boolean)).size, 4, 'four subjects, four requests at most');
+assert.equal(seriesKey('Wage Price Index, total (Australia)'), seriesKey('wage price index total'));
+
+// ---------- retries, with a stand-in fetcher and no waiting
+(async () => {
+  let calls = 0;
+  const waits: number[] = [];
+  const flaky = async (): Promise<Fetched> => (++calls < 3 ? { error: 'HTTP 503' } : { body: 'page text', title: 'Page' });
+  const got = await fetchLive(url, { fetcher: flaky, wait: async (ms) => { waits.push(ms); } });
+  assert.equal(got.body, 'page text');
+  assert.equal(calls, 3);
+  assert.deepEqual(waits, [2000, 6000], 'backs off 2s then 6s');
+  calls = 0;
+  const gone = await fetchLive(url, { fetcher: async () => { calls++; return { error: 'HTTP 404' }; }, wait: async () => {} });
+  assert.equal(gone.error, 'HTTP 404');
+  assert.equal(calls, 1, 'a 404 is not retried');
+  calls = 0;
+  const down = await fetchLive(url, { fetcher: async () => { calls++; return { error: 'HTTP 503' }; }, wait: async () => {} });
+  assert.equal(down.error, 'HTTP 503');
+  assert.equal(calls, 4, 'one try and three retries');
+  console.log('scorecard checks passed');
+})().catch((e) => { console.error(e); process.exit(1); });

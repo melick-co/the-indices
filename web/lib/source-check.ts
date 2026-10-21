@@ -15,7 +15,7 @@ import type { StoryBlock, StoryEvidence } from '@/lib/story-types';
 
 type Checkable = { hook?: string | null; evidence?: StoryEvidence | null; body: { blocks: StoryBlock[] } };
 type Claim = { id: number; text: string; footnotes: number[] };
-type Doc = { url: string; title?: string | null; body: string };
+export type Doc = { url: string; title?: string | null; body: string };
 
 const MARKER = /\[\^(\d+)\]/g;
 const STOP = new Set('the a an and or of to in on for by with as at from that this its it is are was were be has have had will would its their there which into than over after before since about more most also been not but per cent'.split(' '));
@@ -121,6 +121,7 @@ function excerpt(doc: Doc, claim: string, budget = 2400): string {
 export async function verifySourcedStatements(
   db: SupabaseClient,
   story: Checkable,
+  opts: { documents?: Map<string, Doc> } = {},
 ): Promise<{ issues: string[]; checked: number }> {
   const claims = claimsOf(story);
   if (!claims.length) return { issues: [], checked: 0 };
@@ -130,7 +131,8 @@ export async function verifySourcedStatements(
   // Load each cited document once.
   const docs = new Map<string, Doc | { error: string }>();
   for (const url of new Set(claims.flatMap((c) => c.footnotes.map((n) => urlOf.get(n) ?? '')))) {
-    if (url && !DATA_TABLE.test(url)) docs.set(url, await ensureDocument(db, url, { pdfText }) as Doc | { error: string });
+    // A caller that has already read the document (the scorecard, live or from the stored copy) passes it in.
+    if (url && !DATA_TABLE.test(url)) docs.set(url, opts.documents?.get(url) ?? await ensureDocument(db, url, { pdfText }) as Doc | { error: string });
   }
   const unreadable = new Set<string>();
   for (const [url, d] of docs) {

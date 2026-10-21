@@ -1,14 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { callClaudeJson } from '../../agent/scripts/lib/claude.mjs';
-import { ensureDocument } from '../../agent/scripts/lib/source-docs.mjs';
-import { fetchDocument } from '../../agent/scripts/lib/html-text.mjs';
+import { storeDocument } from '../../agent/scripts/lib/source-docs.mjs';
+import { publisherOf } from '../../agent/scripts/lib/html-text.mjs';
 import { fileClaimRequests, slug as requestSlug } from '../../agent/scripts/lib/claim-requests.mjs';
 import { loadObservations } from '@/lib/chart-from-data';
 import { inSource, norm, verifySourcedStatements } from '@/lib/source-check';
-import { pdfText } from '@/lib/pdf-text';
+import { fetchLive, readOfficial } from '@/lib/official-fetch';
 import {
-  TERMS, assess, baselineObs, changedFields, coversStart, decideStatus, latestObs, monthYear, normaliseDraft,
-  type CommitmentDraft, type Obs, type Status,
+  TERMS, assess, baselineObs, changedFields, claimSentence, coversStart, decideStatus, dedupeCandidates, latestObs, measurability,
+  normaliseDraft, readingIssues, requestFor, type CommitmentDraft, type Obs, type Status,
 } from '@/lib/scorecard';
 import { OUTCOMES } from '@/lib/scorecard-outcomes';
 import { SEED, SEED_SOURCES } from '@/lib/scorecard-seed';
@@ -29,16 +29,23 @@ import { seriesOf } from '@/lib/scorecard-loader';
 
 type Log = (line: string) => void;
 type Stored = CommitmentDraft & { id: string; status: Status; rating: string | null; check: Record<string, unknown> };
-type CheckResult = { quote_found: boolean; audited: boolean; confirmed: boolean; issues: string[]; checked_at: string; title?: string | null };
+type CheckResult = {
+  quote_found: boolean; audited: boolean; confirmed: boolean; issues: string[]; checked_at: string; title?: string | null;
+  /** Which copy the quote was checked against: the live page, or the stored copy (with the date it was fetched). */
+  verified_against?: 'live' | 'cache' | null; document_fetched_at?: string | null; document_note?: string | null;
+  /** Our reading of the quote and the reason for the pace start (methodology, shown on the page). */
+  basis?: { target_text: string | null; deadline_text: string | null; start_basis: string | null };
+};
 
 const BEAT_DAYS = 8;
 const MAX_ITEMS = 25;
 
 // ---------------------------------------------------------------------------------------------------- the strict check
 
-async function readDoc(db: SupabaseClient, url: string, dry: boolean): Promise<{ title?: string | null; body?: string; error?: string }> {
-  // A dry run reads the live page; a real run uses (and fills) the source_documents cache the story checks share.
-  return (dry ? await fetchDocument(url, { pdfText }) : await ensureDocument(db, url, { pdfText })) as { title?: string | null; body?: string; error?: string };
+/** An official document, live or from the stored copy (lib/official-fetch.ts). Dry runs store nothing. */
+async function readDoc(db: SupabaseClient, url: string, dry: boolean): Promise<{ title?: string | null; body?: string; error?: string; via?: 'live' | 'cache'; fetched_at?: string; note?: string }> {
+  const r = await readOfficial(db, url, { store: !dry });
+  return r.ok ? { title: r.doc.title, body: r.doc.body, via: r.via, fetched_at: r.fetched_at, note: r.note } : { error: r.error };
 }
 
 /** The quote is really in the document: every fragment of it, compared on words and figures (inSource). */
@@ -46,37 +53,40 @@ export function quoteInDocument(quote: string, body: string): boolean {
   return inSource(quote, [norm(body)]);
 }
 
-/** The sentence the source check judges: the quote, and the target as the scorecard reads it. */
-export function claimSentence(d: CommitmentDraft, publisher: string): string {
-  const target = `${d.target_value.toLocaleString('en-AU')} ${d.target_unit}`.trim();
-  return `${publisher} stated a target of ${target} by ${monthYear(d.target_date)}, counted from ${monthYear(d.start_date)}: "${d.quote}"[^1]`;
-}
+const basisOf = (d: CommitmentDraft) => ({ target_text: d.target_text ?? null, deadline_text: d.deadline_text ?? null, start_basis: d.start_basis ?? null });
 
+/**
+ * The strict check. Mechanical first: the document is read (live, else its stored copy), the quote is in its text, and
+ * the target and deadline we read are the quote's own words. Then the source check judges only the quote with those
+ * words (claimSentence): never our start date or baseline, which are methodology.
+ */
 export async function strictCheck(db: SupabaseClient, d: CommitmentDraft, dry: boolean): Promise<CheckResult> {
   const issues: string[] = [];
   const checked_at = new Date().toISOString();
+  const basis = basisOf(d);
   const doc = await readDoc(db, d.source_url, dry);
-  if (doc.error || !doc.body) return { quote_found: false, audited: false, confirmed: false, issues: [`source could not be read: ${doc.error ?? 'empty'}`], checked_at };
+  if (doc.error || !doc.body) return { quote_found: false, audited: false, confirmed: false, issues: [doc.error ?? 'source could not be read: empty'], checked_at, basis };
+  const where = { verified_against: doc.via ?? null, document_fetched_at: doc.fetched_at ?? null, document_note: doc.note ?? null };
   const quote_found = quoteInDocument(d.quote, doc.body);
-  if (!quote_found) issues.push('the quote is not in the document text');
-  if (!process.env.ANTHROPIC_API_KEY?.trim()) {
-    issues.push('source check could not run: no ANTHROPIC_API_KEY');
-    return { quote_found, audited: false, confirmed: false, issues, checked_at, title: doc.title };
-  }
-  if (!quote_found) return { quote_found, audited: false, confirmed: false, issues, checked_at, title: doc.title };
+  if (!quote_found) issues.push(`the quote is not in the document text (${doc.note})`);
+  const reading = readingIssues(d);
+  issues.push(...reading);
+  const fail = { quote_found, audited: false, confirmed: false, checked_at, title: doc.title, basis, ...where };
+  if (!quote_found || reading.length) return { ...fail, issues };
+  if (!process.env.ANTHROPIC_API_KEY?.trim()) return { ...fail, issues: [...issues, 'source check could not run: no ANTHROPIC_API_KEY'] };
   try {
     const story = {
-      hook: claimSentence(d, 'The government'),
+      hook: claimSentence(d),
       evidence: { sources: [], footnotes: [{ n: 1, text: d.source_title ?? doc.title ?? d.source_url, url: d.source_url }] },
       body: { blocks: [] },
     };
-    const res = await verifySourcedStatements(db, story);
+    // The source check reads the same copy we just read, so a page the runner cannot reach is checked from its stored copy.
+    const res = await verifySourcedStatements(db, story, { documents: new Map([[d.source_url, { url: d.source_url, title: doc.title ?? null, body: doc.body }]]) });
     issues.push(...res.issues);
     const audited = res.checked >= 1;
-    return { quote_found, audited, confirmed: audited && res.issues.length === 0, issues, checked_at, title: doc.title };
+    return { ...fail, audited, confirmed: audited && res.issues.length === 0, issues };
   } catch (e) {
-    issues.push(`source check failed: ${e instanceof Error ? e.message : String(e)}`);
-    return { quote_found, audited: false, confirmed: false, issues, checked_at, title: doc.title };
+    return { ...fail, issues: [...issues, `source check failed: ${e instanceof Error ? e.message : String(e)}`] };
   }
 }
 
@@ -86,9 +96,10 @@ async function auSeries(db: SupabaseClient, metricId: string): Promise<Obs[]> {
   return (await loadObservations(db, metricId).catch(() => [])).filter((o) => o.entity === 'AUS').map(({ period, value }) => ({ period, value }));
 }
 
-async function catalogue(db: SupabaseClient): Promise<string> {
+async function catalogue(db: SupabaseClient): Promise<{ text: string; ids: Set<string> }> {
   const { data } = await db.from('metrics').select('metric_id, name, unit').limit(3000);
-  return (data ?? []).filter((m) => !/^(fx_|pop_|pnl_)/.test(m.metric_id)).map((m) => `${m.metric_id}: ${m.name} (${m.unit ?? ''})`).join('\n');
+  const rows = (data ?? []).filter((m) => !/^(fx_|pnl_)/.test(m.metric_id));
+  return { text: rows.filter((m) => !/^pop_/.test(m.metric_id)).map((m) => `${m.metric_id}: ${m.name} (${m.unit ?? ''})`).join('\n'), ids: new Set(rows.map((m) => m.metric_id as string)) };
 }
 
 // ---------------------------------------------------------------------------------------------------- drafting
@@ -98,14 +109,23 @@ const DRAFT_RULES = `Rules (a commitment that breaks one is left out):
   document (a minister's release, budget papers, legislation, a department's program page). Never a forecast, a
   projection, an aspiration without a number, or a party (non-government) document.
 - "quote": the sentence stating the target, copied EXACTLY, character for character, from the document text given.
+- "target_text": the words of the quote that state the target, copied exactly ("43% below 2005 levels"); its figure is
+  target_value. "deadline_text": the words of the quote that state the deadline, copied exactly ("by 2030", "over five
+  years, from 1 July 2024"). Both must appear in the quote as written.
+- "start_basis": one sentence on why pace is counted from start_date ("The Accord period begins 1 July 2024, as the
+  source states." or "Start of the government's first term, when the target was set."). This is our methodology, not
+  something the document says, unless it does.
 - Only targets an official statistical series can measure. "metric_id": an id from the catalogue below that measures
   exactly this target, or null; when null, "needs": {"series": "...", "org": "the official publisher"}.
 - "method": cumulative_sum (a count summed over the period: homes built), level (a rate or level reached by the
   deadline: a bulk billing rate), share (a share reached: renewable share of generation), change (a % change from a
   reference level, with baseline_value = that level when the series gives it, else null).
-- "start_date": when the commitment starts counting (the document says, e.g. "from 1 July 2024"), else the date it was
-  made. "target_date": the deadline; "by 2030" is 2030-12-31 unless the document names a financial year
+- "start_date": when the commitment starts counting (the document says, e.g. "from 1 July 2024"), else the start of
+  the government term in which it was made (21 May 2022 or 3 May 2025). "target_date": the deadline; "by 2030" is 2030-12-31 unless the document names a financial year
   (then 30 June). ISO dates.
+- One entry per target: the same target stated in several documents is ONE commitment (use the clearest quote).
+- Leave out targets due after 2031, and program outputs (contracted capacity, places funded, grants) that no official
+  statistic measures.
 - "title": a plain description of the target, no adjectives about the government. Australian English, no em dashes.`;
 
 function draftPrompt(docs: Array<{ url: string; title: string; text: string }>, cat: string, existing: string[]) {
@@ -126,7 +146,8 @@ ${docs.map((d) => `<document url="${d.url}" title="${d.title.replace(/"/g, "'")}
 Reply with JSON only:
 {"commitments":[{"slug":"...","title":"...","quote":"...","source_url":"...","source_title":"...","source_date":"YYYY-MM-DD"|null,
 "metric_id":"..."|null,"series_label":"...","needs":{"series":"...","org":"..."}|null,"target_value":0,"target_unit":"...",
-"start_date":"YYYY-MM-DD","target_date":"YYYY-MM-DD","direction":"increase"|"decrease","baseline_value":null,"method":"..."}],
+"target_text":"...","deadline_text":"...","start_date":"YYYY-MM-DD","start_basis":"...","target_date":"YYYY-MM-DD",
+"direction":"increase"|"decrease","baseline_value":null,"method":"..."}],
 "withdrawn":[{"slug":"...","source_url":"...","quote":"the exact words saying the target was dropped or replaced"}]}`;
 }
 
@@ -139,12 +160,15 @@ async function draftFrom(db: SupabaseClient, urls: string[], existing: string[],
   }
   if (!docs.length) return { drafts: [] as CommitmentDraft[], withdrawn: [] as Array<{ slug: string; source_url: string; quote: string }> };
   if (!process.env.ANTHROPIC_API_KEY?.trim()) { log('  drafting skipped: no ANTHROPIC_API_KEY'); return { drafts: [], withdrawn: [] }; }
-  const reply = await callClaudeJson(draftPrompt(docs, await catalogue(db), existing), { label: 'scorecard draft', maxTokens: 8000 }) as { commitments?: unknown[]; withdrawn?: unknown[] };
+  const reply = await callClaudeJson(draftPrompt(docs, (await catalogue(db)).text, existing), { label: 'scorecard draft', maxTokens: 8000 }) as { commitments?: unknown[]; withdrawn?: unknown[] };
   const drafts: CommitmentDraft[] = [];
   for (const raw of reply.commitments ?? []) {
     const n = normaliseDraft(raw);
-    if (n.ok) drafts.push(n.draft);
-    else log(`  draft left out: ${n.reason} (${String((raw as { title?: string })?.title ?? '').slice(0, 80)})`);
+    if (!n.ok) { log(`  draft left out: ${n.reason} (${String((raw as { title?: string })?.title ?? '').slice(0, 80)})`); continue; }
+    // A draft whose target or deadline is not the quote's own words never reaches the table.
+    const reading = readingIssues(n.draft);
+    if (reading.length) { log(`  draft left out: ${reading.join('; ')} (${n.draft.title})`); continue; }
+    drafts.push(n.draft);
   }
   const withdrawn = (reply.withdrawn ?? []).filter((w): w is { slug: string; source_url: string; quote: string } =>
     !!w && typeof (w as { slug?: unknown }).slug === 'string' && typeof (w as { quote?: unknown }).quote === 'string' && typeof (w as { source_url?: unknown }).source_url === 'string');
@@ -255,36 +279,71 @@ async function rate(db: SupabaseClient, rows: Stored[], opts: { dry: boolean; lo
   return changed;
 }
 
-/** Official series the scorecard needs but the store lacks: requests to the source scout (deduplicated, capped). */
-async function requestSeries(db: SupabaseClient, rows: Array<CommitmentDraft & { status?: Status }>, opts: { dry: boolean; log: Log }): Promise<number> {
+/**
+ * Official series the scorecard needs but the store lacks: one request per subject, under a fixed wording
+ * (CANONICAL_REQUESTS), so differently worded drafts and repeated runs never file the same series twice; then
+ * fileClaimRequests skips anything already pending, approved or recently rejected.
+ */
+async function requestSeries(db: SupabaseClient, rows: Array<CommitmentDraft & { status?: Status }>, catalogueIds: Set<string>, opts: { dry: boolean; log: Log }): Promise<number> {
   const requests: Array<{ key: string; row: Record<string, unknown> }> = [];
-  const add = (series: string, org: string, why: string, url: string | null) => {
-    const key = requestSlug(series);
-    if (!key || requests.some((r) => r.key === key)) return;
+  const add = (key: string, series: string, org: string, why: string, url: string | null) => {
+    if (!key || requests.some((r) => r.key === key || r.row.summary === series)) return;
     requests.push({ key, row: { action: 'register_data_source', status: 'pending', summary: series, payload: { series, org, tier: 1, why, url, origin: 'scorecard' } } });
   };
   for (const r of rows) {
-    if ((r.status === 'awaiting_data' || !r.metric_id) && r.needs) add(r.needs.series, r.needs.org, `The government scorecard measures "${r.title}" with it.`, r.source_url);
+    if (r.status === 'held' || r.status === 'retired' || r.status === 'active') continue;
+    if (r.metric_id && catalogueIds.has(r.metric_id)) continue;
+    const m = measurability(r, catalogueIds);
+    const req = requestFor(r);
+    if (m.ok && m.via === 'request' && req) add(req.key, req.series, req.org, `The government scorecard measures "${r.title}" with it.`, r.source_url);
   }
   // Outcomes whose series is missing or does not reach back to the first term's baseline.
   for (const d of OUTCOMES) {
     const obs = await seriesOf(db, d.primary).catch(() => [] as Obs[]);
     if (latestObs(obs) && baselineObs(obs, TERMS['2022'].date)) continue;
-    if (d.key === 'debt') add('General government gross debt, per cent of GDP, Australia, quarterly or annual', 'IMF', 'The government scorecard compares debt with the start of each term; the stored series does not reach back.', null);
-    if (d.key === 'completions') add('Dwelling units completed, total residential, total sectors, quarterly, original (Building Activity, Australia)', 'ABS', 'The government scorecard counts homes completed against the Housing Accord.', null);
+    if (d.key === 'debt') add('government-debt', 'General government gross debt, per cent of GDP, Australia, quarterly or annual', 'IMF', 'The government scorecard compares debt with the start of each term; the stored series does not reach back.', null);
   }
   if (!requests.length) return 0;
-  try { return await fileClaimRequests(db, requests, { dry: opts.dry, log: opts.log }); } catch (e) { opts.log(`series requests failed: ${e instanceof Error ? e.message : e}`); return 0; }
+  try { return await fileClaimRequests(db, requests.map(({ row }) => ({ key: requestSlug(String(row.summary)), row })), { dry: opts.dry, log: opts.log }); } catch (e) { opts.log(`series requests failed: ${e instanceof Error ? e.message : e}`); return 0; }
 }
 
 // ---------------------------------------------------------------------------------------------------- the run
+
+/** A stored row with numbers as numbers and our reading of the quote restored from check.basis. */
+function toStored(r: Record<string, unknown>): Stored {
+  const basis = ((r.check as { basis?: Record<string, string | null> } | null)?.basis ?? {});
+  return {
+    ...r, target_value: Number(r.target_value), baseline_value: r.baseline_value == null ? null : Number(r.baseline_value),
+    target_text: basis.target_text ?? null, deadline_text: basis.deadline_text ?? null, start_basis: basis.start_basis ?? null,
+  } as unknown as Stored;
+}
+
+/**
+ * Candidates worth checking: duplicates removed (seeds first, then what is already stored, so a redraft of a stored
+ * commitment is compared with it rather than added again), and only those an official statistic can measure.
+ */
+export function prepareCandidates(list: CommitmentDraft[], stored: CommitmentDraft[], catalogueIds: Set<string>, log: Log): CommitmentDraft[] {
+  const storedSlugs = new Set(stored.map((r) => r.slug));
+  // A candidate with a stored slug is a possible change: upsertDraft compares it with the stored row.
+  const changes = list.filter((d) => storedSlugs.has(d.slug));
+  const { kept, dropped } = dedupeCandidates([...stored, ...list.filter((d) => !storedSlugs.has(d.slug))]);
+  for (const x of dropped) log(`  duplicate left out: ${x.draft.title} (same as ${x.duplicateOf})`);
+  const out: CommitmentDraft[] = [];
+  for (const d of [...changes, ...kept.filter((k) => !storedSlugs.has(k.slug))]) {
+    if (out.some((o) => o.slug === d.slug)) continue;
+    const m = measurability(d, catalogueIds);
+    if (!m.ok) { log(`  left out: ${d.title} (${m.reason})`); continue; }
+    out.push(d);
+  }
+  return out;
+}
 
 export async function runScorecard(db: SupabaseClient, opts: { dry: boolean; log: Log }) {
   const { dry, log } = opts;
   const { data, error } = await db.from('scorecard_commitments').select('*');
   if (error && !dry) { log(`scorecard_commitments: ${error.message} (has migration 49 run?)`); return { installed: false }; }
   if (error) log(`scorecard_commitments: ${error.message} (dry run continues as a first run)`);
-  const stored = ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({ ...r, target_value: Number(r.target_value), baseline_value: r.baseline_value == null ? null : Number(r.baseline_value) })) as unknown as Stored[];
+  const stored = ((data ?? []) as Array<Record<string, unknown>>).map(toStored);
   const bySlug = new Map(stored.map((r) => [r.slug, r]));
   const first = !stored.length;
 
@@ -292,7 +351,9 @@ export async function runScorecard(db: SupabaseClient, opts: { dry: boolean; log
   const urls = first ? SEED_SOURCES : await beatUrls(db);
   log(first ? `first run: drafting from ${urls.length} official page(s) and ${SEED.length} seed candidate(s)` : `${urls.length} official item(s) on the beat to read for commitments`);
   const { drafts, withdrawn } = urls.length ? await draftFrom(db, urls, stored.map((r) => r.slug), dry, log) : { drafts: [], withdrawn: [] };
-  const candidates = first ? [...SEED, ...drafts.filter((d) => !SEED.some((s) => s.slug === d.slug))] : drafts;
+  const cat = await catalogue(db);
+  // The seed list is always offered: a seed corrected in code (a new source, say) reaches its stored row as a change.
+  const candidates = prepareCandidates([...SEED, ...drafts], stored, cat.ids, log);
 
   // 2. the strict check: new and changed commitments, withdrawals, then every stored one again.
   for (const d of candidates) await upsertDraft(db, d, bySlug.get(d.slug), opts);
@@ -301,29 +362,51 @@ export async function runScorecard(db: SupabaseClient, opts: { dry: boolean; log
 
   // 3. ratings, from the stored rows as they are now.
   const { data: now } = dry ? { data: null } : await db.from('scorecard_commitments').select('*');
-  const current = (now ?? stored) as unknown as Stored[];
-  const ratingChanges = await rate(db, current.map((r) => ({ ...r, target_value: Number(r.target_value), baseline_value: r.baseline_value == null ? null : Number(r.baseline_value) })), opts);
+  const current = now ? (now as Array<Record<string, unknown>>).map(toStored) : stored;
+  const ratingChanges = await rate(db, current, opts);
 
   // 4. series requests.
-  const requested = await requestSeries(db, first ? candidates : current, opts);
+  const requested = await requestSeries(db, first ? candidates.map((c) => ({ ...c, status: 'awaiting_data' as Status })) : current, cat.ids, opts);
   const summary = { first, candidates: candidates.length, withdrawn: withdrawn.length, rating_changes: ratingChanges, requested };
   if (!dry) await db.from('agent_runs').insert({ notes: `scorecard: ${JSON.stringify(summary)}` });
   return { installed: true, ...summary };
 }
 
 /**
- * The quotes-only check: no database, no model. Reads each seed candidate's document and reports whether its quote is
- * in the text. Used to confirm the seed list locally.
+ * The quotes-only check: no database, no model. Reads each seed candidate's live document (browser-like headers, with
+ * retries) and reports whether its quote is in the text and its target and deadline are the quote's own words.
  */
 export async function checkSeedQuotes(log: Log): Promise<boolean> {
   let ok = true;
   for (const d of SEED) {
-    const doc = await fetchDocument(d.source_url, { pdfText }) as { body?: string; error?: string; title?: string };
+    const doc = await fetchLive(d.source_url);
     const found = !!doc.body && quoteInDocument(d.quote, doc.body);
-    ok &&= found;
-    log(`${found ? 'found    ' : 'NOT FOUND'} ${d.slug} (${doc.error ?? doc.title ?? ''})`);
+    const reading = readingIssues(d);
+    ok &&= found && !reading.length;
+    log(`${found ? 'found    ' : 'NOT FOUND'} ${d.slug} (${doc.error ?? doc.title ?? ''})${reading.length ? `; ${reading.join('; ')}` : ''}`);
   }
   return ok;
+}
+
+/**
+ * Seed the stored copies (source_documents) from a machine that can reach the official pages, for when the runner
+ * cannot: every seed and stored commitment's source and the first-run reading list, fetched live and stored. The next
+ * run checks quotes against these copies and records that it did, with the date they were fetched. Official
+ * publishers only.
+ */
+export async function cacheSources(db: SupabaseClient, log: Log): Promise<{ stored: number; failed: number }> {
+  const { data } = await db.from('scorecard_commitments').select('source_url');
+  const urls = [...new Set([...SEED.map((d) => d.source_url), ...(data ?? []).map((r) => r.source_url as string), ...SEED_SOURCES])];
+  let stored = 0, failed = 0;
+  for (const url of urls) {
+    if (!publisherOf(url)) { log(`skipped (not an official publisher): ${url}`); continue; }
+    const doc = await fetchLive(url);
+    if (doc.error || !doc.body) { failed++; log(`could not read ${url} (${doc.error ?? 'empty'})`); continue; }
+    const res = await storeDocument(db, { url, title: doc.title ?? null, body: doc.body });
+    stored++;
+    log(`${res}: ${url} (${doc.title ?? ''}, ${doc.body.length} characters)`);
+  }
+  return { stored, failed };
 }
 
 /** Rating changes logged in the last hours, for The Bottom Line (empty before migration 49). */
