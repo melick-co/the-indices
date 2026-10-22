@@ -314,6 +314,28 @@ export function decideStatus(c: { quote_found: boolean; audited: boolean; confir
   return 'active';
 }
 
+/**
+ * A stored row as it stands once a new or changed draft has been saved (or would have been, in a dry run): the draft's
+ * fields, the status and check it earned, the rating carried over. Later steps of the same run (the re-check, the
+ * ratings) work from this, so a commitment whose series has just arrived goes live in the run that sees it.
+ */
+export function afterUpsert<T extends CommitmentDraft & { id: string; status: Status; rating: string | null; check: unknown }>(
+  prev: T | undefined, d: CommitmentDraft, status: Status, check: T['check'], id: string | null,
+): T {
+  return { ...(prev ?? {}), ...d, id: id ?? prev?.id ?? `dry-run:${d.slug}`, status, rating: prev?.rating ?? null, check } as T;
+}
+
+/**
+ * The stored rows with this run's new and changed commitments in place (`rows`), and the ones still to re-check
+ * (`recheck`): those not already checked this run. Re-checking a row as it was before its change would put the old
+ * status back (a commitment whose series just arrived would return to awaiting_data until the next run).
+ */
+export function mergeTouched<T extends { slug: string }>(stored: T[], touched: Map<string, T>): { rows: T[]; recheck: T[] } {
+  const rows = stored.map((r) => touched.get(r.slug) ?? r);
+  for (const [slug, r] of touched) if (!stored.some((s) => s.slug === slug)) rows.push(r);
+  return { rows, recheck: stored.filter((r) => !touched.has(r.slug)) };
+}
+
 /** True when the series can measure the commitment from its start: the period holding the start date is stored. */
 export function coversStart(c: Pick<Commitment, 'start_date' | 'method'>, obs: Obs[]): boolean {
   const t = dateMs(c.start_date);

@@ -7,8 +7,8 @@ import { loadObservations } from '@/lib/chart-from-data';
 import { inSource, norm, verifySourcedStatements } from '@/lib/source-check';
 import { fetchLive, readOfficial } from '@/lib/official-fetch';
 import {
-  TERMS, assess, baselineObs, changedFields, claimSentence, coversStart, decideStatus, dedupeCandidates, latestObs, measurability,
-  normaliseDraft, readingIssues, requestFor, type CommitmentDraft, type Obs, type Status,
+  TERMS, afterUpsert, assess, baselineObs, changedFields, claimSentence, coversStart, decideStatus, dedupeCandidates, latestObs, measurability,
+  mergeTouched, normaliseDraft, readingIssues, requestFor, type CommitmentDraft, type Obs, type Status,
 } from '@/lib/scorecard';
 import { OUTCOMES } from '@/lib/scorecard-outcomes';
 import { SEED, SEED_SOURCES } from '@/lib/scorecard-seed';
@@ -208,23 +208,26 @@ const rowOf = (d: CommitmentDraft, status: Status, check: CheckResult) => ({
   method: d.method, status, check,
 });
 
-/** A new or changed commitment: check it, store it with the status the check allows, log what happened. */
-async function upsertDraft(db: SupabaseClient, d: CommitmentDraft, prev: Stored | undefined, opts: { dry: boolean; log: Log }) {
+/**
+ * A new or changed commitment: check it, store it with the status the check allows, log what happened. Returns the
+ * row as it now stands, or null when nothing was checked (unchanged) or saved.
+ */
+async function upsertDraft(db: SupabaseClient, d: CommitmentDraft, prev: Stored | undefined, opts: { dry: boolean; log: Log }): Promise<Stored | null> {
   const { dry, log } = opts;
   const changes = prev ? changedFields(prev, d) : [];
-  if (prev && !changes.length) return;
+  if (prev && !changes.length) return null;
   const check = await strictCheck(db, d, dry);
   const status = await statusFor(db, d, check);
   log(`${prev ? 'changed' : 'new'}: ${d.title} -> ${status}${check.issues.length ? ` (${check.issues.join('; ')})` : ''}`);
   // A changed commitment that does not pass keeps the live version; the failed change is logged, not applied.
   if (prev && status === 'held' && prev.status !== 'held') {
     await logEntry(db, dry, log, { commitment_id: prev.id, slug: d.slug, kind: 'held', from_value: prev.status, to_value: prev.status, reason: `a change (${changes.join(', ')}) did not pass the strict check: ${check.issues.join('; ')}`, detail: { draft: d } });
-    return;
+    return prev;
   }
   let id = prev?.id ?? null;
   if (!dry) {
     const { data, error } = await db.from('scorecard_commitments').upsert(rowOf(d, status, check), { onConflict: 'slug' }).select('id').single();
-    if (error) { log(`  not saved: ${error.message}`); return; }
+    if (error) { log(`  not saved: ${error.message}`); return null; }
     id = data.id;
   }
   const kind = !prev ? (status === 'active' ? 'added' : status) : 'changed';
@@ -234,6 +237,11 @@ async function upsertDraft(db: SupabaseClient, d: CommitmentDraft, prev: Stored 
     reason: `${check.quote_found ? 'quote found in the document' : 'quote not found'}; ${check.confirmed ? 'source check confirmed it' : check.issues.join('; ') || 'not confirmed'}`,
     detail: { source_url: d.source_url, metric_id: d.metric_id, check },
   });
+  // A change that also moves the status (a series arrived: awaiting_data -> active) is logged as that move too.
+  if (prev && prev.status !== status) {
+    await logEntry(db, dry, log, { commitment_id: id, slug: d.slug, kind: status === 'active' ? 'activated' : status, from_value: prev.status, to_value: status, reason: check.issues.join('; ') || 'passed the strict check', detail: { metric_id: d.metric_id, check } });
+  }
+  return afterUpsert<Stored>(prev, d, status, check as unknown as Stored['check'], id);
 }
 
 /** Withdrawn: retired only when the words saying so are found in an official document and confirmed. */
@@ -355,14 +363,16 @@ export async function runScorecard(db: SupabaseClient, opts: { dry: boolean; log
   // The seed list is always offered: a seed corrected in code (a new source, say) reaches its stored row as a change.
   const candidates = prepareCandidates([...SEED, ...drafts], stored, cat.ids, log);
 
-  // 2. the strict check: new and changed commitments, withdrawals, then every stored one again.
-  for (const d of candidates) await upsertDraft(db, d, bySlug.get(d.slug), opts);
+  // 2. the strict check: new and changed commitments, withdrawals, then every other stored one again.
+  const touched = new Map<string, Stored>();
+  for (const d of candidates) { const r = await upsertDraft(db, d, bySlug.get(d.slug), opts); if (r) touched.set(d.slug, r); }
   for (const w of withdrawn) await retire(db, w, bySlug.get(w.slug), opts);
-  if (!first) await reverify(db, stored, opts);
+  const merged = mergeTouched(stored, touched);
+  if (!first) await reverify(db, merged.recheck, opts);
 
-  // 3. ratings, from the stored rows as they are now.
+  // 3. ratings, from the stored rows as they are now (in a dry run, as they would be).
   const { data: now } = dry ? { data: null } : await db.from('scorecard_commitments').select('*');
-  const current = now ? (now as Array<Record<string, unknown>>).map(toStored) : stored;
+  const current = now ? (now as Array<Record<string, unknown>>).map(toStored) : merged.rows;
   const ratingChanges = await rate(db, current, opts);
 
   // 4. series requests.

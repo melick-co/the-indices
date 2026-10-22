@@ -7,9 +7,10 @@ import { OUTCOMES, CPI_NOTE } from './scorecard-outcomes';
 import { SEED } from './scorecard-seed';
 import { BACKOFF_MS, chooseDocument, fetchLive, retryable, type Fetched } from './official-fetch';
 import {
-  CANONICAL_REQUESTS, MAX_DEADLINE, claimSentence, dedupeCandidates, figuresIn, measurability, readingIssues, requestFor, seriesKey,
-  type CommitmentDraft,
+  CANONICAL_REQUESTS, MAX_DEADLINE, afterUpsert, claimSentence, dedupeCandidates, figuresIn, measurability, mergeTouched, readingIssues, requestFor, seriesKey,
+  type CommitmentDraft, type Status,
 } from './scorecard';
+import { SCORECARD_REQUESTS } from '../../agent/scripts/lib/official-workbooks.mjs';
 
 // ---------- terms and the toggle
 assert.equal(termOf(undefined), '2025');
@@ -249,6 +250,67 @@ assert.equal(requestFor(firstRun[5])!.series, requestFor(SEED[1])!.series, 'ever
 assert.equal(requestFor(firstRun[7])!.series, CANONICAL_REQUESTS['renewable-electricity'].series);
 assert.equal(new Set(firstRun.map((d) => requestFor(d)?.key).filter(Boolean)).size, 4, 'four subjects, four requests at most');
 assert.equal(seriesKey('Wage Price Index, total (Australia)'), seriesKey('wage price index total'));
+
+// ---------- the three official workbook series (agent/scripts/load-official-workbooks.mjs) and the seed commitments
+const seed = (prefix: string) => SEED.find((x) => x.slug.startsWith(prefix))!;
+const emSeed = seed('emissions'), reSeed = seed('renewables'), bbSeed = seed('bulk-billing');
+assert.equal(emSeed.metric_id, SCORECARD_REQUESTS.emissions.metric_id);
+assert.equal(reSeed.metric_id, SCORECARD_REQUESTS.renewables.metric_id);
+assert.equal(bbSeed.metric_id, SCORECARD_REQUESTS['bulk-billing'].metric_id);
+// The loader marks the scorecard's request approved by its exact wording: the two lists must agree.
+assert.equal(SCORECARD_REQUESTS.emissions.series, CANONICAL_REQUESTS.emissions.series);
+assert.equal(SCORECARD_REQUESTS.renewables.series, CANONICAL_REQUESTS['renewable-electricity'].series);
+assert.equal(SCORECARD_REQUESTS['bulk-billing'].series, CANONICAL_REQUESTS['bulk-billing'].series);
+// Emissions: a level falling to -43 (per cent change on the year to June 2005); the target phrase still reads 43.
+assert.deepEqual([emSeed.method, emSeed.direction, emSeed.target_value, emSeed.baseline_value], ['level', 'decrease', -43, null]);
+assert.deepEqual([reSeed.method, reSeed.target_value, bbSeed.method, bbSeed.target_value], ['share', 82, 'level', 90]);
+
+// The latest readings from the dry runs against the live files (22 October 2026).
+const emObs = lv([['2022-Q1', -26.842], ['2022-Q2', -26.979], ['2022-Q3', -24.939], ['2022-Q4', -23.508], ['2023-Q1', -21.89], ['2023-Q2', -20.248],
+  ['2023-Q3', -21.566], ['2023-Q4', -22.385], ['2024-Q1', -22.733], ['2024-Q2', -23.251], ['2024-Q3', -22.94], ['2024-Q4', -23.008], ['2025-Q1', -23.799],
+  ['2025-Q2', -24.22], ['2025-Q3', -24.414], ['2025-Q4', -24.691], ['2026-Q1', -25.025]]);
+const reObs = lv([['2021', 31.143], ['2022', 34.417], ['2023', 37.509], ['2024', 38.062]]);
+const bbObs = lv([['2024-Q4', 77.367], ['2025-Q1', 77.251], ['2025-Q2', 79.183], ['2025-Q3', 77.615], ['2025-Q4', 80.123], ['2026-Q1', 81.89], ['2026-Q2', 84.075]]);
+
+// awaiting_data until the series is stored, then active (the strict check passed in both cases).
+const checked = { quote_found: true, audited: true, confirmed: true };
+for (const [d, obs] of [[emSeed, emObs], [reSeed, reObs], [bbSeed, bbObs]] as const) {
+  assert.equal(decideStatus({ ...checked, metric_id: d.metric_id, covered: coversStart(d, []) }), 'awaiting_data', `${d.slug}: no readings yet`);
+  assert.equal(decideStatus({ ...checked, metric_id: d.metric_id, covered: coversStart(d, obs) }), 'active', `${d.slug}: readings from its start`);
+}
+assert.equal(coversStart(reSeed, lv([['2023', 37.5], ['2024', 38.1]])), false, 'a series that starts after the commitment does not cover it');
+
+// The run that sees the series: the changed seed is saved active, and the same run's re-check leaves it alone.
+type Row = CommitmentDraft & { id: string; status: Status; rating: string | null; check: Record<string, unknown> };
+const storedRows: Row[] = [
+  { ...emSeed, metric_id: null, method: 'change', target_value: 43, id: 'e1', status: 'awaiting_data', rating: null, check: { basis: {} } },
+  { ...accordSeed, id: 'h1', status: 'active', rating: 'behind', check: {} },
+];
+assert.deepEqual(changedFields(storedRows[0], emSeed), ['target_value', 'method', 'metric_id'], 'the seed change reaches the stored row as a change');
+const nowRow = afterUpsert<Row>(storedRows[0], emSeed, 'active', { basis: { start_basis: emSeed.start_basis } }, 'e1');
+assert.equal(nowRow.status, 'active');
+assert.equal(nowRow.metric_id, 'emissions_change_from_2005_au');
+assert.equal(nowRow.id, 'e1');
+const merged = mergeTouched(storedRows, new Map([[emSeed.slug, nowRow]]));
+assert.deepEqual(merged.rows.map((r) => [r.slug, r.status]), [[emSeed.slug, 'active'], [accordSeed.slug, 'active']]);
+assert.deepEqual(merged.recheck.map((r) => r.slug), [accordSeed.slug], 'not re-checked from its old row');
+assert.equal(afterUpsert<Row>(undefined, bbSeed, 'active', {}, null).id, `dry-run:${bbSeed.slug}`, 'a dry run has no id');
+assert.equal(mergeTouched([], new Map([[bbSeed.slug, afterUpsert<Row>(undefined, bbSeed, 'active', {}, null)]])).rows.length, 1, 'a first run rates what it would add');
+
+// What each would be rated on these readings.
+a = assess(emSeed, emObs);
+assert.equal(a.latestPeriod, '2026-Q1');
+assert.equal(a.rating, 'off track', `the year to March 2026 (-25.0%) is above the year to June 2022 (-27.0%): moving away from -43 (${a.note})`);
+assert.ok(a.paceAchieved! < 0 && a.paceNeeded! > 0);
+a = assess(reSeed, reObs);
+assert.equal(a.latestPeriod, '2024');
+assert.ok(Math.abs(a.paceAchieved! - (38.062 - 34.417) / 2) < 0.01, '1.8 points a year since calendar 2022');
+assert.ok(Math.abs(a.paceNeeded! - (82 - 38.062) / 6) < 0.01, '7.3 points a year needed to 2030');
+assert.equal(a.rating, 'off track');
+a = assess(bbSeed, bbObs);
+assert.equal(a.latestPeriod, '2026-Q2');
+assert.equal(a.readings, 6, 'from the March quarter 2025');
+assert.equal(a.rating, 'ahead', `77.3% to 84.1% in five quarters against 90% by 2030 (${a.ratio})`);
 
 // ---------- retries, with a stand-in fetcher and no waiting
 (async () => {
