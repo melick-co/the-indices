@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { AgeRestricted, RequestBlocked, TranscriptsDisabled, WebshareProxyConfig } from '@hallelx/youtube-transcript';
 import { appendContextTakeaways, formatYoutubeTakeaways, formatYoutubeUnavailable } from './context-takeaways';
-import { blockedMessage, mapTranscriptError, youtubeProxyKind, parseCaptionXml, youtubeProxyConfig, youtubeVideoId } from './youtube-transcript';
+import { blockedMessage, createYoutubeTranscriptApi, makeYoutubeFetchFn, mapTranscriptError, parseCaptionXml, youtubeProxyConfig, youtubeProxyKind, youtubeVideoId } from './youtube-transcript';
 
 assert.equal(youtubeVideoId('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
 assert.equal(youtubeVideoId('https://youtu.be/dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
@@ -53,5 +53,17 @@ assert.ok(youtubeProxyConfig({
 const generic = youtubeProxyConfig({ YOUTUBE_PROXY_HTTPS: 'http://user:pass@proxy.example:8080' });
 assert.ok(generic);
 assert.equal(generic.httpsUrl, 'http://user:pass@proxy.example:8080');
+
+assert.equal(makeYoutubeFetchFn(undefined), undefined);
+assert.equal(typeof makeYoutubeFetchFn(generic), 'function');
+const proxied = createYoutubeTranscriptApi({
+  WEBSHARE_PROXY_USERNAME: 'user',
+  WEBSHARE_PROXY_PASSWORD: 'pass',
+});
+assert.ok(proxied);
+assert.match(
+  mapTranscriptError(new Error('Proxy authentication required (407)')),
+  /HTTP 407/,
+);
 
 console.log('youtube-transcript.check: ok');

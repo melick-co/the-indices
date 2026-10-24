@@ -20,6 +20,7 @@ import {
   YouTubeTranscriptApi,
   type ProxyConfig,
 } from '@hallelx/youtube-transcript';
+import { ProxyAgent, fetch as undiciFetch } from 'undici';
 
 const WATCH_URL = 'https://www.youtube.com/watch?v=';
 const UA = 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
@@ -116,6 +117,10 @@ export function blockedMessage(proxy: ProxyKind): string {
 }
 
 export function mapTranscriptError(error: unknown, proxy: ProxyKind = youtubeProxyKind()): string {
+  const raw = error instanceof Error ? error.message : '';
+  if (/407|proxy authentication/i.test(raw)) {
+    return 'The YouTube proxy rejected the login (HTTP 407). Check WEBSHARE_PROXY_USERNAME and WEBSHARE_PROXY_PASSWORD.';
+  }
   if (error instanceof RequestBlocked || error instanceof PoTokenRequired) {
     return blockedMessage(proxy);
   }
@@ -163,11 +168,32 @@ export async function loadYoutube(url: string): Promise<YoutubeLoad> {
   }
 }
 
+/**
+ * Next.js patches global fetch and drops undici's `dispatcher`, so a proxyConfig
+ * alone never leaves Vercel. Drive the library through undici.fetch instead.
+ */
+export function makeYoutubeFetchFn(proxyConfig: ProxyConfig | undefined): typeof fetch | undefined {
+  const uri = proxyConfig?.httpsUrl ?? proxyConfig?.httpUrl;
+  if (!uri) return undefined;
+  const dispatcher = new ProxyAgent({ uri });
+  return ((input: RequestInfo | URL, init?: RequestInit) => (
+    undiciFetch(input as string | URL, { ...init, dispatcher } as Parameters<typeof undiciFetch>[1]) as unknown as Promise<Response>
+  )) as typeof fetch;
+}
+
+export function createYoutubeTranscriptApi(env: Record<string, string | undefined> = process.env) {
+  const proxyConfig = youtubeProxyConfig(env);
+  return new YouTubeTranscriptApi({
+    proxyConfig,
+    fetchFn: makeYoutubeFetchFn(proxyConfig),
+  });
+}
+
 export async function fetchYoutubeTranscript(url: string): Promise<YoutubeTranscript> {
   const videoId = youtubeVideoId(url);
   if (!videoId) throw new Error('That does not look like a YouTube link.');
 
-  const api = new YouTubeTranscriptApi({ proxyConfig: youtubeProxyConfig() });
+  const api = createYoutubeTranscriptApi();
   const [fetched, title] = await Promise.all([
     api.fetch(videoId, { languages: LANGS }),
     lookupYoutubeTitle(videoId, `${WATCH_URL}${videoId}`),
